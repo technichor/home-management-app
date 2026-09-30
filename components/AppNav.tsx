@@ -1,9 +1,8 @@
 "use client";
 
-import { Layout, Menu, Space, Typography, Button, Tag } from "antd";
+import { Space, Typography, Button, Tag } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 
-const { Header } = Layout;
 const { Text } = Typography;
 
 interface AppNavProps {
@@ -27,30 +26,12 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
   const selectedKey =
     MODULES.find((m) => m.active && pathname.startsWith(`/${slug}/${m.key}`))?.key ?? "";
 
-  const menuItems = MODULES.map((mod) => ({
-    key: mod.key,
-    disabled: !mod.active,
-    label: mod.active ? (
-      mod.label
-    ) : (
-      <span>
-        {mod.label}{" "}
-        <Tag variant="filled" style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px", marginLeft: 2 }}>
-          soon
-        </Tag>
-      </span>
-    ),
-    onClick: mod.active && mod.href ? () => router.push(mod.href!(slug)) : undefined,
-  }));
-
   return (
-    <Header
+    <div
       style={{
         background: "#fff",
         borderBottom: "1px solid #f0f0f0",
         padding: "0 24px",
-        height: "auto",
-        lineHeight: "normal",
       }}
     >
       <div
@@ -58,7 +39,7 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "12px 0 0",
+          padding: "12px 0 8px",
         }}
       >
         <Text strong style={{ fontSize: 15 }}>
@@ -75,12 +56,44 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
           </form>
         </Space>
       </div>
-      <Menu
-        mode="horizontal"
-        selectedKeys={[selectedKey]}
-        items={menuItems}
-        style={{ borderBottom: "none", marginTop: 4 }}
-      />
-    </Header>
+
+      <div style={{ display: "flex", gap: 2 }}>
+        {MODULES.map((mod) => {
+          const isSelected = mod.active && selectedKey === mod.key;
+          return (
+            <button
+              key={mod.key}
+              onClick={mod.active && mod.href ? () => router.push(mod.href!(slug)) : undefined}
+              style={{
+                padding: "8px 12px",
+                background: "none",
+                border: "none",
+                borderBottom: isSelected ? "2px solid #111827" : "2px solid transparent",
+                cursor: mod.active ? "pointer" : "default",
+                fontSize: 14,
+                color: !mod.active
+                  ? "rgba(0,0,0,.25)"
+                  : isSelected
+                  ? "#111827"
+                  : "rgba(0,0,0,.65)",
+                fontWeight: isSelected ? 500 : 400,
+                marginBottom: -1,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {mod.label}
+              {!mod.active && (
+                <Tag variant="filled" style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px" }}>
+                  soon
+                </Tag>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
