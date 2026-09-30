@@ -13,7 +13,7 @@ interface AppNavProps {
 
 const MODULES = [
   { key: "contacts", label: "Contacts", href: (slug: string) => `/${slug}/contacts`, active: true },
-  { key: "lists", label: "Lists", active: false },
+  { key: "lists", label: "Lists", href: (slug: string) => `/${slug}/lists`, active: true },
   { key: "meals", label: "Meal Planning", active: false },
   { key: "maintenance", label: "Maintenance", active: false },
   { key: "schedules", label: "Schedules", active: false },

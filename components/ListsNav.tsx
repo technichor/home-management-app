@@ -3,28 +3,24 @@
 import { usePathname, useRouter } from "next/navigation";
 
 const LINKS = [
-  { label: "People", segment: "" },
-  { label: "Households", segment: "households" },
-  { label: "Import", segment: "import" },
-  { label: "Removed", segment: "removed" },
+  { label: "Active", segment: "" },
+  { label: "Archived", segment: "archived" },
 ];
 
-export default function ContactsNav({ slug }: { slug: string }) {
+export default function ListsNav({ slug }: { slug: string }) {
   const pathname = usePathname();
   const router = useRouter();
 
   function href(segment: string) {
-    return segment ? `/${slug}/contacts/${segment}` : `/${slug}/contacts`;
+    return segment ? `/${slug}/lists/${segment}` : `/${slug}/lists`;
   }
 
   function isActive(segment: string) {
     if (segment === "") {
       return (
-        pathname === `/${slug}/contacts` ||
-        (pathname.startsWith(`/${slug}/contacts/`) &&
-          !["households", "import", "removed"].some((s) =>
-            pathname.startsWith(`/${slug}/contacts/${s}`)
-          ))
+        pathname === `/${slug}/lists` ||
+        (pathname.startsWith(`/${slug}/lists/`) &&
+          !pathname.startsWith(`/${slug}/lists/archived`))
       );
     }
     return pathname === href(segment) || pathname.startsWith(href(segment) + "/");
@@ -36,7 +32,7 @@ export default function ContactsNav({ slug }: { slug: string }) {
         const active = isActive(link.segment);
         return (
           <button
-            key={link.segment || "people"}
+            key={link.segment || "active"}
             onClick={() => router.push(href(link.segment))}
             style={{
               padding: "8px 12px",
