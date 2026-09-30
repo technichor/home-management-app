@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ContactCategory {
+  FAMILY_FRIEND
+  SERVICE_PROVIDER
+  MEDICAL_SCHOOL
+  HOUSEHOLD_ADMIN
+}
+
+enum EntityType {
+  CONTACT
+  HOUSEHOLD
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  RESTORED
+}
+
+enum ActivitySource {
+  CSV_IMPORT
+  MANUAL
+}
+
+model Household {
+  id              String    @id @default(cuid())
+  displayName     String
+  mailingAddress  String?
+  tags            String[]
+  notes           String?
+  urlSlug         String?   @unique
+  passwordHash    String?
+  headOfHousehold String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  contacts       Contact[]
+  importVersions ImportVersion[]
+}
+
+model Contact {
+  id                  String          @id @default(cuid())
+  householdId         String?
+  household           Household?      @relation(fields: [householdId], references: [id])
+  firstName           String
+  lastName            String
+  nickname            String?
+  category            ContactCategory
+  address             String?
+  phoneMobile         String?
+  phoneHome           String?
+  phoneWork           String?
+  emailPrimary        String?
+  emailSecondary      String?
+  tags                String[]
+  favorite            Boolean         @default(false)
+  relationshipNotes   String?
+  linkedFamilyMember  String?
+  importantDate1      String?
+  importantDate1Label String?
+  importantDate2      String?
+  importantDate2Label String?
+  notes               String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  deletedAt           DateTime?
+}
+
+// Polymorphic log — entityId can reference either a Contact or Household id.
+// No FK constraint intentionally; the entityType field disambiguates.
+model ActivityLogEntry {
+  id            String         @id @default(cuid())
+  entityType    EntityType
+  entityId      String
+  action        ActivityAction
+  changedFields Json?
+  source        ActivitySource
+  timestamp     DateTime       @default(now())
+}
+
+model ImportVersion {
+  id                 String    @id @default(cuid())
+  householdId        String
+  household          Household @relation(fields: [householdId], references: [id])
+  importedAt         DateTime  @default(now())
+  summary            Json
+  contactsSnapshot   Json
+  householdsSnapshot Json
+}
