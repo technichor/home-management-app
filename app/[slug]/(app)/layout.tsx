@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
-import Nav from "@/components/Nav";
+import AppNav from "@/components/AppNav";
 import { logoutAction } from "../actions";
 
 export default async function AppLayout({
@@ -40,7 +40,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Nav
+      <AppNav
         slug={slug}
         householdName={household.displayName}
         logoutAction={logoutAction}

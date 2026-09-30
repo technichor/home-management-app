@@ -8,7 +8,7 @@ import {
   ValidateImportResult,
   ValidateSuccess,
 } from "./actions";
-import { ImportDiff, ParseError, ParsedHousehold, ParsedContact } from "@/lib/csv";
+import { ImportDiff, ParseError } from "@/lib/csv";
 
 type Step = "upload" | "diff" | "success";
 
@@ -60,14 +60,14 @@ export default function ImportClient({ slug }: { slug: string }) {
         <h1 className="text-lg font-semibold">Import CSV</h1>
         <div className="flex gap-2 text-sm">
           <a
-            href={`/${slug}/api/export?file=households`}
+            href={`/${slug}/contacts/api/export?file=households`}
             className="text-gray-500 hover:text-gray-700"
           >
             Download households.csv ↓
           </a>
           <span className="text-gray-300">|</span>
           <a
-            href={`/${slug}/api/export?file=contacts`}
+            href={`/${slug}/contacts/api/export?file=contacts`}
             className="text-gray-500 hover:text-gray-700"
           >
             Download contacts.csv ↓
@@ -253,28 +253,16 @@ function DiffStep({
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-          <Stat
-            label="Households added"
-            value={diff.households.added.length}
-          />
-          <Stat
-            label="Households updated"
-            value={diff.households.updated.length}
-          />
+          <Stat label="Households added" value={diff.households.added.length} />
+          <Stat label="Households updated" value={diff.households.updated.length} />
           <Stat
             label="Households removed"
             value={diff.households.removed.length}
             warn={diff.households.removed.length > 0}
           />
-          <Stat
-            label="Households unchanged"
-            value={diff.households.unchanged}
-          />
+          <Stat label="Households unchanged" value={diff.households.unchanged} />
           <Stat label="Contacts added" value={diff.contacts.added.length} />
-          <Stat
-            label="Contacts updated"
-            value={diff.contacts.updated.length}
-          />
+          <Stat label="Contacts updated" value={diff.contacts.updated.length} />
           <Stat
             label="Contacts removed"
             value={diff.contacts.removed.length}
@@ -300,7 +288,6 @@ function DiffStep({
         </div>
       )}
 
-      {/* Detail sections */}
       <DiffSection
         title="Households added"
         items={diff.households.added.map((h) => h.displayName)}
@@ -362,7 +349,9 @@ function DiffStep({
             disabled={isPending}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
           >
-            {isPending ? "Applying…" : `Apply ${totalChanges} change${totalChanges > 1 ? "s" : ""}`}
+            {isPending
+              ? "Applying…"
+              : `Apply ${totalChanges} change${totalChanges > 1 ? "s" : ""}`}
           </button>
         )}
       </div>

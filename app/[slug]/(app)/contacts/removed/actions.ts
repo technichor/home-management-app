@@ -18,7 +18,7 @@ export async function restoreContactAction(id: string, slug: string) {
     },
   });
 
-  revalidatePath(`/${slug}/removed`);
+  revalidatePath(`/${slug}/contacts/removed`);
   revalidatePath(`/${slug}/contacts`);
 }
 
@@ -37,6 +37,6 @@ export async function restoreHouseholdAction(id: string, slug: string) {
     },
   });
 
-  revalidatePath(`/${slug}/removed`);
-  revalidatePath(`/${slug}/households`);
+  revalidatePath(`/${slug}/contacts/removed`);
+  revalidatePath(`/${slug}/contacts/households`);
 }

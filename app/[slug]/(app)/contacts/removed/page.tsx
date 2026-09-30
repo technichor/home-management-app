@@ -103,7 +103,7 @@ export default async function RemovedPage({
                   <tr key={h.id}>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/${slug}/households/${h.id}`}
+                        href={`/${slug}/contacts/households/${h.id}`}
                         className="font-medium text-gray-600 hover:underline"
                       >
                         {h.displayName}

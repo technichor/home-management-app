@@ -317,8 +317,8 @@ export async function applyImportAction(
   });
 
   revalidatePath(`/${slug}/contacts`);
-  revalidatePath(`/${slug}/households`);
-  revalidatePath(`/${slug}/removed`);
+  revalidatePath(`/${slug}/contacts/households`);
+  revalidatePath(`/${slug}/contacts/removed`);
 
   return { ok: true };
 }

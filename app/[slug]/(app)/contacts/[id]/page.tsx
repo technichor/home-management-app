@@ -121,7 +121,7 @@ export default async function ContactDetailPage({
                       <span className="ml-1 text-gray-400">
                         —{" "}
                         <Link
-                          href={`/${slug}/households/${contact.household.id}`}
+                          href={`/${slug}/contacts/households/${contact.household.id}`}
                           className="hover:underline"
                         >
                           {contact.household.displayName}
@@ -136,7 +136,7 @@ export default async function ContactDetailPage({
                       <>
                         {" — "}
                         <Link
-                          href={`/${slug}/households/${contact.household.id}`}
+                          href={`/${slug}/contacts/households/${contact.household.id}`}
                           className="hover:underline"
                         >
                           {contact.household.displayName}
@@ -158,7 +158,7 @@ export default async function ContactDetailPage({
               </dt>
               <dd className="mt-0.5 text-sm text-gray-900">
                 <Link
-                  href={`/${slug}/households/${contact.household.id}`}
+                  href={`/${slug}/contacts/households/${contact.household.id}`}
                   className="hover:underline"
                 >
                   {contact.household.displayName}

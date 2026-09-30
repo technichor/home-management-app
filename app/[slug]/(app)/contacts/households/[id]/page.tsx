@@ -43,7 +43,7 @@ export default async function HouseholdDetailPage({
     <div className="space-y-6">
       <div>
         <Link
-          href={`/${slug}/households`}
+          href={`/${slug}/contacts/households`}
           className="text-sm text-gray-500 hover:text-gray-700"
         >
           ← Households

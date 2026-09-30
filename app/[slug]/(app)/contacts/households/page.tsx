@@ -36,7 +36,7 @@ export default async function HouseholdsPage({
           Households ({households.length})
         </h1>
         <Link
-          href={`/${slug}/import`}
+          href={`/${slug}/contacts/import`}
           className="text-sm text-gray-500 hover:text-gray-700"
         >
           Import CSV →
@@ -54,7 +54,7 @@ export default async function HouseholdsPage({
             return (
               <Link
                 key={h.id}
-                href={`/${slug}/households/${h.id}`}
+                href={`/${slug}/contacts/households/${h.id}`}
                 className="block rounded-md border border-gray-200 bg-white p-4 hover:border-gray-400"
               >
                 <div className="flex items-start justify-between">
