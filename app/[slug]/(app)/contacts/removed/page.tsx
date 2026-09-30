@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { restoreContactAction, restoreHouseholdAction } from "./actions";
-import { Table, Typography, Space, Button } from "antd";
+import { Table, Space, Button } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
 export default async function RemovedPage({
@@ -88,18 +88,18 @@ export default async function RemovedPage({
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="large">
       <div>
-        <Typography.Title level={4} style={{ margin: 0 }}>
+        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
           Removed items
-        </Typography.Title>
-        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+        </h4>
+        <span style={{ fontSize: 13, color: "rgba(0,0,0,.45)" }}>
           Items removed via CSV import or manually. Restore to make them active again.
-        </Typography.Text>
+        </span>
       </div>
 
       <div>
-        <Typography.Title level={5} style={{ marginBottom: 12 }}>
+        <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
           Contacts ({deletedContacts.length})
-        </Typography.Title>
+        </h5>
         <Table
           dataSource={contactData}
           columns={contactColumns}
@@ -110,9 +110,9 @@ export default async function RemovedPage({
       </div>
 
       <div>
-        <Typography.Title level={5} style={{ marginBottom: 12 }}>
+        <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
           Households ({deletedHouseholds.length})
-        </Typography.Title>
+        </h5>
         <Table
           dataSource={householdData}
           columns={householdColumns}

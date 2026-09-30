@@ -5,9 +5,6 @@ import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import AppNav from "@/components/AppNav";
 import { logoutAction } from "../actions";
-import { Layout } from "antd";
-
-const { Content } = Layout;
 
 export default async function AppLayout({
   children,
@@ -42,15 +39,15 @@ export default async function AppLayout({
   }
 
   return (
-    <Layout style={{ minHeight: "100vh", background: "#f5f5f5" }}>
+    <div style={{ minHeight: "100vh", background: "#f5f5f5" }}>
       <AppNav
         slug={slug}
         householdName={household.displayName}
         logoutAction={logoutAction}
       />
-      <Content style={{ padding: "24px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
+      <div style={{ padding: "24px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
         {children}
-      </Content>
-    </Layout>
+      </div>
+    </div>
   );
 }

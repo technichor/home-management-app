@@ -3,7 +3,7 @@ import { getIronSession } from "iron-session";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Card, Button, Space, Typography } from "antd";
+import { Card, Button, Space } from "antd";
 
 export default async function RootPage() {
   const session = await getIronSession<SessionData>(
@@ -29,12 +29,12 @@ export default async function RootPage() {
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <Typography.Title level={2} style={{ marginBottom: 8 }}>
+            <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 24, fontWeight: 600 }}>
               Home Management
-            </Typography.Title>
-            <Typography.Text type="secondary">
+            </h2>
+            <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
               Visit your household&apos;s URL to log in, or set up a new household account below.
-            </Typography.Text>
+            </span>
           </div>
 
           <Card>
@@ -44,10 +44,10 @@ export default async function RootPage() {
                   Set up a new household account
                 </Button>
               </Link>
-              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              <span style={{ fontSize: 13, color: "rgba(0,0,0,.45)" }}>
                 Already have an account? Go to{" "}
-                <Typography.Text code>/your-household-slug</Typography.Text>
-              </Typography.Text>
+                <code>/your-household-slug</code>
+              </span>
             </Space>
           </Card>
         </Space>

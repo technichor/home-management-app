@@ -6,7 +6,6 @@ import {
   Descriptions,
   Tag,
   Space,
-  Typography,
   Table,
   Breadcrumb,
 } from "antd";
@@ -106,7 +105,7 @@ export default async function ContactDetailPage({
                 {addressExtra && <span style={{ marginLeft: 8, color: "#999" }}>— {addressExtra}</span>}
               </span>
             ) : (
-              <Typography.Text type="secondary">
+              <span style={{ color: "rgba(0,0,0,.45)" }}>
                 No address on household record
                 {contact.household && (
                   <>
@@ -116,7 +115,7 @@ export default async function ContactDetailPage({
                     </Link>
                   </>
                 )}
-              </Typography.Text>
+              </span>
             ),
           },
         ]
@@ -201,20 +200,17 @@ export default async function ContactDetailPage({
 
       <div>
         <Space align="baseline" size="small">
-          <Typography.Title level={3} style={{ margin: 0 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, display: "inline" }}>
             {contact.favorite && (
               <span style={{ color: "#faad14", marginRight: 8 }}>★</span>
             )}
             {contact.firstName} {contact.lastName}
             {contact.nickname && (
-              <Typography.Text
-                type="secondary"
-                style={{ fontSize: 16, fontWeight: 400, marginLeft: 8 }}
-              >
+              <span style={{ fontSize: 16, fontWeight: 400, marginLeft: 8, color: "rgba(0,0,0,.45)" }}>
                 ({contact.nickname})
-              </Typography.Text>
+              </span>
             )}
-          </Typography.Title>
+          </h3>
           {isDeleted && <Tag color="error">Removed</Tag>}
         </Space>
       </div>
@@ -228,9 +224,9 @@ export default async function ContactDetailPage({
 
       {activityLog.length > 0 && (
         <div>
-          <Typography.Title level={5} style={{ marginBottom: 12 }}>
+          <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
             Activity log
-          </Typography.Title>
+          </h5>
           <Table
             dataSource={logData}
             columns={logColumns}

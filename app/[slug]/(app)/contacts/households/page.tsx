@@ -3,7 +3,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import Link from "next/link";
-import { Card, Tag, Typography, Space, Empty, Badge } from "antd";
+import { Card, Tag, Space, Empty } from "antd";
 
 export default async function HouseholdsPage({
   params,
@@ -32,9 +32,9 @@ export default async function HouseholdsPage({
 
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="middle">
-      <Typography.Title level={4} style={{ margin: 0 }}>
+      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
         Households ({households.length})
-      </Typography.Title>
+      </h4>
 
       {households.length === 0 ? (
         <Empty description="No households yet. Use Import CSV to add households." />
@@ -69,17 +69,14 @@ export default async function HouseholdsPage({
                   }
                 >
                   {h.mailingAddress && (
-                    <Typography.Text type="secondary" style={{ display: "block", fontSize: 13 }}>
+                    <span style={{ display: "block", fontSize: 13, color: "rgba(0,0,0,.45)" }}>
                       {h.mailingAddress}
-                    </Typography.Text>
+                    </span>
                   )}
                   {h.contacts.length > 0 && (
-                    <Typography.Text
-                      type="secondary"
-                      style={{ display: "block", fontSize: 12, marginTop: 4 }}
-                    >
+                    <span style={{ display: "block", fontSize: 12, marginTop: 4, color: "rgba(0,0,0,.45)" }}>
                       {h.contacts.map((c) => `${c.firstName} ${c.lastName}`).join(", ")}
-                    </Typography.Text>
+                    </span>
                   )}
                   {h.tags.length > 0 && (
                     <Space wrap size={4} style={{ marginTop: 8 }}>

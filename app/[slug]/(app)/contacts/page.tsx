@@ -3,7 +3,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { ContactCategory } from "@prisma/client";
-import { Typography, Space } from "antd";
+import { Space } from "antd";
 import ContactsFilter from "./ContactsFilter";
 import ContactsTable from "./ContactsTable";
 
@@ -58,9 +58,9 @@ export default async function ContactsPage({
 
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="middle">
-      <Typography.Title level={4} style={{ margin: 0 }}>
+      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
         Contacts{contacts.length > 0 ? ` (${contacts.length})` : ""}
-      </Typography.Title>
+      </h4>
 
       <ContactsFilter slug={slug} allTags={allTags} defaults={filters} />
 

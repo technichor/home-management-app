@@ -8,7 +8,6 @@ import {
   Descriptions,
   Tag,
   Space,
-  Typography,
   Table,
   Breadcrumb,
 } from "antd";
@@ -101,9 +100,9 @@ export default async function HouseholdDetailPage({
         {c.favorite && <span style={{ color: "#faad14", marginRight: 4 }}>★</span>}
         {c.firstName} {c.lastName}
         {c.nickname && (
-          <Typography.Text type="secondary" style={{ fontWeight: 400, marginLeft: 4 }}>
+          <span style={{ fontWeight: 400, marginLeft: 4, color: "rgba(0,0,0,.45)" }}>
             ({c.nickname})
-          </Typography.Text>
+          </span>
         )}
       </Link>
     ),
@@ -134,9 +133,9 @@ export default async function HouseholdDetailPage({
       />
 
       <Space align="baseline" size="small">
-        <Typography.Title level={3} style={{ margin: 0 }}>
+        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>
           {household.displayName}
-        </Typography.Title>
+        </h3>
         {isOurs && <Tag color="blue">Our household</Tag>}
         {isDeleted && <Tag color="error">Removed</Tag>}
       </Space>
@@ -146,9 +145,9 @@ export default async function HouseholdDetailPage({
       )}
 
       <div>
-        <Typography.Title level={5} style={{ marginBottom: 12 }}>
+        <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
           Family &amp; Friend contacts ({household.contacts.length})
-        </Typography.Title>
+        </h5>
         <Table
           dataSource={memberData}
           columns={memberColumns}
@@ -160,9 +159,9 @@ export default async function HouseholdDetailPage({
 
       {activityLog.length > 0 && (
         <div>
-          <Typography.Title level={5} style={{ marginBottom: 12 }}>
+          <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
             Activity log
-          </Typography.Title>
+          </h5>
           <Table
             dataSource={logData}
             columns={logColumns}

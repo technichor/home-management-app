@@ -4,7 +4,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { loginAction } from "./actions";
-import { Card, Input, Button, Space, Typography, Alert } from "antd";
+import { Card, Button, Space, Alert } from "antd";
 
 export default async function HouseholdLoginPage({
   params,
@@ -48,12 +48,12 @@ export default async function HouseholdLoginPage({
       <div style={{ width: "100%", maxWidth: 360 }}>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <Typography.Title level={3} style={{ marginBottom: 4 }}>
+            <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 600 }}>
               {household.displayName}
-            </Typography.Title>
-            <Typography.Text type="secondary">
+            </h3>
+            <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
               Enter the household password to continue.
-            </Typography.Text>
+            </span>
           </div>
 
           <Card>
@@ -69,13 +69,24 @@ export default async function HouseholdLoginPage({
             <form action={loginAction.bind(null, slug)}>
               <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                 <div>
-                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                  <strong style={{ fontSize: 14, display: "block", marginBottom: 4 }}>
                     Password
-                  </Typography.Text>
-                  <Input.Password
+                  </strong>
+                  <input
+                    type="password"
                     name="password"
                     required
                     autoFocus
+                    style={{
+                      width: "100%",
+                      padding: "4px 11px",
+                      border: "1px solid #d9d9d9",
+                      borderRadius: 6,
+                      fontSize: 14,
+                      height: 32,
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
                   />
                 </div>
                 <Button type="primary" htmlType="submit" block>
