@@ -8,7 +8,20 @@
       "Bash(ls:*)",
       "Bash(./node_modules/.bin/prisma init:*)",
       "Bash(npm run:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(rm:*)",
+      "Bash(find C:\\\\dev\\\\home-management-app\\\\app\\\\[slug]\\\\\\(app\\)\\\\contacts\\\\import:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm test:*)",
+      "WebFetch(domain:ant.design)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(antd env:*)",
+      "Bash(antd list:*)",
+      "Bash(npm show:*)",
+      "Bash(antd info:*)",
+      "Bash(antd doc:*)",
+      "Bash(npx skills:*)",
+      "Bash(antd demo:*)"
     ]
   }
 }

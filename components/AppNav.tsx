@@ -1,7 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Layout, Menu, Space, Typography, Button, Tag } from "antd";
+import { usePathname, useRouter } from "next/navigation";
+
+const { Header } = Layout;
+const { Text } = Typography;
 
 interface AppNavProps {
   slug: string;
@@ -11,71 +14,73 @@ interface AppNavProps {
 
 const MODULES = [
   { key: "contacts", label: "Contacts", href: (slug: string) => `/${slug}/contacts`, active: true },
-  { key: "lists", label: "Lists", href: null, active: false },
-  { key: "meals", label: "Meal Planning", href: null, active: false },
-  { key: "maintenance", label: "Maintenance", href: null, active: false },
-  { key: "schedules", label: "Schedules", href: null, active: false },
+  { key: "lists", label: "Lists", active: false },
+  { key: "meals", label: "Meal Planning", active: false },
+  { key: "maintenance", label: "Maintenance", active: false },
+  { key: "schedules", label: "Schedules", active: false },
 ];
 
 export default function AppNav({ slug, householdName, logoutAction }: AppNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const selectedKey =
+    MODULES.find((m) => m.active && pathname.startsWith(`/${slug}/${m.key}`))?.key ?? "";
+
+  const menuItems = MODULES.map((mod) => ({
+    key: mod.key,
+    disabled: !mod.active,
+    label: mod.active ? (
+      mod.label
+    ) : (
+      <span>
+        {mod.label}{" "}
+        <Tag bordered={false} style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px", marginLeft: 2 }}>
+          soon
+        </Tag>
+      </span>
+    ),
+    onClick: mod.active && mod.href ? () => router.push(mod.href!(slug)) : undefined,
+  }));
 
   return (
-    <header className="border-b border-gray-200 bg-white">
-      {/* Top bar */}
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <span className="text-base font-semibold tracking-tight text-gray-900">
+    <Header
+      style={{
+        background: "#fff",
+        borderBottom: "1px solid #f0f0f0",
+        padding: "0 24px",
+        height: "auto",
+        lineHeight: "normal",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 0 0",
+        }}
+      >
+        <Text strong style={{ fontSize: 15 }}>
           Home Management
-        </span>
-        <div className="flex items-center gap-3 text-sm text-gray-500">
-          <span className="hidden sm:inline">{householdName}</span>
-          <span className="hidden text-gray-300 sm:inline">·</span>
-          <form action={logoutAction}>
-            <button type="submit" className="hover:text-gray-700">
+        </Text>
+        <Space>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {householdName}
+          </Text>
+          <form action={logoutAction} style={{ display: "inline" }}>
+            <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
               Log out
-            </button>
+            </Button>
           </form>
-        </div>
+        </Space>
       </div>
-
-      {/* Module bar */}
-      <div className="border-t border-gray-100">
-        <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8">
-          {MODULES.map((mod) => {
-            const isCurrentModule =
-              mod.active && pathname.startsWith(`/${slug}/${mod.key}`);
-
-            if (mod.active && mod.href) {
-              return (
-                <Link
-                  key={mod.key}
-                  href={mod.href(slug)}
-                  className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors ${
-                    isCurrentModule
-                      ? "border-gray-900 font-medium text-gray-900"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {mod.label}
-                </Link>
-              );
-            }
-
-            return (
-              <span
-                key={mod.key}
-                className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-2.5 text-sm text-gray-300 select-none"
-                title="Coming soon"
-              >
-                {mod.label}
-                <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] font-medium text-gray-400">
-                  soon
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </header>
+      <Menu
+        mode="horizontal"
+        selectedKeys={[selectedKey]}
+        items={menuItems}
+        style={{ borderBottom: "none", marginTop: 4 }}
+      />
+    </Header>
   );
 }

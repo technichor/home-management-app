@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { restoreContactAction, restoreHouseholdAction } from "./actions";
+import { Table, Typography, Space, Button } from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 export default async function RemovedPage({
   params,
@@ -20,117 +22,105 @@ export default async function RemovedPage({
     }),
   ]);
 
+  type ContactRow = {
+    key: string;
+    name: React.ReactNode;
+    category: string;
+    removed: string;
+    action: React.ReactNode;
+  };
+
+  const contactColumns: ColumnsType<ContactRow> = [
+    { title: "Name", dataIndex: "name", key: "name" },
+    { title: "Category", dataIndex: "category", key: "category", responsive: ["sm"] },
+    { title: "Removed", dataIndex: "removed", key: "removed" },
+    { title: "", dataIndex: "action", key: "action", align: "right" },
+  ];
+
+  const contactData: ContactRow[] = deletedContacts.map((c) => ({
+    key: c.id,
+    name: (
+      <Link href={`/${slug}/contacts/${c.id}`} style={{ color: "#595959" }}>
+        {c.firstName} {c.lastName}
+      </Link>
+    ),
+    category: c.category,
+    removed: c.deletedAt?.toLocaleDateString() ?? "",
+    action: (
+      <form action={restoreContactAction.bind(null, c.id, slug)}>
+        <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
+          Restore
+        </Button>
+      </form>
+    ),
+  }));
+
+  type HouseholdRow = {
+    key: string;
+    name: React.ReactNode;
+    removed: string;
+    action: React.ReactNode;
+  };
+
+  const householdColumns: ColumnsType<HouseholdRow> = [
+    { title: "Household", dataIndex: "name", key: "name" },
+    { title: "Removed", dataIndex: "removed", key: "removed" },
+    { title: "", dataIndex: "action", key: "action", align: "right" },
+  ];
+
+  const householdData: HouseholdRow[] = deletedHouseholds.map((h) => ({
+    key: h.id,
+    name: (
+      <Link href={`/${slug}/contacts/households/${h.id}`} style={{ color: "#595959" }}>
+        {h.displayName}
+      </Link>
+    ),
+    removed: h.deletedAt?.toLocaleDateString() ?? "",
+    action: (
+      <form action={restoreHouseholdAction.bind(null, h.id, slug)}>
+        <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
+          Restore
+        </Button>
+      </form>
+    ),
+  }));
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-lg font-semibold">Removed items</h1>
-      <p className="text-sm text-gray-500">
-        Items removed via CSV import or manually. Restore to make them active
-        again.
-      </p>
+    <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <div>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          Removed items
+        </Typography.Title>
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          Items removed via CSV import or manually. Restore to make them active again.
+        </Typography.Text>
+      </div>
 
-      {/* Deleted contacts */}
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-gray-700">
+      <div>
+        <Typography.Title level={5} style={{ marginBottom: 12 }}>
           Contacts ({deletedContacts.length})
-        </h2>
-        {deletedContacts.length === 0 ? (
-          <p className="text-sm text-gray-400">No removed contacts.</p>
-        ) : (
-          <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2">Name</th>
-                  <th className="hidden px-4 py-2 sm:table-cell">Category</th>
-                  <th className="px-4 py-2">Removed</th>
-                  <th className="px-4 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {deletedContacts.map((c) => (
-                  <tr key={c.id}>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/${slug}/contacts/${c.id}`}
-                        className="font-medium text-gray-600 hover:underline"
-                      >
-                        {c.firstName} {c.lastName}
-                      </Link>
-                    </td>
-                    <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                      {c.category}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {c.deletedAt?.toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <form action={restoreContactAction.bind(null, c.id, slug)}>
-                        <button
-                          type="submit"
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Restore
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        </Typography.Title>
+        <Table
+          dataSource={contactData}
+          columns={contactColumns}
+          size="small"
+          pagination={false}
+          locale={{ emptyText: "No removed contacts." }}
+        />
+      </div>
 
-      {/* Deleted households */}
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-gray-700">
+      <div>
+        <Typography.Title level={5} style={{ marginBottom: 12 }}>
           Households ({deletedHouseholds.length})
-        </h2>
-        {deletedHouseholds.length === 0 ? (
-          <p className="text-sm text-gray-400">No removed households.</p>
-        ) : (
-          <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2">Household</th>
-                  <th className="px-4 py-2">Removed</th>
-                  <th className="px-4 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {deletedHouseholds.map((h) => (
-                  <tr key={h.id}>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/${slug}/contacts/households/${h.id}`}
-                        className="font-medium text-gray-600 hover:underline"
-                      >
-                        {h.displayName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {h.deletedAt?.toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <form
-                        action={restoreHouseholdAction.bind(null, h.id, slug)}
-                      >
-                        <button
-                          type="submit"
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Restore
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
+        </Typography.Title>
+        <Table
+          dataSource={householdData}
+          columns={householdColumns}
+          size="small"
+          pagination={false}
+          locale={{ emptyText: "No removed households." }}
+        />
+      </div>
+    </Space>
   );
 }

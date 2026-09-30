@@ -17,7 +17,14 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AntdRegistry>
-          <ConfigProvider>
+          <ConfigProvider
+            theme={{
+              token: {
+                colorPrimary: "#111827",
+                borderRadius: 6,
+              },
+            }}
+          >
             <App>
               {children}
             </App>

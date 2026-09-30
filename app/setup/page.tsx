@@ -3,6 +3,16 @@
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { createHouseholdAction, SetupState } from "./actions";
+import {
+  Card,
+  Input,
+  Button,
+  Space,
+  Typography,
+  Alert,
+  Divider,
+  Form,
+} from "antd";
 
 export default function SetupPage() {
   const [state, formAction, isPending] = useActionState<SetupState, FormData>(
@@ -12,126 +22,110 @@ export default function SetupPage() {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">Set up your household account</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            This creates a login for your household. You can add contacts and
-            other households via CSV import after setup.
-          </p>
-        </div>
-
-        {state?.error && (
-          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {state.error}
-          </div>
-        )}
-
-        <form action={formAction} className="space-y-4">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+        background: "#f5f5f5",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 440 }}>
+        <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <label
-              htmlFor="displayName"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Household display name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="displayName"
-              name="displayName"
-              type="text"
-              required
-              placeholder="e.g. The Reynolds Family"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-            />
+            <Typography.Title level={3} style={{ marginBottom: 4 }}>
+              Set up your household account
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              This creates a login for your household. You can add contacts and other households
+              via CSV import after setup.
+            </Typography.Text>
           </div>
 
-          <div>
-            <label
-              htmlFor="urlSlug"
-              className="block text-sm font-medium text-gray-700"
-            >
-              URL slug <span className="text-red-500">*</span>
-            </label>
-            <div className="mt-1 flex rounded-md shadow-sm">
-              <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
-                /
-              </span>
-              <input
-                id="urlSlug"
-                name="urlSlug"
-                type="text"
-                required
-                pattern="[a-z0-9-]+"
-                placeholder="reynolds-family"
-                className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+          <Card>
+            {state?.error && (
+              <Alert
+                type="error"
+                message={state.error}
+                showIcon
+                style={{ marginBottom: 16 }}
               />
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Lowercase letters, numbers, and hyphens only.
-            </p>
-          </div>
+            )}
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
+            <form action={formAction}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <div>
+                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                    Household display name <span style={{ color: "#ff4d4f" }}>*</span>
+                  </Typography.Text>
+                  <Input
+                    name="displayName"
+                    type="text"
+                    required
+                    placeholder="e.g. The Reynolds Family"
+                  />
+                </div>
+
+                <div>
+                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                    URL slug <span style={{ color: "#ff4d4f" }}>*</span>
+                  </Typography.Text>
+                  <Input
+                    name="urlSlug"
+                    type="text"
+                    required
+                    addonBefore="/"
+                    pattern="[a-z0-9-]+"
+                    placeholder="reynolds-family"
+                  />
+                  <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+                    Lowercase letters, numbers, and hyphens only.
+                  </Typography.Text>
+                </div>
+
+                <div>
+                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                    Password <span style={{ color: "#ff4d4f" }}>*</span>
+                  </Typography.Text>
+                  <Input.Password name="password" required minLength={8} />
+                  <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+                    Anyone with this password can read and write all household data.
+                  </Typography.Text>
+                </div>
+
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isPending}
+                  block
+                >
+                  {isPending ? "Creating…" : "Create household account"}
+                </Button>
+              </Space>
+            </form>
+          </Card>
+
+          <Card>
+            <Typography.Text strong style={{ display: "block", marginBottom: 12 }}>
+              Already have an account?
+            </Typography.Text>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const slug = (
+                  e.currentTarget.elements.namedItem("slug") as HTMLInputElement
+                ).value.trim();
+                if (slug) router.push(`/${slug}`);
+              }}
+              style={{ display: "flex", gap: 8 }}
             >
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={8}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Anyone with this password can read and write all household data.
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isPending}
-            className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-          >
-            {isPending ? "Creating…" : "Create household account"}
-          </button>
-        </form>
-
-        <div className="border-t border-gray-200 pt-6">
-          <p className="mb-3 text-sm font-medium text-gray-700">
-            Already have an account?
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const slug = (e.currentTarget.elements.namedItem("slug") as HTMLInputElement).value.trim();
-              if (slug) router.push(`/${slug}`);
-            }}
-            className="flex gap-2"
-          >
-            <div className="flex flex-1 rounded-md shadow-sm">
-              <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
-                /
-              </span>
-              <input
-                name="slug"
-                type="text"
-                placeholder="your-slug"
-                className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-            >
-              Go to login
-            </button>
-          </form>
-        </div>
+              <Input name="slug" addonBefore="/" placeholder="your-slug" style={{ flex: 1 }} />
+              <Button htmlType="submit">Go to login</Button>
+            </form>
+          </Card>
+        </Space>
       </div>
     </div>
   );

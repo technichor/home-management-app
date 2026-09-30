@@ -4,6 +4,15 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import Link from "next/link";
+import {
+  Descriptions,
+  Tag,
+  Space,
+  Typography,
+  Table,
+  Breadcrumb,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 export default async function HouseholdDetailPage({
   params,
@@ -39,155 +48,129 @@ export default async function HouseholdDetailPage({
     take: 50,
   });
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href={`/${slug}/contacts/households`}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← Households
-        </Link>
-        <div className="mt-2 flex items-center gap-3">
-          <h1 className="text-xl font-semibold">{household.displayName}</h1>
-          {isOurs && (
-            <span className="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-              Our household
-            </span>
-          )}
-          {isDeleted && (
-            <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-600">
-              Removed
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-md border border-gray-200 bg-white p-4">
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {household.mailingAddress && (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Mailing address
-              </dt>
-              <dd className="mt-0.5 text-sm text-gray-900">
-                {household.mailingAddress}
-              </dd>
-            </div>
-          )}
-          {household.tags.length > 0 && (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Tags
-              </dt>
-              <dd className="mt-1 flex flex-wrap gap-1">
+  const descItems = [
+    ...(household.mailingAddress
+      ? [{ key: "address", label: "Mailing address", children: household.mailingAddress }]
+      : []),
+    ...(household.tags.length > 0
+      ? [
+          {
+            key: "tags",
+            label: "Tags",
+            children: (
+              <Space wrap size={4}>
                 {household.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                  >
+                  <Tag key={tag} bordered={false}>
                     {tag}
-                  </span>
+                  </Tag>
                 ))}
-              </dd>
-            </div>
-          )}
-        </dl>
+              </Space>
+            ),
+          },
+        ]
+      : []),
+    ...(household.notes
+      ? [
+          {
+            key: "notes",
+            label: "Notes",
+            children: <span style={{ whiteSpace: "pre-wrap" }}>{household.notes}</span>,
+            span: 2,
+          },
+        ]
+      : []),
+  ];
 
-        {household.notes && (
-          <div className="mt-4">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Notes
-            </dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-sm text-gray-900">
-              {household.notes}
-            </dd>
-          </div>
+  type MemberRow = {
+    key: string;
+    name: React.ReactNode;
+    phone: string;
+    email: string;
+  };
+
+  const memberColumns: ColumnsType<MemberRow> = [
+    { title: "Name", dataIndex: "name", key: "name" },
+    { title: "Phone", dataIndex: "phone", key: "phone", responsive: ["sm"] },
+    { title: "Email", dataIndex: "email", key: "email", responsive: ["sm"] },
+  ];
+
+  const memberData: MemberRow[] = household.contacts.map((c) => ({
+    key: c.id,
+    name: (
+      <Link href={`/${slug}/contacts/${c.id}`} style={{ fontWeight: 500 }}>
+        {c.favorite && <span style={{ color: "#faad14", marginRight: 4 }}>★</span>}
+        {c.firstName} {c.lastName}
+        {c.nickname && (
+          <Typography.Text type="secondary" style={{ fontWeight: 400, marginLeft: 4 }}>
+            ({c.nickname})
+          </Typography.Text>
         )}
-      </div>
+      </Link>
+    ),
+    phone: c.phoneMobile ?? c.phoneHome ?? c.phoneWork ?? "—",
+    email: c.emailPrimary ?? "—",
+  }));
 
-      {/* Family & Friend members */}
+  type LogRow = { key: string; when: string; action: string; source: string };
+  const logColumns: ColumnsType<LogRow> = [
+    { title: "When", dataIndex: "when", key: "when" },
+    { title: "Action", dataIndex: "action", key: "action" },
+    { title: "Source", dataIndex: "source", key: "source" },
+  ];
+  const logData: LogRow[] = activityLog.map((e) => ({
+    key: e.id,
+    when: e.timestamp.toLocaleString(),
+    action: e.action.charAt(0) + e.action.slice(1).toLowerCase(),
+    source: e.source === "CSV_IMPORT" ? "CSV import" : "Manual",
+  }));
+
+  return (
+    <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <Breadcrumb
+        items={[
+          { title: <Link href={`/${slug}/contacts/households`}>Households</Link> },
+          { title: household.displayName },
+        ]}
+      />
+
+      <Space align="baseline" size="small">
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          {household.displayName}
+        </Typography.Title>
+        {isOurs && <Tag color="blue">Our household</Tag>}
+        {isDeleted && <Tag color="error">Removed</Tag>}
+      </Space>
+
+      {descItems.length > 0 && (
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }} items={descItems} />
+      )}
+
       <div>
-        <h2 className="mb-2 text-sm font-medium text-gray-700">
+        <Typography.Title level={5} style={{ marginBottom: 12 }}>
           Family &amp; Friend contacts ({household.contacts.length})
-        </h2>
-        {household.contacts.length === 0 ? (
-          <p className="text-sm text-gray-400">No contacts linked to this household.</p>
-        ) : (
-          <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2">Name</th>
-                  <th className="hidden px-4 py-2 sm:table-cell">Phone</th>
-                  <th className="hidden px-4 py-2 sm:table-cell">Email</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {household.contacts.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/${slug}/contacts/${c.id}`}
-                        className="font-medium text-gray-900 hover:underline"
-                      >
-                        {c.favorite && (
-                          <span className="mr-1 text-yellow-500">★</span>
-                        )}
-                        {c.firstName} {c.lastName}
-                        {c.nickname && (
-                          <span className="ml-1 text-gray-400">
-                            ({c.nickname})
-                          </span>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
-                      {c.phoneMobile ?? c.phoneHome ?? c.phoneWork ?? "—"}
-                    </td>
-                    <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
-                      {c.emailPrimary ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </Typography.Title>
+        <Table
+          dataSource={memberData}
+          columns={memberColumns}
+          size="small"
+          pagination={false}
+          locale={{ emptyText: "No contacts linked to this household." }}
+        />
       </div>
 
-      {/* Activity log */}
       {activityLog.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-gray-700">Activity log</h2>
-          <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2">When</th>
-                  <th className="px-4 py-2">Action</th>
-                  <th className="px-4 py-2">Source</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {activityLog.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="px-4 py-2 text-gray-500">
-                      {entry.timestamp.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2 capitalize">
-                      {entry.action.toLowerCase()}
-                    </td>
-                    <td className="px-4 py-2 text-gray-500">
-                      {entry.source === "CSV_IMPORT" ? "CSV import" : "Manual"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Typography.Title level={5} style={{ marginBottom: 12 }}>
+            Activity log
+          </Typography.Title>
+          <Table
+            dataSource={logData}
+            columns={logColumns}
+            size="small"
+            pagination={false}
+          />
         </div>
       )}
-    </div>
+    </Space>
   );
 }

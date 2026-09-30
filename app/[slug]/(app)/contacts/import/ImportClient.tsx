@@ -9,6 +9,21 @@ import {
   ValidateSuccess,
 } from "./actions";
 import { ImportDiff, ParseError } from "@/lib/csv";
+import {
+  Steps,
+  Upload,
+  Button,
+  Alert,
+  Space,
+  Typography,
+  Statistic,
+  Row,
+  Col,
+  Card,
+  List,
+  Tag,
+} from "antd";
+import { InboxOutlined, DownloadOutlined } from "@ant-design/icons";
 
 type Step = "upload" | "diff" | "success";
 
@@ -20,11 +35,11 @@ export default function ImportClient({ slug }: { slug: string }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  const stepIndex = step === "upload" ? 0 : step === "diff" ? 1 : 2;
+
   function handleUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
+    const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result: ValidateImportResult = await validateImportAction(formData);
       if (!result.ok) {
@@ -55,74 +70,76 @@ export default function ImportClient({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Import CSV</h1>
-        <div className="flex gap-2 text-sm">
-          <a
+    <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          Import CSV
+        </Typography.Title>
+        <Space size="middle">
+          <Button
+            type="link"
+            icon={<DownloadOutlined />}
             href={`/${slug}/contacts/api/export?file=households`}
-            className="text-gray-500 hover:text-gray-700"
+            size="small"
           >
-            Download households.csv ↓
-          </a>
-          <span className="text-gray-300">|</span>
-          <a
+            households.csv
+          </Button>
+          <Button
+            type="link"
+            icon={<DownloadOutlined />}
             href={`/${slug}/contacts/api/export?file=contacts`}
-            className="text-gray-500 hover:text-gray-700"
+            size="small"
           >
-            Download contacts.csv ↓
-          </a>
-        </div>
+            contacts.csv
+          </Button>
+        </Space>
       </div>
 
+      <Steps
+        current={stepIndex}
+        size="small"
+        items={[
+          { title: "Upload" },
+          { title: "Review changes" },
+          { title: "Done" },
+        ]}
+      />
+
       {step === "upload" && (
-        <UploadStep
-          onSubmit={handleUpload}
-          errors={errors}
-          isPending={isPending}
-        />
+        <UploadStep onSubmit={handleUpload} errors={errors} isPending={isPending} />
       )}
 
       {step === "diff" && validated && (
         <DiffStep
           diff={validated.diff}
           onConfirm={handleConfirm}
-          onBack={() => {
-            setStep("upload");
-            setValidated(null);
-          }}
+          onBack={() => { setStep("upload"); setValidated(null); }}
           applyError={applyError}
           isPending={isPending}
         />
       )}
 
       {step === "success" && (
-        <div className="space-y-4">
-          <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">
-            Import applied successfully.
-          </div>
-          <div className="flex gap-3">
-            <button
+        <Space direction="vertical" size="middle">
+          <Alert message="Import applied successfully." type="success" showIcon />
+          <Space>
+            <Button
               onClick={() => {
                 setStep("upload");
                 setValidated(null);
                 setErrors([]);
                 setApplyError(null);
               }}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
             >
               Import again
-            </button>
-            <button
-              onClick={() => router.push(`/${slug}/contacts`)}
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-            >
+            </Button>
+            <Button type="primary" onClick={() => router.push(`/${slug}/contacts`)}>
               View contacts
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Space>
+        </Space>
       )}
-    </div>
+    </Space>
   );
 }
 
@@ -138,81 +155,80 @@ function UploadStep({
   isPending: boolean;
 }) {
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="rounded-md bg-gray-50 p-4 text-sm text-gray-600">
-        <p className="font-medium">How importing works</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li>
-            Export your current data, edit in a spreadsheet, then upload both
-            files here.
-          </li>
-          <li>
-            Rows with an <code className="font-mono">id</code> update the
-            matching record. Rows without an id (or with an unknown id) are
-            added as new.
-          </li>
-          <li>
-            Active records in the database that aren&apos;t in the uploaded files
-            will be soft-deleted.
-          </li>
-          <li>
-            You&apos;ll see a full diff before anything is committed.
-          </li>
-        </ul>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            households.csv <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="householdsFile"
-            type="file"
-            accept=".csv,text/csv"
-            required
-            className="mt-1 block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border file:border-gray-300 file:px-3 file:py-1.5 file:text-sm file:text-gray-700 hover:file:border-gray-400"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            contacts.csv <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="contactsFile"
-            type="file"
-            accept=".csv,text/csv"
-            required
-            className="mt-1 block w-full text-sm text-gray-500 file:mr-3 file:rounded-md file:border file:border-gray-300 file:px-3 file:py-1.5 file:text-sm file:text-gray-700 hover:file:border-gray-400"
-          />
-        </div>
-      </div>
-
-      {errors.length > 0 && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4">
-          <p className="mb-2 text-sm font-medium text-red-800">
-            {errors.length} error{errors.length > 1 ? "s" : ""} found — fix
-            these before importing:
-          </p>
-          <ul className="space-y-1 text-sm text-red-700">
-            {errors.map((e, i) => (
-              <li key={i}>
-                {e.row > 0 ? `Row ${e.row}, ` : ""}
-                <span className="font-mono">{e.column}</span>: {e.message}
-              </li>
-            ))}
+    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Alert
+        type="info"
+        showIcon
+        message="How importing works"
+        description={
+          <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+            <li>Export your current data, edit in a spreadsheet, then upload both files here.</li>
+            <li>
+              Rows with an <code>id</code> update the matching record. Rows without an id (or
+              with an unknown id) are added as new.
+            </li>
+            <li>Active records not in the uploaded files will be soft-deleted.</li>
+            <li>You&apos;ll see a full diff before anything is committed.</li>
           </ul>
-        </div>
-      )}
+        }
+      />
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-      >
-        {isPending ? "Validating…" : "Validate and preview changes"}
-      </button>
-    </form>
+      <form onSubmit={onSubmit}>
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12}>
+            <div>
+              <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                households.csv <span style={{ color: "#ff4d4f" }}>*</span>
+              </Typography.Text>
+              <input
+                name="householdsFile"
+                type="file"
+                accept=".csv,text/csv"
+                required
+                style={{ width: "100%" }}
+              />
+            </div>
+          </Col>
+          <Col xs={24} sm={12}>
+            <div>
+              <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                contacts.csv <span style={{ color: "#ff4d4f" }}>*</span>
+              </Typography.Text>
+              <input
+                name="contactsFile"
+                type="file"
+                accept=".csv,text/csv"
+                required
+                style={{ width: "100%" }}
+              />
+            </div>
+          </Col>
+        </Row>
+
+        {errors.length > 0 && (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={`${errors.length} error${errors.length > 1 ? "s" : ""} found — fix these before importing`}
+            description={
+              <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                {errors.map((e, i) => (
+                  <li key={i}>
+                    {e.row > 0 ? `Row ${e.row}, ` : ""}
+                    <code>{e.column}</code>: {e.message}
+                  </li>
+                ))}
+              </ul>
+            }
+          />
+        )}
+
+        <Button type="primary" htmlType="submit" loading={isPending}>
+          {isPending ? "Validating…" : "Validate and preview changes"}
+        </Button>
+      </form>
+    </Space>
   );
 }
 
@@ -239,59 +255,74 @@ function DiffStep({
     diff.contacts.updated.length +
     diff.contacts.removed.length;
 
-  const warningHouseholds = diff.households.removed.filter(
-    (h) => h.hasFamilyFriendContacts
-  );
+  const warningHouseholds = diff.households.removed.filter((h) => h.hasFamilyFriendContacts);
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-md border border-gray-200 bg-white p-4">
-        <p className="text-sm font-medium text-gray-800">
+    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Card size="small">
+        <Typography.Text strong>
           {totalChanges === 0
             ? "No changes detected. Nothing will be committed."
-            : `${totalChanges} change${totalChanges > 1 ? "s" : ""} to apply:`}
-        </p>
-
-        <div className="mt-3 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-          <Stat label="Households added" value={diff.households.added.length} />
-          <Stat label="Households updated" value={diff.households.updated.length} />
-          <Stat
-            label="Households removed"
-            value={diff.households.removed.length}
-            warn={diff.households.removed.length > 0}
-          />
-          <Stat label="Households unchanged" value={diff.households.unchanged} />
-          <Stat label="Contacts added" value={diff.contacts.added.length} />
-          <Stat label="Contacts updated" value={diff.contacts.updated.length} />
-          <Stat
-            label="Contacts removed"
-            value={diff.contacts.removed.length}
-            warn={diff.contacts.removed.length > 0}
-          />
-          <Stat label="Contacts unchanged" value={diff.contacts.unchanged} />
-        </div>
-      </div>
+            : `${totalChanges} change${totalChanges > 1 ? "s" : ""} to apply`}
+        </Typography.Text>
+        <Row gutter={[16, 8]} style={{ marginTop: 12 }}>
+          <Col xs={12} sm={6}>
+            <Statistic title="Households added" value={diff.households.added.length} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="Households updated" value={diff.households.updated.length} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic
+              title="Households removed"
+              value={diff.households.removed.length}
+              valueStyle={diff.households.removed.length > 0 ? { color: "#cf1322" } : undefined}
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="Households unchanged" value={diff.households.unchanged} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="Contacts added" value={diff.contacts.added.length} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="Contacts updated" value={diff.contacts.updated.length} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic
+              title="Contacts removed"
+              value={diff.contacts.removed.length}
+              valueStyle={diff.contacts.removed.length > 0 ? { color: "#cf1322" } : undefined}
+            />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Statistic title="Contacts unchanged" value={diff.contacts.unchanged} />
+          </Col>
+        </Row>
+      </Card>
 
       {warningHouseholds.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="font-medium">
-            Warning: removing households that have Family &amp; Friend contacts
-          </p>
-          <ul className="mt-2 list-disc pl-5">
-            {warningHouseholds.map((h) => (
-              <li key={h.id}>
-                <strong>{h.displayName}</strong> — its Family &amp; Friend
-                contacts will lose their inherited address.
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Alert
+          type="warning"
+          showIcon
+          message="Removing households that have Family & Friend contacts"
+          description={
+            <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+              {warningHouseholds.map((h) => (
+                <li key={h.id}>
+                  <strong>{h.displayName}</strong> — its Family &amp; Friend contacts will
+                  lose their inherited address.
+                </li>
+              ))}
+            </ul>
+          }
+        />
       )}
 
       <DiffSection
         title="Households added"
         items={diff.households.added.map((h) => h.displayName)}
-        color="green"
+        color="success"
       />
       <DiffSection
         title="Households updated"
@@ -299,86 +330,48 @@ function DiffStep({
           ({ before, after }) =>
             `${before.displayName}${before.displayName !== after.displayName ? ` → ${after.displayName}` : ""}`
         )}
-        color="blue"
+        color="processing"
       />
       <DiffSection
         title="Households removed (will be soft-deleted)"
         items={diff.households.removed.map(
-          (h) =>
-            `${h.displayName}${h.hasFamilyFriendContacts ? " ⚠ has Family & Friend contacts" : ""}`
+          (h) => `${h.displayName}${h.hasFamilyFriendContacts ? " ⚠ has Family & Friend contacts" : ""}`
         )}
-        color="red"
+        color="error"
       />
       <DiffSection
         title="Contacts added"
-        items={diff.contacts.added.map(
-          (c) => `${c.firstName} ${c.lastName} (${c.category})`
-        )}
-        color="green"
+        items={diff.contacts.added.map((c) => `${c.firstName} ${c.lastName} (${c.category})`)}
+        color="success"
       />
       <DiffSection
         title="Contacts updated"
-        items={diff.contacts.updated.map(
-          ({ before }) => `${before.firstName} ${before.lastName}`
-        )}
-        color="blue"
+        items={diff.contacts.updated.map(({ before }) => `${before.firstName} ${before.lastName}`)}
+        color="processing"
       />
       <DiffSection
         title="Contacts removed (will be soft-deleted)"
         items={diff.contacts.removed.map((c) => c.name)}
-        color="red"
+        color="error"
       />
 
       {applyError && (
-        <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-          {applyError}
-        </div>
+        <Alert type="error" showIcon message={applyError} />
       )}
 
-      <div className="flex gap-3">
-        <button
-          onClick={onBack}
-          disabled={isPending}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-        >
-          ← Back
-        </button>
+      <Space>
+        <Button onClick={onBack} disabled={isPending}>
+          Back
+        </Button>
         {totalChanges > 0 && (
-          <button
-            onClick={onConfirm}
-            disabled={isPending}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-          >
+          <Button type="primary" onClick={onConfirm} loading={isPending}>
             {isPending
               ? "Applying…"
               : `Apply ${totalChanges} change${totalChanges > 1 ? "s" : ""}`}
-          </button>
+          </Button>
         )}
-      </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  warn,
-}: {
-  label: string;
-  value: number;
-  warn?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd
-        className={`text-lg font-semibold ${
-          warn && value > 0 ? "text-red-600" : "text-gray-900"
-        }`}
-      >
-        {value}
-      </dd>
-    </div>
+      </Space>
+    </Space>
   );
 }
 
@@ -389,24 +382,29 @@ function DiffSection({
 }: {
   title: string;
   items: string[];
-  color: "green" | "blue" | "red";
+  color: "success" | "processing" | "error";
 }) {
   if (items.length === 0) return null;
-  const colorClasses = {
-    green: "border-green-200 bg-green-50 text-green-800",
-    blue: "border-blue-200 bg-blue-50 text-blue-800",
-    red: "border-red-200 bg-red-50 text-red-800",
-  };
+  const tagColor = color === "success" ? "green" : color === "error" ? "red" : "blue";
   return (
-    <div className={`rounded-md border p-4 ${colorClasses[color]}`}>
-      <p className="text-sm font-medium">
-        {title} ({items.length})
-      </p>
-      <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm">
+    <Card
+      size="small"
+      title={
+        <Space>
+          <Tag color={tagColor} bordered={false}>
+            {items.length}
+          </Tag>
+          {title}
+        </Space>
+      }
+    >
+      <ul style={{ margin: 0, paddingLeft: 20 }}>
         {items.map((item, i) => (
-          <li key={i}>{item}</li>
+          <li key={i} style={{ fontSize: 13 }}>
+            {item}
+          </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }

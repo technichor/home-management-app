@@ -2,6 +2,15 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ContactCategory, ActivityAction } from "@prisma/client";
+import {
+  Descriptions,
+  Tag,
+  Space,
+  Typography,
+  Table,
+  Breadcrumb,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   FAMILY_FRIEND: "Family & Friend",
@@ -10,33 +19,19 @@ const CATEGORY_LABELS: Record<ContactCategory, string> = {
   HOUSEHOLD_ADMIN: "Household Admin",
 };
 
+const CATEGORY_COLORS: Record<ContactCategory, string> = {
+  FAMILY_FRIEND: "blue",
+  SERVICE_PROVIDER: "green",
+  MEDICAL_SCHOOL: "purple",
+  HOUSEHOLD_ADMIN: "orange",
+};
+
 const ACTION_LABELS: Record<ActivityAction, string> = {
   CREATED: "Created",
   UPDATED: "Updated",
   DELETED: "Deleted",
   RESTORED: "Restored",
 };
-
-function Field({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value?: string | null;
-  note?: string;
-}) {
-  if (!value) return null;
-  return (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-        {label}
-        {note && <span className="ml-1 normal-case text-gray-400">({note})</span>}
-      </dt>
-      <dd className="mt-0.5 text-sm text-gray-900">{value}</dd>
-    </div>
-  );
-}
 
 export default async function ContactDetailPage({
   params,
@@ -69,198 +64,181 @@ export default async function ContactDetailPage({
 
   const isDeleted = !!contact.deletedAt;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <Link
-            href={`/${slug}/contacts`}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            ← Contacts
+  // Build address display
+  let addressValue: string | null = null;
+  let addressLabel = "Address";
+  let addressExtra: React.ReactNode = null;
+
+  if (contact.category === "FAMILY_FRIEND") {
+    addressLabel = "Address (from household)";
+    if (contact.household?.mailingAddress) {
+      addressValue = contact.household.mailingAddress;
+      if (contact.household.urlSlug) {
+        addressExtra = (
+          <Link href={`/${slug}/contacts/households/${contact.household.id}`}>
+            {contact.household.displayName}
           </Link>
-          <h1 className="mt-2 text-xl font-semibold">
+        );
+      }
+    }
+  } else {
+    addressValue = contact.address;
+  }
+
+  const descItems = [
+    {
+      key: "category",
+      label: "Category",
+      children: (
+        <Tag color={CATEGORY_COLORS[contact.category]} bordered={false}>
+          {CATEGORY_LABELS[contact.category]}
+        </Tag>
+      ),
+    },
+    ...(contact.category === "FAMILY_FRIEND"
+      ? [
+          {
+            key: "address",
+            label: "Address (from household)",
+            children: addressValue ? (
+              <span>
+                {addressValue}
+                {addressExtra && <span style={{ marginLeft: 8, color: "#999" }}>— {addressExtra}</span>}
+              </span>
+            ) : (
+              <Typography.Text type="secondary">
+                No address on household record
+                {contact.household && (
+                  <>
+                    {" — "}
+                    <Link href={`/${slug}/contacts/households/${contact.household.id}`}>
+                      {contact.household.displayName}
+                    </Link>
+                  </>
+                )}
+              </Typography.Text>
+            ),
+          },
+        ]
+      : [
+          ...(contact.address
+            ? [{ key: "address", label: "Address", children: contact.address }]
+            : []),
+          ...(contact.household
+            ? [
+                {
+                  key: "household",
+                  label: "Household",
+                  children: (
+                    <Link href={`/${slug}/contacts/households/${contact.household.id}`}>
+                      {contact.household.displayName}
+                    </Link>
+                  ),
+                },
+              ]
+            : []),
+        ]),
+    ...(contact.phoneMobile ? [{ key: "mobile", label: "Mobile", children: contact.phoneMobile }] : []),
+    ...(contact.phoneHome ? [{ key: "homePhone", label: "Home phone", children: contact.phoneHome }] : []),
+    ...(contact.phoneWork ? [{ key: "workPhone", label: "Work phone", children: contact.phoneWork }] : []),
+    ...(contact.emailPrimary ? [{ key: "email1", label: "Primary email", children: contact.emailPrimary }] : []),
+    ...(contact.emailSecondary ? [{ key: "email2", label: "Secondary email", children: contact.emailSecondary }] : []),
+    ...(contact.linkedFamilyMember
+      ? [{ key: "linkedMember", label: "Linked family member", children: contact.linkedFamilyMember }]
+      : []),
+    ...(contact.importantDate1
+      ? [{ key: "date1", label: contact.importantDate1Label ?? "Important date 1", children: contact.importantDate1 }]
+      : []),
+    ...(contact.importantDate2
+      ? [{ key: "date2", label: contact.importantDate2Label ?? "Important date 2", children: contact.importantDate2 }]
+      : []),
+    ...(contact.tags.length > 0
+      ? [
+          {
+            key: "tags",
+            label: "Tags",
+            children: (
+              <Space wrap size={4}>
+                {contact.tags.map((tag) => (
+                  <Tag key={tag} bordered={false}>
+                    {tag}
+                  </Tag>
+                ))}
+              </Space>
+            ),
+          },
+        ]
+      : []),
+    ...(contact.relationshipNotes
+      ? [{ key: "relNotes", label: "Relationship notes", children: contact.relationshipNotes, span: 3 }]
+      : []),
+    ...(contact.notes
+      ? [{ key: "notes", label: "Notes", children: <span style={{ whiteSpace: "pre-wrap" }}>{contact.notes}</span>, span: 3 }]
+      : []),
+  ];
+
+  type LogRow = { key: string; when: string; action: string; source: string };
+  const logColumns: ColumnsType<LogRow> = [
+    { title: "When", dataIndex: "when", key: "when" },
+    { title: "Action", dataIndex: "action", key: "action" },
+    { title: "Source", dataIndex: "source", key: "source" },
+  ];
+  const logData: LogRow[] = activityLog.map((e) => ({
+    key: e.id,
+    when: e.timestamp.toLocaleString(),
+    action: ACTION_LABELS[e.action],
+    source: e.source === "CSV_IMPORT" ? "CSV import" : "Manual",
+  }));
+
+  return (
+    <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <Breadcrumb
+        items={[
+          { title: <Link href={`/${slug}/contacts`}>Contacts</Link> },
+          { title: `${contact.firstName} ${contact.lastName}` },
+        ]}
+      />
+
+      <div>
+        <Space align="baseline" size="small">
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            {contact.favorite && (
+              <span style={{ color: "#faad14", marginRight: 8 }}>★</span>
+            )}
             {contact.firstName} {contact.lastName}
             {contact.nickname && (
-              <span className="ml-2 text-base font-normal text-gray-400">
+              <Typography.Text
+                type="secondary"
+                style={{ fontSize: 16, fontWeight: 400, marginLeft: 8 }}
+              >
                 ({contact.nickname})
-              </span>
+              </Typography.Text>
             )}
-            {contact.favorite && (
-              <span className="ml-2 text-yellow-500" title="Favorite">
-                ★
-              </span>
-            )}
-          </h1>
-          {isDeleted && (
-            <span className="mt-1 inline-block rounded bg-red-50 px-2 py-0.5 text-xs text-red-600">
-              Removed
-            </span>
-          )}
-        </div>
+          </Typography.Title>
+          {isDeleted && <Tag color="error">Removed</Tag>}
+        </Space>
       </div>
 
-      <div className="rounded-md border border-gray-200 bg-white p-4">
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Category" value={CATEGORY_LABELS[contact.category]} />
+      <Descriptions
+        bordered
+        size="small"
+        column={{ xs: 1, sm: 2, lg: 3 }}
+        items={descItems}
+      />
 
-          {/* Address — inherited from household for FAMILY_FRIEND */}
-          {contact.category === "FAMILY_FRIEND" ? (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Address{" "}
-                <span className="normal-case text-gray-400">
-                  (from household)
-                </span>
-              </dt>
-              <dd className="mt-0.5 text-sm text-gray-900">
-                {contact.household?.mailingAddress ? (
-                  <>
-                    {contact.household.mailingAddress}
-                    {contact.household.urlSlug && (
-                      <span className="ml-1 text-gray-400">
-                        —{" "}
-                        <Link
-                          href={`/${slug}/contacts/households/${contact.household.id}`}
-                          className="hover:underline"
-                        >
-                          {contact.household.displayName}
-                        </Link>
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-400">
-                    No address on household record
-                    {contact.household && (
-                      <>
-                        {" — "}
-                        <Link
-                          href={`/${slug}/contacts/households/${contact.household.id}`}
-                          className="hover:underline"
-                        >
-                          {contact.household.displayName}
-                        </Link>
-                      </>
-                    )}
-                  </span>
-                )}
-              </dd>
-            </div>
-          ) : (
-            <Field label="Address" value={contact.address} />
-          )}
-
-          {contact.household && contact.category !== "FAMILY_FRIEND" && (
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Household
-              </dt>
-              <dd className="mt-0.5 text-sm text-gray-900">
-                <Link
-                  href={`/${slug}/contacts/households/${contact.household.id}`}
-                  className="hover:underline"
-                >
-                  {contact.household.displayName}
-                </Link>
-              </dd>
-            </div>
-          )}
-
-          <Field label="Mobile" value={contact.phoneMobile} />
-          <Field label="Home phone" value={contact.phoneHome} />
-          <Field label="Work phone" value={contact.phoneWork} />
-          <Field label="Primary email" value={contact.emailPrimary} />
-          <Field label="Secondary email" value={contact.emailSecondary} />
-          <Field label="Linked family member" value={contact.linkedFamilyMember} />
-
-          {contact.importantDate1 && (
-            <Field
-              label={contact.importantDate1Label ?? "Important date 1"}
-              value={contact.importantDate1}
-            />
-          )}
-          {contact.importantDate2 && (
-            <Field
-              label={contact.importantDate2Label ?? "Important date 2"}
-              value={contact.importantDate2}
-            />
-          )}
-        </dl>
-
-        {contact.tags.length > 0 && (
-          <div className="mt-4">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Tags
-            </dt>
-            <dd className="mt-1 flex flex-wrap gap-1">
-              {contact.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                >
-                  {tag}
-                </span>
-              ))}
-            </dd>
-          </div>
-        )}
-
-        {contact.relationshipNotes && (
-          <div className="mt-4">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Relationship notes
-            </dt>
-            <dd className="mt-0.5 text-sm text-gray-900">
-              {contact.relationshipNotes}
-            </dd>
-          </div>
-        )}
-
-        {contact.notes && (
-          <div className="mt-4">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Notes
-            </dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-sm text-gray-900">
-              {contact.notes}
-            </dd>
-          </div>
-        )}
-      </div>
-
-      {/* Activity log */}
       {activityLog.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-gray-700">
+          <Typography.Title level={5} style={{ marginBottom: 12 }}>
             Activity log
-          </h2>
-          <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2">When</th>
-                  <th className="px-4 py-2">Action</th>
-                  <th className="px-4 py-2">Source</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {activityLog.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="px-4 py-2 text-gray-500">
-                      {entry.timestamp.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2">{ACTION_LABELS[entry.action]}</td>
-                    <td className="px-4 py-2 text-gray-500">
-                      {entry.source === "CSV_IMPORT" ? "CSV import" : "Manual"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          </Typography.Title>
+          <Table
+            dataSource={logData}
+            columns={logColumns}
+            size="small"
+            pagination={false}
+          />
         </div>
       )}
-    </div>
+    </Space>
   );
 }

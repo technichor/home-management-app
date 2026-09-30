@@ -4,6 +4,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { loginAction } from "./actions";
+import { Card, Input, Button, Space, Typography, Alert } from "antd";
 
 export default async function HouseholdLoginPage({
   params,
@@ -34,43 +35,56 @@ export default async function HouseholdLoginPage({
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold">{household.displayName}</h1>
-          <p className="mt-1 text-sm text-gray-600">Enter the household password to continue.</p>
-        </div>
-
-        {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-
-        <form action={loginAction.bind(null, slug)} className="space-y-4">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+        background: "#f5f5f5",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 360 }}>
+        <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoFocus
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
-            />
+            <Typography.Title level={3} style={{ marginBottom: 4 }}>
+              {household.displayName}
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              Enter the household password to continue.
+            </Typography.Text>
           </div>
-          <button
-            type="submit"
-            className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
-          >
-            Log in
-          </button>
-        </form>
+
+          <Card>
+            {error && (
+              <Alert
+                type="error"
+                message={error}
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
+            <form action={loginAction.bind(null, slug)}>
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <div>
+                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                    Password
+                  </Typography.Text>
+                  <Input.Password
+                    name="password"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <Button type="primary" htmlType="submit" block>
+                  Log in
+                </Button>
+              </Space>
+            </form>
+          </Card>
+        </Space>
       </div>
     </div>
   );
