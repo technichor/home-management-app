@@ -1,6 +1,14 @@
-import { createHouseholdAction } from "./actions";
+"use client";
+
+import { useActionState } from "react";
+import { createHouseholdAction, SetupState } from "./actions";
 
 export default function SetupPage() {
+  const [state, formAction, isPending] = useActionState<SetupState, FormData>(
+    createHouseholdAction,
+    null
+  );
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-md space-y-6">
@@ -12,7 +20,13 @@ export default function SetupPage() {
           </p>
         </div>
 
-        <form action={createHouseholdAction} className="space-y-4">
+        {state?.error && (
+          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {state.error}
+          </div>
+        )}
+
+        <form action={formAction} className="space-y-4">
           <div>
             <label
               htmlFor="displayName"
@@ -78,9 +92,10 @@ export default function SetupPage() {
 
           <button
             type="submit"
-            className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+            disabled={isPending}
+            className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
           >
-            Create household account
+            {isPending ? "Creating…" : "Create household account"}
           </button>
         </form>
       </div>

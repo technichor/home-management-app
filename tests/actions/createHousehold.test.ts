@@ -53,25 +53,29 @@ beforeEach(() => {
 });
 
 describe("createHouseholdAction", () => {
-  it("throws validation error when displayName is missing", async () => {
+  it("returns error when displayName is missing", async () => {
     const fd = makeFormData({ ...validInput, displayName: "" });
-    await expect(createHouseholdAction(fd)).rejects.toThrow("Validation failed");
+    const result = await createHouseholdAction(null, fd);
+    expect(result?.error).toMatch(/required/i);
   });
 
-  it("throws validation error for bad slug format", async () => {
+  it("returns error for bad slug format", async () => {
     const fd = makeFormData({ ...validInput, urlSlug: "Bad Slug!" });
-    await expect(createHouseholdAction(fd)).rejects.toThrow("Validation failed");
+    const result = await createHouseholdAction(null, fd);
+    expect(result?.error).toBeTruthy();
   });
 
-  it("throws validation error for short password", async () => {
+  it("returns error for short password", async () => {
     const fd = makeFormData({ ...validInput, password: "short" });
-    await expect(createHouseholdAction(fd)).rejects.toThrow("Validation failed");
+    const result = await createHouseholdAction(null, fd);
+    expect(result?.error).toMatch(/8 characters/i);
   });
 
-  it("throws when slug is already taken", async () => {
+  it("returns error when slug is already taken", async () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: "existing" } as any);
     const fd = makeFormData(validInput);
-    await expect(createHouseholdAction(fd)).rejects.toThrow("already taken");
+    const result = await createHouseholdAction(null, fd);
+    expect(result?.error).toMatch(/already taken/i);
   });
 
   it("creates household, logs activity, sets session, then redirects", async () => {
@@ -84,7 +88,7 @@ describe("createHouseholdAction", () => {
     vi.mocked(getIronSession).mockResolvedValue(mockSession as any);
 
     const fd = makeFormData(validInput);
-    await expect(createHouseholdAction(fd)).rejects.toThrow("REDIRECT:/reynolds-family/contacts");
+    await expect(createHouseholdAction(null, fd)).rejects.toThrow("REDIRECT:/reynolds-family/contacts");
 
     expect(prisma.household.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -115,7 +119,7 @@ describe("createHouseholdAction", () => {
     } as any);
 
     const fd = makeFormData(validInput);
-    await expect(createHouseholdAction(fd)).rejects.toThrow("REDIRECT:");
+    await expect(createHouseholdAction(null, fd)).rejects.toThrow("REDIRECT:");
 
     expect(bcrypt.hash).toHaveBeenCalledWith("secure-password", 12);
   });

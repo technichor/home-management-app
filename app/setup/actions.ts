@@ -8,7 +8,12 @@ import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { createHouseholdSchema } from "@/lib/validations";
 
-export async function createHouseholdAction(formData: FormData) {
+export type SetupState = { error: string } | null;
+
+export async function createHouseholdAction(
+  _prev: SetupState,
+  formData: FormData
+): Promise<SetupState> {
   const raw = {
     displayName: formData.get("displayName") as string,
     urlSlug: formData.get("urlSlug") as string,
@@ -17,21 +22,17 @@ export async function createHouseholdAction(formData: FormData) {
 
   const parsed = createHouseholdSchema.safeParse(raw);
   if (!parsed.success) {
-    // In a production app we'd return these to the UI; for now throw so the
-    // browser shows a server error. An in-app form would use useActionState.
     const messages = parsed.error.issues.map((i) => i.message).join(", ");
-    throw new Error(`Validation failed: ${messages}`);
+    return { error: messages };
   }
 
   const { displayName, urlSlug, password } = parsed.data;
 
-  const existing = await prisma.household.findUnique({
-    where: { urlSlug },
-  });
+  const existing = await prisma.household.findUnique({ where: { urlSlug } });
   if (existing) {
-    throw new Error(
-      `The slug "${urlSlug}" is already taken. Choose a different one.`
-    );
+    return {
+      error: `The slug "${urlSlug}" is already taken. Choose a different one.`,
+    };
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -41,7 +42,7 @@ export async function createHouseholdAction(formData: FormData) {
       displayName,
       urlSlug,
       passwordHash,
-      headOfHousehold: displayName, // placeholder per spec
+      headOfHousehold: displayName,
     },
   });
 
