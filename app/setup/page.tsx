@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import { createHouseholdAction, SetupState } from "./actions";
 
 export default function SetupPage() {
@@ -8,6 +9,7 @@ export default function SetupPage() {
     createHouseholdAction,
     null
   );
+  const router = useRouter();
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -98,6 +100,38 @@ export default function SetupPage() {
             {isPending ? "Creating…" : "Create household account"}
           </button>
         </form>
+
+        <div className="border-t border-gray-200 pt-6">
+          <p className="mb-3 text-sm font-medium text-gray-700">
+            Already have an account?
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const slug = (e.currentTarget.elements.namedItem("slug") as HTMLInputElement).value.trim();
+              if (slug) router.push(`/${slug}`);
+            }}
+            className="flex gap-2"
+          >
+            <div className="flex flex-1 rounded-md shadow-sm">
+              <span className="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500">
+                /
+              </span>
+              <input
+                name="slug"
+                type="text"
+                placeholder="your-slug"
+                className="block w-full rounded-r-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Go to login
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
