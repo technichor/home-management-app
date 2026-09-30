@@ -46,6 +46,7 @@ model Household {
 
   contacts       Contact[]
   importVersions ImportVersion[]
+  lists          List[]
 }
 
 model Contact {
@@ -74,6 +75,8 @@ model Contact {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   deletedAt           DateTime?
+
+  assignedListItems   ListItem[]
 }
 
 // Polymorphic log — entityId can reference either a Contact or Household id.
@@ -96,4 +99,35 @@ model ImportVersion {
   summary            Json
   contactsSnapshot   Json
   householdsSnapshot Json
+}
+
+model List {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  name        String
+  tags        String[]
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items ListItem[]
+}
+
+model ListItem {
+  id                  String    @id @default(cuid())
+  listId              String
+  list                List      @relation(fields: [listId], references: [id])
+  text                String
+  quantity            String?
+  assignedToContactId String?
+  assignedToContact   Contact?  @relation(fields: [assignedToContactId], references: [id])
+  notes               String?
+  checked             Boolean   @default(false)
+  checkedAt           DateTime?
+  position            Int
+  rating              Float     @default(1500)
+  comparisonCount     Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
