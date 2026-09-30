@@ -33,7 +33,7 @@ export default function SetupPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <Typography.Title level={3} style={{ marginBottom: 4 }}>
               Set up your household account
@@ -48,14 +48,14 @@ export default function SetupPage() {
             {state?.error && (
               <Alert
                 type="error"
-                message={state.error}
+                title={state.error}
                 showIcon
                 style={{ marginBottom: 16 }}
               />
             )}
 
             <form action={formAction}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 <div>
                   <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
                     Household display name <span style={{ color: "#ff4d4f" }}>*</span>

@@ -46,7 +46,7 @@ export default async function HouseholdLoginPage({
       }}
     >
       <div style={{ width: "100%", maxWidth: 360 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 600 }}>
               {household.displayName}
@@ -60,14 +60,14 @@ export default async function HouseholdLoginPage({
             {error && (
               <Alert
                 type="error"
-                message={error}
+                title={error}
                 showIcon
                 style={{ marginBottom: 16 }}
               />
             )}
 
             <form action={loginAction.bind(null, slug)}>
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 <div>
                   <strong style={{ fontSize: 14, display: "block", marginBottom: 4 }}>
                     Password

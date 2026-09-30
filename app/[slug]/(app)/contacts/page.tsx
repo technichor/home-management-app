@@ -57,7 +57,7 @@ export default async function ContactsPage({
   const allTags = [...new Set(allContacts.flatMap((c) => c.tags))].sort();
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+    <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
         Contacts{contacts.length > 0 ? ` (${contacts.length})` : ""}
       </h4>

@@ -89,7 +89,7 @@ export default async function ContactDetailPage({
       key: "category",
       label: "Category",
       children: (
-        <Tag color={CATEGORY_COLORS[contact.category]} bordered={false}>
+        <Tag color={CATEGORY_COLORS[contact.category]} variant="filled">
           {CATEGORY_LABELS[contact.category]}
         </Tag>
       ),
@@ -159,7 +159,7 @@ export default async function ContactDetailPage({
             children: (
               <Space wrap size={4}>
                 {contact.tags.map((tag) => (
-                  <Tag key={tag} bordered={false}>
+                  <Tag key={tag} variant="filled">
                     {tag}
                   </Tag>
                 ))}
@@ -190,7 +190,7 @@ export default async function ContactDetailPage({
   }));
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="large">
+    <Space orientation="vertical" style={{ width: "100%" }} size="large">
       <Breadcrumb
         items={[
           { title: <Link href={`/${slug}/contacts`}>Contacts</Link> },

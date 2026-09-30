@@ -86,7 +86,7 @@ export default async function RemovedPage({
   }));
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="large">
+    <Space orientation="vertical" style={{ width: "100%" }} size="large">
       <div>
         <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
           Removed items

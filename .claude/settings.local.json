@@ -21,7 +21,11 @@
       "Bash(antd info:*)",
       "Bash(antd doc:*)",
       "Bash(npx skills:*)",
-      "Bash(antd demo:*)"
+      "Bash(antd demo:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
     ]
   }
 }

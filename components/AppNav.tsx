@@ -35,7 +35,7 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
     ) : (
       <span>
         {mod.label}{" "}
-        <Tag bordered={false} style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px", marginLeft: 2 }}>
+        <Tag variant="filled" style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px", marginLeft: 2 }}>
           soon
         </Tag>
       </span>

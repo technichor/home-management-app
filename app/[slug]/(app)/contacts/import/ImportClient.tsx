@@ -70,7 +70,7 @@ export default function ImportClient({ slug }: { slug: string }) {
   }
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="large">
+    <Space orientation="vertical" style={{ width: "100%" }} size="large">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
           Import CSV
@@ -120,8 +120,8 @@ export default function ImportClient({ slug }: { slug: string }) {
       )}
 
       {step === "success" && (
-        <Space direction="vertical" size="middle">
-          <Alert message="Import applied successfully." type="success" showIcon />
+        <Space orientation="vertical" size="middle">
+          <Alert title="Import applied successfully." type="success" showIcon />
           <Space>
             <Button
               onClick={() => {
@@ -155,11 +155,11 @@ function UploadStep({
   isPending: boolean;
 }) {
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+    <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <Alert
         type="info"
         showIcon
-        message="How importing works"
+        title="How importing works"
         description={
           <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
             <li>Export your current data, edit in a spreadsheet, then upload both files here.</li>
@@ -210,7 +210,7 @@ function UploadStep({
             type="error"
             showIcon
             style={{ marginBottom: 16 }}
-            message={`${errors.length} error${errors.length > 1 ? "s" : ""} found — fix these before importing`}
+            title={`${errors.length} error${errors.length > 1 ? "s" : ""} found — fix these before importing`}
             description={
               <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
                 {errors.map((e, i) => (
@@ -258,7 +258,7 @@ function DiffStep({
   const warningHouseholds = diff.households.removed.filter((h) => h.hasFamilyFriendContacts);
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+    <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <Card size="small">
         <Typography.Text strong>
           {totalChanges === 0
@@ -305,7 +305,7 @@ function DiffStep({
         <Alert
           type="warning"
           showIcon
-          message="Removing households that have Family & Friend contacts"
+          title="Removing households that have Family & Friend contacts"
           description={
             <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
               {warningHouseholds.map((h) => (
@@ -356,7 +356,7 @@ function DiffStep({
       />
 
       {applyError && (
-        <Alert type="error" showIcon message={applyError} />
+        <Alert type="error" showIcon title={applyError} />
       )}
 
       <Space>
@@ -391,7 +391,7 @@ function DiffSection({
       size="small"
       title={
         <Space>
-          <Tag color={tagColor} bordered={false}>
+          <Tag color={tagColor} variant="filled">
             {items.length}
           </Tag>
           {title}

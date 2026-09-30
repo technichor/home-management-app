@@ -59,7 +59,7 @@ export default async function HouseholdDetailPage({
             children: (
               <Space wrap size={4}>
                 {household.tags.map((tag) => (
-                  <Tag key={tag} bordered={false}>
+                  <Tag key={tag} variant="filled">
                     {tag}
                   </Tag>
                 ))}
@@ -124,7 +124,7 @@ export default async function HouseholdDetailPage({
   }));
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="large">
+    <Space orientation="vertical" style={{ width: "100%" }} size="large">
       <Breadcrumb
         items={[
           { title: <Link href={`/${slug}/contacts/households`}>Households</Link> },

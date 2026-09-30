@@ -31,7 +31,7 @@ export default async function HouseholdsPage({
   });
 
   return (
-    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+    <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
         Households ({households.length})
       </h4>
@@ -61,7 +61,7 @@ export default async function HouseholdsPage({
                     <Space size="small">
                       <span>{h.displayName}</span>
                       {isOurs && (
-                        <Tag color="blue" bordered={false} style={{ fontWeight: 400 }}>
+                        <Tag color="blue" variant="filled" style={{ fontWeight: 400 }}>
                           Our household
                         </Tag>
                       )}
@@ -81,7 +81,7 @@ export default async function HouseholdsPage({
                   {h.tags.length > 0 && (
                     <Space wrap size={4} style={{ marginTop: 8 }}>
                       {h.tags.map((tag) => (
-                        <Tag key={tag} bordered={false} style={{ fontSize: 11 }}>
+                        <Tag key={tag} variant="filled" style={{ fontSize: 11 }}>
                           {tag}
                         </Tag>
                       ))}

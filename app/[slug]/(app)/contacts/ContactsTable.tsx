@@ -45,7 +45,7 @@ export default function ContactsTable({ contacts, slug }: ContactsTableProps) {
       title: "Name",
       key: "name",
       render: (_, c) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Link href={`/${slug}/contacts/${c.id}`} style={{ fontWeight: 500 }}>
             {c.favorite && (
               <StarFilled style={{ color: "#faad14", marginRight: 4, fontSize: 12 }} />
@@ -60,7 +60,7 @@ export default function ContactsTable({ contacts, slug }: ContactsTableProps) {
           {c.tags.length > 0 && (
             <Space wrap size={2}>
               {c.tags.map((tag) => (
-                <Tag key={tag} bordered={false} style={{ fontSize: 11 }}>
+                <Tag key={tag} variant="filled" style={{ fontSize: 11 }}>
                   {tag}
                 </Tag>
               ))}
@@ -74,7 +74,7 @@ export default function ContactsTable({ contacts, slug }: ContactsTableProps) {
       key: "category",
       responsive: ["sm"],
       render: (_, c) => (
-        <Tag color={CATEGORY_COLORS[c.category]} bordered={false}>
+        <Tag color={CATEGORY_COLORS[c.category]} variant="filled">
           {CATEGORY_LABELS[c.category]}
         </Tag>
       ),

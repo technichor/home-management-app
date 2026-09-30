@@ -27,7 +27,7 @@ export default async function RootPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 24, fontWeight: 600 }}>
               Home Management
@@ -38,7 +38,7 @@ export default async function RootPage() {
           </div>
 
           <Card>
-            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
               <Link href="/setup" style={{ display: "block" }}>
                 <Button type="primary" block>
                   Set up a new household account
