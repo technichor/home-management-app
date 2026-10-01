@@ -65,6 +65,13 @@ describe("createListAction", () => {
     await expect(createListAction("reynolds", "x", [])).rejects.toThrow("Not authenticated");
     expect(prisma.list.create).not.toHaveBeenCalled();
   });
+
+  it("trims the name and rejects a blank one", async () => {
+    await createListAction("reynolds", "  Trip  ", []);
+    expect(prisma.list.create).toHaveBeenCalledWith({ data: { householdId: "h1", name: "Trip", tags: [] } });
+    await expect(createListAction("reynolds", "   ", [])).rejects.toThrow("List name is required");
+    expect(prisma.list.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("requireList (shared by every item action)", () => {

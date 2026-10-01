@@ -12,9 +12,11 @@ import { updateRatings, ComparisonOutcome, DEFAULT_RATING } from "@/lib/elo";
 export async function createListAction(slug: string, name: string, tags: string[]) {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   if (!session.householdId) throw new Error("Not authenticated");
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("List name is required");
 
   const list = await prisma.list.create({
-    data: { householdId: session.householdId, name, tags },
+    data: { householdId: session.householdId, name: cleanName, tags },
   });
 
   revalidatePath(`/${slug}/lists`);
@@ -23,7 +25,9 @@ export async function createListAction(slug: string, name: string, tags: string[
 
 export async function renameListAction(id: string, name: string, slug: string) {
   await requireList(id);
-  await prisma.list.update({ where: { id }, data: { name } });
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("List name is required");
+  await prisma.list.update({ where: { id }, data: { name: cleanName } });
   revalidatePath(`/${slug}/lists`);
   revalidatePath(`/${slug}/lists/archived`);
   revalidatePath(`/${slug}/lists/${id}`);
