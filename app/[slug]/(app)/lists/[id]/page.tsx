@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { cookies } from "next/headers";
+import { getIronSession } from "iron-session";
 import Link from "next/link";
 import { Breadcrumb } from "antd";
+import { prisma } from "@/lib/db";
+import { sessionOptions, SessionData } from "@/lib/session";
+import ListDetailClient from "./ListDetailClient";
 
 export default async function ListDetailPage({
   params,
@@ -9,9 +13,19 @@ export default async function ListDetailPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
+  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
 
-  const list = await prisma.list.findUnique({ where: { id } });
-  if (!list) notFound();
+  const list = await prisma.list.findUnique({
+    where: { id },
+    include: { items: { orderBy: { position: "asc" } } },
+  });
+  if (!list || list.householdId !== session.householdId) notFound();
+
+  const contacts = await prisma.contact.findMany({
+    where: { deletedAt: null },
+    select: { id: true, firstName: true, lastName: true },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
 
   return (
     <div>
@@ -23,7 +37,19 @@ export default async function ListDetailPage({
         ]}
       />
       <h3 style={{ marginTop: 0, fontSize: 20, fontWeight: 600 }}>{list.name}</h3>
-      <p style={{ color: "rgba(0,0,0,.45)" }}>Items coming in the next build stage.</p>
+      <ListDetailClient
+        slug={slug}
+        listId={list.id}
+        items={list.items.map((i) => ({
+          id: i.id,
+          text: i.text,
+          quantity: i.quantity,
+          notes: i.notes,
+          checked: i.checked,
+          assignedToContactId: i.assignedToContactId,
+        }))}
+        contacts={contacts.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
+      />
     </div>
   );
 }
