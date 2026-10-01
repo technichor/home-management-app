@@ -124,7 +124,11 @@ export async function reorderItemsAction(listId: string, slug: string, orderedId
   }
   const existing = await prisma.listItem.findMany({ where: { listId }, select: { id: true } });
   const known = new Set(existing.map((e) => e.id));
-  if (orderedIds.length !== known.size || !orderedIds.every((id) => known.has(id))) {
+  if (
+    orderedIds.length !== known.size ||
+    new Set(orderedIds).size !== known.size ||
+    !orderedIds.every((id) => known.has(id))
+  ) {
     throw new Error("Reorder list does not match the list's items");
   }
   await prisma.$transaction(
