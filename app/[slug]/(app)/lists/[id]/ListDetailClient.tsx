@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, Input, Modal, Select, Tag, Empty, App } from "antd";
-import { DeleteOutlined, EditOutlined, HolderOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, HolderOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   DndContext,
   closestCenter,
@@ -28,6 +28,7 @@ import {
   deleteItemAction,
   reorderItemsAction,
 } from "../actions";
+import ImportItemsModal from "../ImportItemsModal";
 
 type Item = {
   id: string;
@@ -86,11 +87,15 @@ function ItemRow({
 export default function ListDetailClient({
   slug,
   listId,
+  listName,
+  openImport,
   items: serverItems,
   contacts,
 }: {
   slug: string;
   listId: string;
+  listName: string;
+  openImport: boolean;
   items: Item[];
   contacts: ContactOption[];
 }) {
@@ -98,6 +103,7 @@ export default function ListDetailClient({
   const { message, modal } = App.useApp();
   const [items, setItems] = useState(serverItems);
   const [draft, setDraft] = useState("");
+  const [importOpen, setImportOpen] = useState(openImport);
   const [editing, setEditing] = useState<Item | null>(null);
   const [editForm, setEditForm] = useState({
     text: "",
@@ -191,6 +197,11 @@ export default function ListDetailClient({
 
   return (
     <div style={{ maxWidth: 720 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
+          Import CSV
+        </Button>
+      </div>
       <Input.TextArea
         autoSize={{ minRows: 1, maxRows: 6 }}
         placeholder="Add an item and press Enter (paste several lines to add several)"
@@ -221,6 +232,19 @@ export default function ListDetailClient({
           </SortableContext>
         </DndContext>
       )}
+
+      <ImportItemsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onDone={() => {
+          setImportOpen(false);
+          router.replace(`/${slug}/lists/${listId}`);
+          router.refresh();
+        }}
+        listId={listId}
+        listName={listName}
+        slug={slug}
+      />
 
       <Modal
         title="Edit item"

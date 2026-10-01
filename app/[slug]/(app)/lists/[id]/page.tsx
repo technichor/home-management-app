@@ -9,10 +9,13 @@ import ListDetailClient from "./ListDetailClient";
 
 export default async function ListDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; id: string }>;
+  searchParams: Promise<{ import?: string }>;
 }) {
   const { slug, id } = await params;
+  const { import: importParam } = await searchParams;
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
 
   const list = await prisma.list.findUnique({
@@ -40,6 +43,8 @@ export default async function ListDetailPage({
       <ListDetailClient
         slug={slug}
         listId={list.id}
+        listName={list.name}
+        openImport={importParam === "1"}
         items={list.items.map((i) => ({
           id: i.id,
           text: i.text,

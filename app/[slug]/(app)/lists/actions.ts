@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
+import { parseListItemsCSV } from "@/lib/listCsv";
 
 export async function createListAction(slug: string, name: string, tags: string[]) {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
@@ -121,4 +122,20 @@ export async function reorderItemsAction(listId: string, slug: string, orderedId
     orderedIds.map((id, position) => prisma.listItem.update({ where: { id }, data: { position } }))
   );
   revalidatePath(`/${slug}/lists/${listId}`);
+}
+
+export async function importItemsAction(listId: string, slug: string, csvText: string) {
+  await requireList(listId);
+  const { items, errors } = parseListItemsCSV(csvText);
+  if (errors.length > 0) return { added: 0, errors };
+
+  // Append-only: never touches or removes existing items.
+  const last = await prisma.listItem.aggregate({ where: { listId }, _max: { position: true } });
+  const start = (last._max.position ?? -1) + 1;
+  await prisma.listItem.createMany({
+    data: items.map((item, i) => ({ listId, ...item, position: start + i })),
+  });
+  revalidatePath(`/${slug}/lists/${listId}`);
+  revalidatePath(`/${slug}/lists`);
+  return { added: items.length, errors: [] };
 }

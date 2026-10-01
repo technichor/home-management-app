@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Button, Tag, Space, Modal, Input, Dropdown, Empty } from "antd";
+import { Button, Tag, Space, Modal, Input, Dropdown, Empty, Checkbox } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import {
@@ -34,6 +34,7 @@ export default function ListsClient({
   const [createName, setCreateName] = useState("");
   const [createTags, setCreateTags] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  const [createImport, setCreateImport] = useState(false);
 
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameName, setRenameName] = useState("");
@@ -51,7 +52,8 @@ export default function ListsClient({
       setCreateOpen(false);
       setCreateName("");
       setCreateTags("");
-      router.push(`/${slug}/lists/${id}`);
+      router.push(`/${slug}/lists/${id}${createImport ? "?import=1" : ""}`);
+      setCreateImport(false);
     } finally {
       setCreateLoading(false);
     }
@@ -226,6 +228,9 @@ export default function ListsClient({
               placeholder="grocery, urgent"
             />
           </div>
+          <Checkbox checked={createImport} onChange={(e) => setCreateImport(e.target.checked)}>
+            Import items from a CSV file after creating
+          </Checkbox>
         </Space>
       </Modal>
 
