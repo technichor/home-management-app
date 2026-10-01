@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, Input, Modal, Select, Tag, Empty, App } from "antd";
-import { DeleteOutlined, EditOutlined, HolderOutlined, UploadOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, HolderOutlined, SwapOutlined, UploadOutlined } from "@ant-design/icons";
+import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -197,7 +198,12 @@ export default function ListDetailClient({
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+        {items.filter((i) => !i.checked).length >= 2 && (
+          <Link href={`/${slug}/lists/${listId}/compare`}>
+            <Button icon={<SwapOutlined />}>Prioritize</Button>
+          </Link>
+        )}
         <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
           Import CSV
         </Button>

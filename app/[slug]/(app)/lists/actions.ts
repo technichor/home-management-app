@@ -6,6 +6,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { parseListItemsCSV } from "@/lib/listCsv";
+import { updateRatings, ComparisonOutcome } from "@/lib/elo";
 
 export async function createListAction(slug: string, name: string, tags: string[]) {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
@@ -142,4 +143,47 @@ export async function importItemsAction(listId: string, slug: string, csvText: s
   revalidatePath(`/${slug}/lists/${listId}`);
   revalidatePath(`/${slug}/lists`);
   return { added: items.length, errors: [] };
+}
+
+export async function recordComparisonAction(
+  listId: string,
+  slug: string,
+  itemAId: string,
+  itemBId: string,
+  outcome: ComparisonOutcome
+) {
+  await requireList(listId);
+  if (itemAId === itemBId) throw new Error("Pick two different items");
+  if (!["A", "B", "EQUAL"].includes(outcome)) throw new Error("Invalid comparison result");
+
+  const result = await prisma.$transaction(async (tx) => {
+    const [a, b] = await Promise.all([
+      tx.listItem.findUnique({ where: { id: itemAId } }),
+      tx.listItem.findUnique({ where: { id: itemBId } }),
+    ]);
+    if (!a || !b || a.listId !== listId || b.listId !== listId) throw new Error("Item not found in this list");
+
+    const next = updateRatings(a.rating, b.rating, outcome);
+    await tx.listItem.update({
+      where: { id: a.id },
+      data: { rating: next.a, comparisonCount: { increment: 1 } },
+    });
+    await tx.listItem.update({
+      where: { id: b.id },
+      data: { rating: next.b, comparisonCount: { increment: 1 } },
+    });
+
+    // Re-sort the whole list by rating (ties keep their current relative order) and write it to position.
+    const all = await tx.listItem.findMany({ where: { listId }, orderBy: { position: "asc" } });
+    const sorted = [...all].sort((x, y) => y.rating - x.rating);
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].position !== i) {
+        await tx.listItem.update({ where: { id: sorted[i].id }, data: { position: i } });
+      }
+    }
+    return { a: next.a, b: next.b };
+  });
+
+  revalidatePath(`/${slug}/lists/${listId}`);
+  return result;
 }
