@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Button, Tag, Space, Modal, Input, Dropdown, Empty, Checkbox } from "antd";
+import { Button, Tag, Space, Modal, Input, Dropdown, Empty, Checkbox, Select } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import {
@@ -29,6 +29,9 @@ export default function ListsClient({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+
+  const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -76,6 +79,14 @@ export default function ListsClient({
     setRenameName(list.name);
   }
 
+  const allTags = [...new Set(lists.flatMap((l) => l.tags))].sort((a, b) => a.localeCompare(b));
+  const needle = search.trim().toLowerCase();
+  const visibleLists = lists.filter(
+    (l) =>
+      (!needle || l.name.toLowerCase().includes(needle)) &&
+      (!tagFilter || l.tags.includes(tagFilter))
+  );
+
   return (
     <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -87,14 +98,38 @@ export default function ListsClient({
         </Button>
       </div>
 
+      {lists.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Input.Search
+            allowClear
+            placeholder="Search lists by name"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ maxWidth: 280 }}
+          />
+          {allTags.length > 0 && (
+            <Select
+              allowClear
+              placeholder="Filter by tag"
+              value={tagFilter}
+              onChange={(v) => setTagFilter(v ?? null)}
+              options={allTags.map((t) => ({ value: t, label: t }))}
+              style={{ minWidth: 160 }}
+            />
+          )}
+        </div>
+      )}
+
       {lists.length === 0 ? (
         <Empty
           description="No active lists. Click 'New list' to get started."
           style={{ padding: "48px 0" }}
         />
+      ) : visibleLists.length === 0 ? (
+        <Empty description="No lists match that search or tag." style={{ padding: "48px 0" }} />
       ) : (
         <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, overflow: "hidden" }}>
-          {lists.map((list, i) => (
+          {visibleLists.map((list, i) => (
             <div
               key={list.id}
               style={{

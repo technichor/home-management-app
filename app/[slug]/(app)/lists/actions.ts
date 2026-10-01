@@ -20,6 +20,7 @@ export async function createListAction(slug: string, name: string, tags: string[
 }
 
 export async function renameListAction(id: string, name: string, slug: string) {
+  await requireList(id);
   await prisma.list.update({ where: { id }, data: { name } });
   revalidatePath(`/${slug}/lists`);
   revalidatePath(`/${slug}/lists/archived`);
@@ -27,18 +28,21 @@ export async function renameListAction(id: string, name: string, slug: string) {
 }
 
 export async function archiveListAction(id: string, slug: string) {
+  await requireList(id);
   await prisma.list.update({ where: { id }, data: { archivedAt: new Date() } });
   revalidatePath(`/${slug}/lists`);
   revalidatePath(`/${slug}/lists/archived`);
 }
 
 export async function unarchiveListAction(id: string, slug: string) {
+  await requireList(id);
   await prisma.list.update({ where: { id }, data: { archivedAt: null } });
   revalidatePath(`/${slug}/lists`);
   revalidatePath(`/${slug}/lists/archived`);
 }
 
 export async function deleteListAction(id: string, slug: string) {
+  await requireList(id);
   await prisma.list.delete({ where: { id } });
   revalidatePath(`/${slug}/lists`);
   revalidatePath(`/${slug}/lists/archived`);

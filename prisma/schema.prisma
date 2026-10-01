@@ -117,11 +117,11 @@ model List {
 model ListItem {
   id                  String    @id @default(cuid())
   listId              String
-  list                List      @relation(fields: [listId], references: [id])
+  list                List      @relation(fields: [listId], references: [id], onDelete: Cascade)
   text                String
   quantity            String?
   assignedToContactId String?
-  assignedToContact   Contact?  @relation(fields: [assignedToContactId], references: [id])
+  assignedToContact   Contact?  @relation(fields: [assignedToContactId], references: [id], onDelete: SetNull)
   notes               String?
   checked             Boolean   @default(false)
   checkedAt           DateTime?
