@@ -50,14 +50,11 @@ export default function ImportClient({ slug }: { slug: string }) {
     });
   }
 
-  function handleConfirm() {
-    if (!validated) return;
+  function handleConfirm(current: ValidateSuccess) {
     startTransition(async () => {
       const result = await applyImportAction(slug, {
-        parsedHouseholds: validated.parsedHouseholds,
-        parsedContacts: validated.parsedContacts,
-        householdsCSV: validated.householdsCSV,
-        contactsCSV: validated.contactsCSV,
+        householdsCSV: current.householdsCSV,
+        contactsCSV: current.contactsCSV,
       });
       if (!result.ok) {
         setApplyError(result.error ?? "Unknown error.");
@@ -110,8 +107,12 @@ export default function ImportClient({ slug }: { slug: string }) {
       {step === "diff" && validated && (
         <DiffStep
           diff={validated.diff}
-          onConfirm={handleConfirm}
-          onBack={() => { setStep("upload"); setValidated(null); }}
+          onConfirm={() => handleConfirm(validated)}
+          onBack={() => {
+            setStep("upload");
+            setValidated(null);
+            setApplyError(null);
+          }}
           applyError={applyError}
           isPending={isPending}
         />

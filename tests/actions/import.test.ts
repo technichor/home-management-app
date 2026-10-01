@@ -63,21 +63,48 @@ const ONE_SERVICE_CONTACT_CSV = `id,household_id,first_name,last_name,*category\
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getIronSession).mockResolvedValue({ householdId: "hh1" } as any);
+  vi.mocked(prisma.household.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
 });
+
+const dbHousehold = (over: object = {}) =>
+  ({
+    id: "h1", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
+    urlSlug: null, passwordHash: null, headOfHousehold: null,
+    createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
+  }) as any;
+
+const dbContact = (over: object = {}) =>
+  ({
+    id: "c1", firstName: "Old", lastName: "Contact", category: "SERVICE_PROVIDER", householdId: null,
+    nickname: null, address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
+    emailPrimary: null, emailSecondary: null, tags: [], favorite: false,
+    relationshipNotes: null, linkedFamilyMember: null,
+    importantDate1: null, importantDate1Label: null, importantDate2: null, importantDate2Label: null,
+    notes: null, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
+  }) as any;
 
 // ---------------------------------------------------------------------------
 // validateImportAction
 // ---------------------------------------------------------------------------
 
 describe("validateImportAction", () => {
+  it("refuses an unauthenticated caller without reading any data", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    const result = await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toMatchObject({ column: "session", message: "Not authenticated." });
+    expect(prisma.household.findMany).not.toHaveBeenCalled();
+    expect(prisma.contact.findMany).not.toHaveBeenCalled();
+  });
+
   it("returns error when householdsFile is missing", async () => {
     const fd = new FormData();
     fd.append("contactsFile", makeFile(EMPTY_CONTACTS_CSV, "contacts.csv"));
     const result = await validateImportAction(fd);
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors[0].column).toBe("file");
-    }
+    if (!result.ok) expect(result.errors[0].column).toBe("file");
   });
 
   it("returns error when contactsFile is missing", async () => {
@@ -87,35 +114,39 @@ describe("validateImportAction", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("returns parse errors for invalid CSV data", async () => {
+  it("returns row-level parse errors and echoes the CSVs back", async () => {
     const badContacts = `id,household_id,first_name,last_name,*category\n,,Jane,Smith,FAMILY_FRIEND\n`;
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    const fd = makeFormData(EMPTY_HOUSEHOLDS_CSV, badContacts);
-    const result = await validateImportAction(fd);
+    const result = await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, badContacts));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.contactsCSV).toBe(badContacts);
     }
+    expect(prisma.contact.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns successful diff for valid empty CSVs", async () => {
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    const fd = makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV);
-    const result = await validateImportAction(fd);
+  it("combines household and contact errors", async () => {
+    const badHouseholds = `id,*display_name\nh1,\n`;
+    const badContacts = `id,household_id,first_name,last_name,*category\n,,,Smith,SERVICE_PROVIDER\n`;
+    const result = await validateImportAction(makeFormData(badHouseholds, badContacts));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.map((e) => e.column).sort()).toEqual(["displayName", "firstName"]);
+  });
+
+  it("returns a successful diff and the CSV text for valid empty files", async () => {
+    const result = await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV));
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.diff.households.added).toHaveLength(0);
       expect(result.diff.contacts.added).toHaveLength(0);
+      expect(result.householdsCSV).toBe(EMPTY_HOUSEHOLDS_CSV);
+      expect(result.contactsCSV).toBe(EMPTY_CONTACTS_CSV);
+      expect(result).not.toHaveProperty("parsedContacts");
     }
   });
 
-  it("detects new contacts as added in diff", async () => {
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    const fd = makeFormData(EMPTY_HOUSEHOLDS_CSV, ONE_SERVICE_CONTACT_CSV);
-    const result = await validateImportAction(fd);
+  it("detects new contacts as added", async () => {
+    const result = await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, ONE_SERVICE_CONTACT_CSV));
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.diff.contacts.added).toHaveLength(1);
@@ -123,28 +154,18 @@ describe("validateImportAction", () => {
     }
   });
 
-  it("detects existing contacts not in import as removed", async () => {
-    const existingContact = {
-      id: "old-c",
-      firstName: "Old",
-      lastName: "Contact",
-      category: "SERVICE_PROVIDER",
-      householdId: null,
-      nickname: null, address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
-      emailPrimary: null, emailSecondary: null, tags: [], favorite: false,
-      relationshipNotes: null, linkedFamilyMember: null,
-      importantDate1: null, importantDate1Label: null,
-      importantDate2: null, importantDate2Label: null,
-      notes: null, createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
-    } as any;
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([existingContact]);
-    const fd = makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV);
-    const result = await validateImportAction(fd);
+  it("detects existing contacts not in the import as removed", async () => {
+    vi.mocked(prisma.contact.findMany).mockResolvedValue([dbContact()]);
+    const result = await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV));
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.diff.contacts.removed).toHaveLength(1);
-    }
+    if (result.ok) expect(result.diff.contacts.removed).toHaveLength(1);
+  });
+
+  it("lets contacts reference households that are in households.csv", async () => {
+    const households = `id,*display_name\nh1,The Smiths\n`;
+    const contacts = `id,household_id,first_name,last_name,*category\n,h1,Sam,Smith,FAMILY_FRIEND\n`;
+    const result = await validateImportAction(makeFormData(households, contacts));
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -153,154 +174,149 @@ describe("validateImportAction", () => {
 // ---------------------------------------------------------------------------
 
 describe("applyImportAction", () => {
-  function setupAuthMock(householdId = "hh1") {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId } as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: householdId } as any);
+  const empty = { householdsCSV: EMPTY_HOUSEHOLDS_CSV, contactsCSV: EMPTY_CONTACTS_CSV };
+
+  function allowTransaction(myId = "hh1") {
+    vi.mocked(getIronSession).mockResolvedValue({ householdId: myId } as any);
+    vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: myId } as any);
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
+    vi.mocked(prisma.household.create).mockResolvedValue({ id: "new-h" } as any);
+    vi.mocked(prisma.contact.create).mockResolvedValue({ id: "new-c" } as any);
+    vi.mocked(prisma.household.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.contact.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 0 } as any);
+    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
   }
 
-  it("returns error when not authenticated (session mismatch)", async () => {
+  it("rejects a session for a different household", async () => {
     vi.mocked(getIronSession).mockResolvedValue({ householdId: "other" } as any);
     vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: "hh1" } as any);
-
-    const result = await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
-    });
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/authenticated/i);
+    const result = await applyImportAction("reynolds-family", empty);
+    expect(result).toEqual({ ok: false, error: "Not authenticated." });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("returns error when household not found", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "hh1" } as any);
+  it("rejects an unknown household slug", async () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-
-    const result = await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
-    });
+    const result = await applyImportAction("nope", empty);
     expect(result.ok).toBe(false);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("runs transaction and returns ok:true on success", async () => {
-    setupAuthMock();
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 0 } as any);
-    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
-
-    const result = await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
-    });
-    expect(result.ok).toBe(true);
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(prisma.importVersion.create).toHaveBeenCalled();
+  it("re-validates the CSVs and writes nothing when they are invalid", async () => {
+    allowTransaction();
+    const bad = `id,household_id,first_name,last_name,*category\n,,,,\n`;
+    const result = await applyImportAction("reynolds-family", { householdsCSV: EMPTY_HOUSEHOLDS_CSV, contactsCSV: bad });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/\d+ errors?/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("creates contact records for added contacts", async () => {
-    setupAuthMock();
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-    vi.mocked(prisma.contact.create).mockResolvedValue({ id: "new-c" } as any);
-    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 1 } as any);
-    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
-
-    const result = await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [
-        { firstName: "Joe", lastName: "Plumber", category: "SERVICE_PROVIDER", tags: [], favorite: false },
-      ],
-      householdsCSV: "",
-      contactsCSV: "",
-    });
-    expect(result.ok).toBe(true);
-    expect(prisma.contact.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ firstName: "Joe", lastName: "Plumber" }),
-      })
-    );
+  it("uses the singular for a single error", async () => {
+    allowTransaction();
+    const bad = `id,*display_name\nh1,\n`;
+    const result = await applyImportAction("reynolds-family", { householdsCSV: bad, contactsCSV: EMPTY_CONTACTS_CSV });
+    expect(result.error).toContain("1 error.");
   });
 
-  it("soft-deletes contacts not in import (removed from CSV)", async () => {
-    setupAuthMock();
-    const existingContact = {
-      id: "old-c", firstName: "Old", lastName: "Contact",
-      category: "SERVICE_PROVIDER", householdId: null,
-      nickname: null, address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
-      emailPrimary: null, emailSecondary: null, tags: [], favorite: false,
-      relationshipNotes: null, linkedFamilyMember: null,
-      importantDate1: null, importantDate1Label: null,
-      importantDate2: null, importantDate2Label: null,
-      notes: null, createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
-    } as any;
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([existingContact]);
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-    vi.mocked(prisma.contact.update).mockResolvedValue({} as any);
-    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 1 } as any);
-    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
-
-    await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
+  it("commits an empty import with only a version snapshot", async () => {
+    allowTransaction();
+    const result = await applyImportAction("reynolds-family", empty);
+    expect(result).toEqual({ ok: true });
+    expect(prisma.activityLogEntry.createMany).not.toHaveBeenCalled();
+    expect(prisma.importVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "hh1",
+        summary: {
+          households: { added: 0, updated: 0, removed: 0, unchanged: 0 },
+          contacts: { added: 0, updated: 0, removed: 0, unchanged: 0 },
+        },
+      }),
     });
-    expect(prisma.contact.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "old-c" },
-        data: expect.objectContaining({ deletedAt: expect.any(Date) }),
-      })
-    );
   });
 
-  it("never soft-deletes the authenticated household", async () => {
-    setupAuthMock("my-hh");
-    const myHousehold = {
-      id: "my-hh", displayName: "My Household", mailingAddress: null,
-      tags: [], notes: null, urlSlug: "me", passwordHash: "hash",
-      headOfHousehold: null, createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
-    } as any;
-    vi.mocked(prisma.household.findMany).mockResolvedValue([myHousehold]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 0 } as any);
-    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
+  it("applies adds, updates and removals to households and contacts", async () => {
+    allowTransaction("my-hh");
+    vi.mocked(prisma.household.findMany).mockResolvedValue([
+      dbHousehold({ id: "my-hh", displayName: "Mine", urlSlug: "me", passwordHash: "secret" }),
+      dbHousehold({ id: "h-edit", displayName: "Old Name" }),
+      dbHousehold({ id: "h-gone", displayName: "Gone Family" }),
+    ]);
+    vi.mocked(prisma.contact.findMany).mockResolvedValue([
+      dbContact({ id: "c-edit", lastName: "Before" }),
+      dbContact({ id: "c-gone", firstName: "Gone" }),
+    ]);
+    const households = [
+      "id,*display_name,mailing_address,tags,notes",
+      "h-edit,New Name,1 Main St,a;b,hello",
+      ",Newbies,,,",
+    ].join("\n");
+    const contacts = [
+      "id,household_id,first_name,last_name,*category,favorite,tags",
+      "c-edit,,Old,After,SERVICE_PROVIDER,,",
+      ",h-edit,Sam,Smith,FAMILY_FRIEND,true,pal",
+    ].join("\n");
 
-    // Import with no households — "my-hh" would normally be soft-deleted but shouldn't be.
-    await applyImportAction("me", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
+    const result = await applyImportAction("me", { householdsCSV: households, contactsCSV: contacts });
+    expect(result).toEqual({ ok: true });
+
+    // households
+    expect(prisma.household.create).toHaveBeenCalledWith({
+      data: { displayName: "Newbies", mailingAddress: undefined, tags: [], notes: undefined },
     });
-    expect(prisma.household.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "my-hh" } })
-    );
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: "h-edit" },
+      data: { displayName: "New Name", mailingAddress: "1 Main St", tags: ["a", "b"], notes: "hello" },
+    });
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: "h-gone" },
+      data: { deletedAt: expect.any(Date) },
+    });
+    // our own household is never soft-deleted and its account fields are never written
+    expect(prisma.household.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "my-hh" } }));
+    for (const [arg] of vi.mocked(prisma.household.update).mock.calls) {
+      expect(arg?.data).not.toHaveProperty("passwordHash");
+      expect(arg?.data).not.toHaveProperty("urlSlug");
+    }
+    // contacts
+    expect(prisma.contact.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "h-edit", firstName: "Sam", lastName: "Smith",
+        category: "FAMILY_FRIEND", favorite: true, tags: ["pal"],
+      }),
+    });
+    expect(prisma.contact.update).toHaveBeenCalledWith({
+      where: { id: "c-edit" },
+      data: expect.objectContaining({ lastName: "After", householdId: null, tags: [], favorite: false }),
+    });
+    expect(prisma.contact.update).toHaveBeenCalledWith({
+      where: { id: "c-gone" },
+      data: { deletedAt: expect.any(Date) },
+    });
+
+    // activity log: one entry per change, all from the CSV import
+    const entries = vi.mocked(prisma.activityLogEntry.createMany).mock.calls[0]?.[0]?.data as any[];
+    expect(entries.map((e) => `${e.entityType}:${e.action}`).sort()).toEqual([
+      "CONTACT:CREATED", "CONTACT:DELETED", "CONTACT:UPDATED",
+      "HOUSEHOLD:CREATED", "HOUSEHOLD:DELETED", "HOUSEHOLD:UPDATED",
+    ]);
+    expect(entries.every((e) => e.source === "CSV_IMPORT")).toBe(true);
+    const contactUpdate = entries.find((e) => e.entityType === "CONTACT" && e.action === "UPDATED");
+    expect(contactUpdate.changedFields.after.lastName).toBe("After");
+    expect(contactUpdate.changedFields.before.lastName).toBe("Before");
+
+    // version snapshot
+    const version = vi.mocked(prisma.importVersion.create).mock.calls[0]?.[0]?.data as any;
+    expect(version.householdId).toBe("my-hh");
+    expect(version.summary.households).toMatchObject({ added: 1, updated: 1, removed: 2 });
+    expect(version.summary.contacts).toMatchObject({ added: 1, updated: 1, removed: 1 });
+    expect(version.contactsSnapshot).toHaveLength(2);
+    expect(version.householdsSnapshot).toHaveLength(2);
   });
 
-  it("revalidates contacts paths after apply", async () => {
-    setupAuthMock();
-    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 0 } as any);
-    vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
-
-    await applyImportAction("reynolds-family", {
-      parsedHouseholds: [],
-      parsedContacts: [],
-      householdsCSV: "",
-      contactsCSV: "",
-    });
+  it("revalidates the contacts pages after applying", async () => {
+    allowTransaction();
+    await applyImportAction("reynolds-family", empty);
     expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts");
     expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/households");
     expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/removed");

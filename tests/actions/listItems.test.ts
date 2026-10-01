@@ -67,6 +67,14 @@ describe("createListAction", () => {
   });
 });
 
+describe("requireList (shared by every item action)", () => {
+  it("rejects an unauthenticated session before touching the database", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(addItemsAction("l1", "s", ["milk"])).rejects.toThrow("Not authenticated");
+    expect(prisma.list.findUnique).not.toHaveBeenCalled();
+  });
+});
+
 describe("addItemsAction", () => {
   it("appends trimmed, non-blank lines after the last position", async () => {
     await addItemsAction("l1", "s", ["  milk ", "", "   ", "eggs"]);

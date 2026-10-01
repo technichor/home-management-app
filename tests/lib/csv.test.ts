@@ -347,3 +347,34 @@ describe("computeContactDiff", () => {
     expect(diff.removed).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Header variants and missing columns
+// ---------------------------------------------------------------------------
+
+describe("header variants", () => {
+  it("accepts display_name without the leading star", () => {
+    const { households, errors } = parseHouseholdsCSV("id,display_name\nh1,The Smiths\n");
+    expect(errors).toEqual([]);
+    expect(households[0].displayName).toBe("The Smiths");
+  });
+
+  it("reports a missing display_name column on every row", () => {
+    const { errors } = parseHouseholdsCSV("id,notes\nh1,hi\n");
+    expect(errors).toEqual([{ row: 2, column: "displayName", message: "display_name is required" }]);
+  });
+
+  it("accepts category without the leading star", () => {
+    const { contacts, errors } = parseContactsCSV(
+      "first_name,last_name,category\nJoe,Plumber,SERVICE_PROVIDER\n",
+      new Set()
+    );
+    expect(errors).toEqual([]);
+    expect(contacts[0].category).toBe("SERVICE_PROVIDER");
+  });
+
+  it("reports every missing required column for a row", () => {
+    const { errors } = parseContactsCSV("notes\nhello\n", new Set());
+    expect(errors.map((e) => e.column).sort()).toEqual(["category", "firstName", "lastName"]);
+  });
+});

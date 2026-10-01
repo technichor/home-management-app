@@ -91,11 +91,13 @@ describe("ArchivedListsPage", () => {
   it("passes archived lists with a formatted archive date", async () => {
     vi.mocked(prisma.list.findMany).mockResolvedValue([
       dbList({ archivedAt: new Date("2026-03-04T12:00:00Z"), items: [] }),
+      dbList({ id: "l2", archivedAt: new Date("2026-03-05T12:00:00Z"), items: [{ id: "1", checked: true }, { id: "2", checked: false }] }),
     ] as any);
     render(await ArchivedListsPage({ params }));
     expect(prisma.list.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { householdId: "h1", archivedAt: { not: null } } })
     );
+    expect(seen.archived.lists[1]).toMatchObject({ id: "l2", totalItems: 2, checkedItems: 1 });
     expect(seen.archived.lists[0]).toMatchObject({
       id: "l1",
       totalItems: 0,

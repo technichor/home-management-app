@@ -34,3 +34,11 @@ describe("parseListItemsCSV", () => {
     expect(errors).toHaveLength(1);
   });
 });
+
+describe("parseListItemsCSV: short rows", () => {
+  it("treats a row that stops before the text column as missing text", () => {
+    const { items, errors } = parseListItemsCSV("quantity,text\n2\n");
+    expect(items).toEqual([]);
+    expect(errors).toEqual([{ row: 2, column: "text", message: "text is required" }]);
+  });
+});

@@ -74,6 +74,17 @@ describe("ListsClient", () => {
     expect(screen.queryByText("Garden")).not.toBeInTheDocument();
   });
 
+  it("clears the tag filter", async () => {
+    render(<ListsClient lists={lists} slug="s" />);
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByTitle("grocery"));
+    expect(screen.queryByText("Garden")).not.toBeInTheDocument();
+    const select = document.querySelector(".ant-select") as HTMLElement;
+    await userEvent.hover(select);
+    await userEvent.click(select.querySelector(".ant-select-clear") as HTMLElement);
+    expect(await screen.findByText("Garden")).toBeInTheDocument();
+  });
+
   it("hides the tag filter when no list has tags", () => {
     render(<ListsClient lists={[lists[1]]} slug="s" />);
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();

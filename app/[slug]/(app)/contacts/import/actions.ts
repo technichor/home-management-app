@@ -10,8 +10,6 @@ import {
   parseContactsCSV,
   computeHouseholdDiff,
   computeContactDiff,
-  ParsedHousehold,
-  ParsedContact,
   ParseError,
   ImportDiff,
 } from "@/lib/csv";
@@ -27,17 +25,45 @@ export interface ValidateResult {
 export interface ValidateSuccess {
   ok: true;
   diff: ImportDiff;
-  parsedHouseholds: ParsedHousehold[];
-  parsedContacts: ParsedContact[];
   householdsCSV: string;
   contactsCSV: string;
 }
 
 export type ValidateImportResult = ValidateResult | ValidateSuccess;
 
+// Parse both files together; contacts are checked against the household ids in households.csv.
+function parseImportFiles(householdsCSV: string, contactsCSV: string) {
+  const { households: parsedHouseholds, errors: householdErrors } =
+    parseHouseholdsCSV(householdsCSV);
+
+  const knownHouseholdIds = new Set(
+    parsedHouseholds.filter((h) => h.id).map((h) => h.id!)
+  );
+
+  const { contacts: parsedContacts, errors: contactErrors } =
+    parseContactsCSV(contactsCSV, knownHouseholdIds);
+
+  return {
+    parsedHouseholds,
+    parsedContacts,
+    errors: [...householdErrors, ...contactErrors],
+  };
+}
+
 export async function validateImportAction(
   formData: FormData
 ): Promise<ValidateImportResult> {
+  const session = await getIronSession<SessionData>(
+    await cookies(),
+    sessionOptions
+  );
+  if (!session.householdId) {
+    return {
+      ok: false,
+      errors: [{ row: 0, column: "session", message: "Not authenticated." }],
+    };
+  }
+
   const householdsFile = formData.get("householdsFile") as File | null;
   const contactsFile = formData.get("contactsFile") as File | null;
 
@@ -59,20 +85,12 @@ export async function validateImportAction(
     contactsFile.text(),
   ]);
 
-  // Parse households first so we can build the set of IDs for referential integrity check.
-  const { households: parsedHouseholds, errors: householdErrors } =
-    parseHouseholdsCSV(householdsCSV);
-
-  const knownHouseholdIds = new Set(
-    parsedHouseholds.filter((h) => h.id).map((h) => h.id!)
+  const { parsedHouseholds, parsedContacts, errors } = parseImportFiles(
+    householdsCSV,
+    contactsCSV
   );
-
-  const { contacts: parsedContacts, errors: contactErrors } =
-    parseContactsCSV(contactsCSV, knownHouseholdIds);
-
-  const allErrors = [...householdErrors, ...contactErrors];
-  if (allErrors.length > 0) {
-    return { ok: false, errors: allErrors, householdsCSV, contactsCSV };
+  if (errors.length > 0) {
+    return { ok: false, errors, householdsCSV, contactsCSV };
   }
 
   // Load current state from DB
@@ -91,16 +109,14 @@ export async function validateImportAction(
   return {
     ok: true,
     diff: { households: householdDiff, contacts: contactDiff },
-    parsedHouseholds,
-    parsedContacts,
     householdsCSV,
     contactsCSV,
   };
 }
 
+// Only the raw CSV text crosses the wire; it is re-parsed and re-validated here so the
+// database is never written from client-supplied parsed objects.
 export interface ApplyImportInput {
-  parsedHouseholds: ParsedHousehold[];
-  parsedContacts: ParsedContact[];
   householdsCSV: string;
   contactsCSV: string;
 }
@@ -125,8 +141,16 @@ export async function applyImportAction(
 
   const myHouseholdId = myHousehold.id;
 
-  const { parsedHouseholds, parsedContacts } =
-    input;
+  const { parsedHouseholds, parsedContacts, errors } = parseImportFiles(
+    input.householdsCSV,
+    input.contactsCSV
+  );
+  if (errors.length > 0) {
+    return {
+      ok: false,
+      error: `The files have ${errors.length} error${errors.length > 1 ? "s" : ""}. Upload them again to see the details.`,
+    };
+  }
 
   // Reload current state so the apply is based on reality at commit time.
   const [existingHouseholds, existingContacts] = await Promise.all([
@@ -151,7 +175,7 @@ export async function applyImportAction(
         data: {
           displayName: h.displayName,
           mailingAddress: h.mailingAddress,
-          tags: h.tags ?? [],
+          tags: h.tags,
           notes: h.notes,
         },
       });
@@ -165,20 +189,19 @@ export async function applyImportAction(
     }
 
     for (const { after } of householdDiff.updated) {
-      if (!after.id) continue;
       // Never overwrite account fields — only update data fields.
       await tx.household.update({
-        where: { id: after.id },
+        where: { id: after.id as string },
         data: {
           displayName: after.displayName,
           mailingAddress: after.mailingAddress ?? null,
-          tags: after.tags ?? [],
+          tags: after.tags,
           notes: after.notes ?? null,
         },
       });
       activityEntries.push({
         entityType: "HOUSEHOLD",
-        entityId: after.id,
+        entityId: after.id as string,
         action: "UPDATED",
         source: "CSV_IMPORT",
         timestamp: now,
@@ -216,8 +239,8 @@ export async function applyImportAction(
           phoneWork: c.phoneWork,
           emailPrimary: c.emailPrimary,
           emailSecondary: c.emailSecondary,
-          tags: c.tags ?? [],
-          favorite: c.favorite ?? false,
+          tags: c.tags,
+          favorite: c.favorite,
           relationshipNotes: c.relationshipNotes,
           linkedFamilyMember: c.linkedFamilyMember,
           importantDate1: c.importantDate1,
@@ -237,9 +260,8 @@ export async function applyImportAction(
     }
 
     for (const { before, after } of contactDiff.updated) {
-      if (!after.id) continue;
       await tx.contact.update({
-        where: { id: after.id },
+        where: { id: after.id as string },
         data: {
           householdId: after.householdId ?? null,
           firstName: after.firstName,
@@ -252,8 +274,8 @@ export async function applyImportAction(
           phoneWork: after.phoneWork ?? null,
           emailPrimary: after.emailPrimary ?? null,
           emailSecondary: after.emailSecondary ?? null,
-          tags: after.tags ?? [],
-          favorite: after.favorite ?? false,
+          tags: after.tags,
+          favorite: after.favorite,
           relationshipNotes: after.relationshipNotes ?? null,
           linkedFamilyMember: after.linkedFamilyMember ?? null,
           importantDate1: after.importantDate1 ?? null,
@@ -265,7 +287,7 @@ export async function applyImportAction(
       });
       activityEntries.push({
         entityType: "CONTACT",
-        entityId: after.id,
+        entityId: after.id as string,
         action: "UPDATED",
         source: "CSV_IMPORT",
         changedFields: { before, after } as unknown as Prisma.InputJsonValue,

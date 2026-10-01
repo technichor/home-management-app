@@ -65,6 +65,11 @@ describe("recordComparisonAction", () => {
     await expect(recordComparisonAction("l1", "s", "a", "a", "A")).rejects.toThrow("two different items");
   });
 
+  it("rejects an unknown outcome", async () => {
+    await expect(recordComparisonAction("l1", "s", "a", "b", "C" as any)).rejects.toThrow("Invalid comparison result");
+    expect(prisma.listItem.update).not.toHaveBeenCalled();
+  });
+
   it("rejects an item from another list", async () => {
     setItems([item("a", 1500, 0), item("b", 1500, 0, "other")]);
     await expect(recordComparisonAction("l1", "s", "a", "b", "A")).rejects.toThrow("Item not found");

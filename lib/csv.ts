@@ -163,7 +163,7 @@ export function parseHouseholdsCSV(csvText: string): {
       parsed.error.issues.forEach((issue) => {
         errors.push({
           row: rowNum,
-          column: String(issue.path[0] ?? "unknown"),
+          column: String(issue.path[0]),
           message: issue.message,
         });
       });
@@ -225,7 +225,7 @@ export function parseContactsCSV(
       parsed.error.issues.forEach((issue) => {
         errors.push({
           row: rowNum,
-          column: String(issue.path[0] ?? "unknown"),
+          column: String(issue.path[0]),
           message: issue.message,
         });
       });
@@ -316,7 +316,7 @@ export function computeHouseholdDiff(
       const changed =
         existingH.displayName !== incomingH.displayName ||
         (existingH.mailingAddress ?? "") !== (incomingH.mailingAddress ?? "") ||
-        existingH.tags.join(";") !== (incomingH.tags ?? []).join(";") ||
+        existingH.tags.join(";") !== incomingH.tags.join(";") ||
         (existingH.notes ?? "") !== (incomingH.notes ?? "");
       if (changed) {
         updated.push({
@@ -379,7 +379,7 @@ export function computeContactDiff(
         (existingC.phoneWork ?? "") !== (incomingC.phoneWork ?? "") ||
         (existingC.emailPrimary ?? "") !== (incomingC.emailPrimary ?? "") ||
         (existingC.emailSecondary ?? "") !== (incomingC.emailSecondary ?? "") ||
-        existingC.tags.join(";") !== (incomingC.tags ?? []).join(";") ||
+        existingC.tags.join(";") !== incomingC.tags.join(";") ||
         existingC.favorite !== incomingC.favorite ||
         (existingC.notes ?? "") !== (incomingC.notes ?? "");
       if (changed) {
