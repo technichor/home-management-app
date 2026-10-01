@@ -56,6 +56,16 @@ export default function SetupPage() {
               <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 <div>
                   <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                    Setup code <span style={{ color: "#ff4d4f" }}>*</span>
+                  </Typography.Text>
+                  <Input.Password name="setupCode" required autoComplete="off" />
+                  <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+                    Given to you by whoever runs this site.
+                  </Typography.Text>
+                </div>
+
+                <div>
+                  <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
                     Household display name <span style={{ color: "#ff4d4f" }}>*</span>
                   </Typography.Text>
                   <Input

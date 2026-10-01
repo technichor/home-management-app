@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock redirect to throw so execution stops (mirrors real Next.js behaviour).
 vi.mock("next/navigation", () => ({
@@ -43,6 +43,7 @@ function makeFormData(fields: Record<string, string>) {
 }
 
 const validInput = {
+  setupCode: "let-me-in",
   displayName: "The Reynolds Family",
   urlSlug: "reynolds-family",
   password: "secure-password",
@@ -50,6 +51,44 @@ const validInput = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("SETUP_CODE", "let-me-in");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("createHouseholdAction: setup code", () => {
+  it("is closed when no SETUP_CODE is configured", async () => {
+    vi.stubEnv("SETUP_CODE", "");
+    const result = await createHouseholdAction(null, makeFormData(validInput));
+    expect(result?.error).toMatch(/turned off/i);
+    expect(prisma.household.findUnique).not.toHaveBeenCalled();
+    expect(prisma.household.create).not.toHaveBeenCalled();
+  });
+
+  it("is closed even if the caller sends an empty code", async () => {
+    vi.stubEnv("SETUP_CODE", "");
+    const result = await createHouseholdAction(null, makeFormData({ ...validInput, setupCode: "" }));
+    expect(result?.error).toMatch(/turned off/i);
+  });
+
+  it.each([
+    ["a wrong code of a different length", "nope"],
+    ["a wrong code of the same length", "let-me-out"],
+    ["an empty code", ""],
+  ])("rejects %s without touching the database", async (_name, code) => {
+    const result = await createHouseholdAction(null, makeFormData({ ...validInput, setupCode: code }));
+    expect(result?.error).toBe("Incorrect setup code.");
+    expect(prisma.household.findUnique).not.toHaveBeenCalled();
+    expect(prisma.household.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a request with no setupCode field at all", async () => {
+    const { setupCode: _omit, ...withoutCode } = validInput;
+    const result = await createHouseholdAction(null, makeFormData(withoutCode));
+    expect(result?.error).toBe("Incorrect setup code.");
+  });
 });
 
 describe("createHouseholdAction", () => {
