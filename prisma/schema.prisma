@@ -19,6 +19,18 @@ enum ListSortMode {
   PAIRWISE
 }
 
+enum SyncStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  REVOKED
+}
+
+enum ConversationScope {
+  HOUSEHOLD
+  SYNCED
+}
+
 enum EntityType {
   CONTACT
   HOUSEHOLD
@@ -52,6 +64,10 @@ model Household {
   contacts       Contact[]
   importVersions ImportVersion[]
   lists          List[]
+
+  syncsInitiated Sync[]         @relation("SyncInitiator")
+  syncsReceived  Sync[]         @relation("SyncCounterpart")
+  conversations  Conversation[]
 }
 
 model Contact {
@@ -82,6 +98,10 @@ model Contact {
   deletedAt           DateTime?
 
   assignedListItems ListItem[]
+
+  syncs         Sync[]
+  conversations Conversation[]
+  sentMessages  Message[]
 }
 
 // Polymorphic log — entityId can reference either a Contact or Household id.
@@ -136,4 +156,67 @@ model ListItem {
   comparisonCount     Int       @default(0)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+}
+
+// A household-to-household handshake, attached to the Contact it was started from.
+// A contact counts as "synced" when an ACTIVE Sync points at it (derived, not stored on Contact).
+// counterpartHouseholdId stays null until the invited household is a real account.
+// Rules (scope/FK pairing, one open sync per contact) are enforced in the app layer with Zod,
+// like the other conditional rules in this project, not as DB constraints.
+model Sync {
+  id                     String     @id @default(cuid())
+  initiatingHouseholdId  String
+  initiatingHousehold    Household  @relation("SyncInitiator", fields: [initiatingHouseholdId], references: [id], onDelete: Restrict)
+  counterpartHouseholdId String?
+  counterpartHousehold   Household? @relation("SyncCounterpart", fields: [counterpartHouseholdId], references: [id], onDelete: Restrict)
+  relatedContactId       String
+  relatedContact         Contact    @relation(fields: [relatedContactId], references: [id], onDelete: Restrict)
+  counterpartEmail       String
+  status                 SyncStatus @default(PENDING)
+  createdAt              DateTime   @default(now())
+  respondedAt            DateTime?
+
+  conversations Conversation[]
+
+  @@index([initiatingHouseholdId])
+  @@index([counterpartHouseholdId])
+  @@index([relatedContactId])
+}
+
+// scope HOUSEHOLD: householdId is set, syncId is null. scope SYNCED: syncId is set.
+// relatedContactId marks a thread kept against one specific contact.
+model Conversation {
+  id               String            @id @default(cuid())
+  scope            ConversationScope
+  householdId      String?
+  household        Household?        @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  syncId           String?
+  sync             Sync?             @relation(fields: [syncId], references: [id], onDelete: Restrict)
+  relatedContactId String?
+  relatedContact   Contact?          @relation(fields: [relatedContactId], references: [id], onDelete: Restrict)
+  name             String
+  archivedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  messages Message[]
+
+  @@index([householdId])
+  @@index([syncId])
+  @@index([relatedContactId])
+}
+
+// Messages are never edited and never hard-deleted; deletedAt is the only removal.
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  senderContactId String
+  sender          Contact      @relation(fields: [senderContactId], references: [id], onDelete: Restrict)
+  text            String
+  attachmentIds   String[]
+  deletedAt       DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
