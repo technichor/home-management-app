@@ -10,8 +10,6 @@ import {
   Space,
   Typography,
   Alert,
-  Divider,
-  Form,
 } from "antd";
 
 export default function SetupPage() {

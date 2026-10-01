@@ -59,7 +59,6 @@ function makeFormData(householdsCSV: string, contactsCSV: string) {
 const EMPTY_HOUSEHOLDS_CSV = `id,*display_name,mailing_address,tags,notes\n`;
 const EMPTY_CONTACTS_CSV = `id,household_id,first_name,last_name,*category\n`;
 
-const ONE_HOUSEHOLD_CSV = `id,*display_name,mailing_address,tags,notes\nhh1,The Smiths,,, \n`;
 const ONE_SERVICE_CONTACT_CSV = `id,household_id,first_name,last_name,*category\nc1,,Joe,Plumber,SERVICE_PROVIDER\n`;
 
 beforeEach(() => {

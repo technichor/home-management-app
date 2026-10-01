@@ -65,20 +65,16 @@ export default async function ContactDetailPage({
 
   // Build address display
   let addressValue: string | null = null;
-  let addressLabel = "Address";
   let addressExtra: React.ReactNode = null;
 
   if (contact.category === "FAMILY_FRIEND") {
-    addressLabel = "Address (from household)";
     if (contact.household?.mailingAddress) {
       addressValue = contact.household.mailingAddress;
-      if (contact.household.urlSlug) {
-        addressExtra = (
-          <Link href={`/${slug}/contacts/households/${contact.household.id}`}>
-            {contact.household.displayName}
-          </Link>
-        );
-      }
+      addressExtra = (
+        <Link href={`/${slug}/contacts/households/${contact.household.id}`}>
+          {contact.household.displayName}
+        </Link>
+      );
     }
   } else {
     addressValue = contact.address;

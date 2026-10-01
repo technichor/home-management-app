@@ -1,7 +1,4 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { ContactCategory } from "@prisma/client";
 import { Space } from "antd";
 import ContactsFilter from "./ContactsFilter";
@@ -20,11 +17,6 @@ export default async function ContactsPage({
   }>;
 }) {
   const [{ slug }, filters] = await Promise.all([params, searchParams]);
-
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
 
   const where = {
     deletedAt: null,

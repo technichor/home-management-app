@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, Input, Modal, Segmented, Select, Tag, Empty, App } from "antd";
 import { DeleteOutlined, EditOutlined, HolderOutlined, SwapOutlined, UploadOutlined } from "@ant-design/icons";
@@ -123,7 +123,12 @@ export default function ListDetailClient({
     assignedToContactId: null as string | null,
   });
 
-  useEffect(() => setItems(serverItems), [serverItems]);
+  // Re-sync local state when the server sends new items (adjust state during render, not in an effect).
+  const [prevServerItems, setPrevServerItems] = useState(serverItems);
+  if (serverItems !== prevServerItems) {
+    setPrevServerItems(serverItems);
+    setItems(serverItems);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

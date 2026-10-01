@@ -11,7 +11,6 @@ import {
 import { ImportDiff, ParseError } from "@/lib/csv";
 import {
   Steps,
-  Upload,
   Button,
   Alert,
   Space,
@@ -20,10 +19,9 @@ import {
   Row,
   Col,
   Card,
-  List,
   Tag,
 } from "antd";
-import { InboxOutlined, DownloadOutlined } from "@ant-design/icons";
+import { DownloadOutlined } from "@ant-design/icons";
 
 type Step = "upload" | "diff" | "success";
 

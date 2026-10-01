@@ -125,7 +125,7 @@ export async function applyImportAction(
 
   const myHouseholdId = myHousehold.id;
 
-  const { parsedHouseholds, parsedContacts, householdsCSV, contactsCSV } =
+  const { parsedHouseholds, parsedContacts } =
     input;
 
   // Reload current state so the apply is based on reality at commit time.
