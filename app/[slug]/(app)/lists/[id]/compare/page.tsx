@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import Link from "next/link";
@@ -20,6 +20,7 @@ export default async function ComparePage({
     include: { items: { where: { checked: false }, orderBy: { position: "asc" } } },
   });
   if (!list || list.householdId !== session.householdId) notFound();
+  if (list.sortMode !== "PAIRWISE") redirect(`/${slug}/lists/${id}`);
 
   return (
     <div>

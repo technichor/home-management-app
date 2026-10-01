@@ -44,6 +44,7 @@ export default async function ListDetailPage({
         slug={slug}
         listId={list.id}
         listName={list.name}
+        sortMode={list.sortMode}
         openImport={importParam === "1"}
         items={list.items.map((i) => ({
           id: i.id,

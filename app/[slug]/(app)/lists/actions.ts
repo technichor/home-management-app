@@ -6,7 +6,8 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { parseListItemsCSV } from "@/lib/listCsv";
-import { updateRatings, ComparisonOutcome } from "@/lib/elo";
+import type { ListSortMode } from "@prisma/client";
+import { updateRatings, ComparisonOutcome, DEFAULT_RATING } from "@/lib/elo";
 
 export async function createListAction(slug: string, name: string, tags: string[]) {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
@@ -117,7 +118,10 @@ export async function deleteItemAction(itemId: string, slug: string) {
 }
 
 export async function reorderItemsAction(listId: string, slug: string, orderedIds: string[]) {
-  await requireList(listId);
+  const list = await requireList(listId);
+  if (list.sortMode !== "MANUAL") {
+    throw new Error("This list is ranked by pairwise comparison. Switch it to manual sorting to drag items.");
+  }
   const existing = await prisma.listItem.findMany({ where: { listId }, select: { id: true } });
   const known = new Set(existing.map((e) => e.id));
   if (orderedIds.length !== known.size || !orderedIds.every((id) => known.has(id))) {
@@ -152,7 +156,10 @@ export async function recordComparisonAction(
   itemBId: string,
   outcome: ComparisonOutcome
 ) {
-  await requireList(listId);
+  const list = await requireList(listId);
+  if (list.sortMode !== "PAIRWISE") {
+    throw new Error("This list is sorted manually. Switch it to pairwise ranking to compare items.");
+  }
   if (itemAId === itemBId) throw new Error("Pick two different items");
   if (!["A", "B", "EQUAL"].includes(outcome)) throw new Error("Invalid comparison result");
 
@@ -186,4 +193,22 @@ export async function recordComparisonAction(
 
   revalidatePath(`/${slug}/lists/${listId}`);
   return result;
+}
+
+export async function setSortModeAction(listId: string, slug: string, mode: ListSortMode) {
+  const list = await requireList(listId);
+  if (mode !== "MANUAL" && mode !== "PAIRWISE") throw new Error("Invalid sort mode");
+  if (list.sortMode === mode) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.list.update({ where: { id: listId }, data: { sortMode: mode } });
+    // Manual -> pairwise: keep the current order (position) but start every item equal.
+    if (mode === "PAIRWISE") {
+      await tx.listItem.updateMany({
+        where: { listId },
+        data: { rating: DEFAULT_RATING, comparisonCount: 0 },
+      });
+    }
+  });
+  revalidatePath(`/${slug}/lists/${listId}`);
 }

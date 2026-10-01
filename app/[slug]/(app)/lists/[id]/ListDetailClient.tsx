@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Checkbox, Input, Modal, Select, Tag, Empty, App } from "antd";
+import { Button, Checkbox, Input, Modal, Segmented, Select, Tag, Empty, App } from "antd";
 import { DeleteOutlined, EditOutlined, HolderOutlined, SwapOutlined, UploadOutlined } from "@ant-design/icons";
 import Link from "next/link";
 import {
@@ -28,6 +28,7 @@ import {
   updateItemAction,
   deleteItemAction,
   reorderItemsAction,
+  setSortModeAction,
 } from "../actions";
 import ImportItemsModal from "../ImportItemsModal";
 
@@ -44,17 +45,22 @@ type ContactOption = { id: string; name: string };
 function ItemRow({
   item,
   assignee,
+  sortable,
   onToggle,
   onEdit,
   onDelete,
 }: {
   item: Item;
   assignee?: string;
+  sortable: boolean;
   onToggle: (checked: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: item.id,
+    disabled: !sortable,
+  });
   return (
     <div
       ref={setNodeRef}
@@ -69,9 +75,11 @@ function ItemRow({
         background: "#fff",
       }}
     >
-      <span {...attributes} {...listeners} style={{ cursor: "grab", color: "rgba(0,0,0,.35)" }} aria-label="Drag to reorder">
-        <HolderOutlined />
-      </span>
+      {sortable && (
+        <span {...attributes} {...listeners} style={{ cursor: "grab", color: "rgba(0,0,0,.35)" }} aria-label="Drag to reorder">
+          <HolderOutlined />
+        </span>
+      )}
       <Checkbox checked={item.checked} onChange={(e) => onToggle(e.target.checked)} />
       <div style={{ flex: 1, minWidth: 0, opacity: item.checked ? 0.5 : 1 }}>
         <span style={{ textDecoration: item.checked ? "line-through" : undefined }}>{item.text}</span>
@@ -89,6 +97,7 @@ export default function ListDetailClient({
   slug,
   listId,
   listName,
+  sortMode,
   openImport,
   items: serverItems,
   contacts,
@@ -96,6 +105,7 @@ export default function ListDetailClient({
   slug: string;
   listId: string;
   listName: string;
+  sortMode: "MANUAL" | "PAIRWISE";
   openImport: boolean;
   items: Item[];
   contacts: ContactOption[];
@@ -180,7 +190,21 @@ export default function ListDetailClient({
     );
   }
 
+  function handleSortModeChange(mode: "MANUAL" | "PAIRWISE") {
+    if (mode === sortMode) return;
+    modal.confirm({
+      title: mode === "PAIRWISE" ? "Switch to pairwise ranking?" : "Switch to manual sorting?",
+      content:
+        mode === "PAIRWISE"
+          ? "The current order is kept, but every item's rating starts over at the default, so all items begin equal. Dragging is turned off; you rank items by comparing two at a time."
+          : "The current order is kept. Dragging is turned on and comparisons are turned off. Ratings are discarded, and switching back to pairwise starts them over.",
+      okText: "Switch",
+      onOk: () => run(() => setSortModeAction(listId, slug, mode)),
+    });
+  }
+
   function handleDragEnd(e: DragEndEvent) {
+    if (sortMode !== "MANUAL") return;
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     const oldIndex = display.findIndex((i) => i.id === active.id);
@@ -198,8 +222,19 @@ export default function ListDetailClient({
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
-        {items.filter((i) => !i.checked).length >= 2 && (
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{ color: "rgba(0,0,0,.45)", fontSize: 13 }}>Sort:</span>
+        <Segmented
+          size="small"
+          value={sortMode}
+          onChange={(v) => handleSortModeChange(v as "MANUAL" | "PAIRWISE")}
+          options={[
+            { label: "Manual", value: "MANUAL" },
+            { label: "Pairwise", value: "PAIRWISE" },
+          ]}
+        />
+        <span style={{ flex: 1 }} />
+        {sortMode === "PAIRWISE" && items.filter((i) => !i.checked).length >= 2 && (
           <Link href={`/${slug}/lists/${listId}/compare`}>
             <Button icon={<SwapOutlined />}>Prioritize</Button>
           </Link>
@@ -229,6 +264,7 @@ export default function ListDetailClient({
               <ItemRow
                 key={item.id}
                 item={item}
+                sortable={sortMode === "MANUAL"}
                 assignee={item.assignedToContactId ? contactName.get(item.assignedToContactId) : undefined}
                 onToggle={(c) => handleToggle(item, c)}
                 onEdit={() => openEdit(item)}
