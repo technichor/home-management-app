@@ -50,11 +50,11 @@ export default function ImportItemsModal({
     setErrors(parsed.errors);
   }
 
+  // Only reachable when the Add button is enabled, which requires a parsed file.
   async function handleImport() {
-    if (!csvText) return;
     setLoading(true);
     try {
-      const result = await importItemsAction(listId, slug, csvText);
+      const result = await importItemsAction(listId, slug, csvText as string);
       if (result.errors.length > 0) {
         setErrors(result.errors);
         return;

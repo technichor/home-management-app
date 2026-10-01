@@ -16,7 +16,7 @@ const eslintConfig = defineConfig([
   ]),
   {
     // Test mocks deliberately cast partial objects to any.
-    files: ["tests/**/*.ts"],
+    files: ["tests/**/*.{ts,tsx}"],
     rules: { "@typescript-eslint/no-explicit-any": "off" },
   },
 ]);

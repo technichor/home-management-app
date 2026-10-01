@@ -34,6 +34,9 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22",
     "@types/papaparse": "^5.5.2",
@@ -42,6 +45,7 @@
     "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
+    "jsdom": "^30.1.1",
     "prisma": "^5.14.0",
     "tailwindcss": "^4",
     "typescript": "^5",

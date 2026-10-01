@@ -181,9 +181,8 @@ export default function ListDetailClient({
     });
   }
 
-  async function saveEdit() {
-    if (!editing || !editForm.text.trim()) return;
-    const id = editing.id;
+  // Only reachable from the open edit modal, whose Save button is disabled while the text is blank.
+  async function saveEdit(id: string) {
     setEditing(null);
     await run(() =>
       updateItemAction(id, slug, {
@@ -196,7 +195,6 @@ export default function ListDetailClient({
   }
 
   function handleSortModeChange(mode: "MANUAL" | "PAIRWISE") {
-    if (mode === sortMode) return;
     modal.confirm({
       title: mode === "PAIRWISE" ? "Switch to pairwise ranking?" : "Switch to manual sorting?",
       content:
@@ -296,7 +294,7 @@ export default function ListDetailClient({
       <Modal
         title="Edit item"
         open={!!editing}
-        onOk={saveEdit}
+        onOk={() => saveEdit((editing as Item).id)}
         onCancel={() => setEditing(null)}
         okText="Save"
         okButtonProps={{ disabled: !editForm.text.trim() }}

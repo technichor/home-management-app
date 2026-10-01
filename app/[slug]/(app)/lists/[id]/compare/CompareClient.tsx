@@ -44,7 +44,6 @@ export default function CompareClient({
   const [a, b] = pair;
 
   async function choose(outcome: ComparisonOutcome) {
-    if (busy) return;
     setBusy(true);
     try {
       const next = await recordComparisonAction(listId, slug, a.id, b.id, outcome);

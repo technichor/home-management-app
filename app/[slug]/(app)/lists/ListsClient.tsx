@@ -231,7 +231,7 @@ export default function ListsClient({
         }}
         okText="Create"
         okButtonProps={{ loading: createLoading, disabled: !createName.trim() }}
-        destroyOnClose
+        destroyOnHidden
       >
         <Space orientation="vertical" style={{ width: "100%", marginTop: 8 }} size="middle">
           <div>
@@ -277,7 +277,7 @@ export default function ListsClient({
         onCancel={() => setRenameTarget(null)}
         okText="Save"
         okButtonProps={{ loading: renameLoading, disabled: !renameName.trim() }}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ marginTop: 8 }}>
           <Input
