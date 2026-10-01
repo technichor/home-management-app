@@ -34,7 +34,8 @@ export default function ContactsFilter({ slug, allTags, defaults }: ContactsFilt
   }
 
   function onClear() {
-    form.resetFields();
+    // resetFields() would restore the filters currently in the URL, not blank fields.
+    form.setFieldsValue({ q: "", category: undefined, tag: undefined, favorites: false });
     router.push(`/${slug}/contacts`);
   }
 

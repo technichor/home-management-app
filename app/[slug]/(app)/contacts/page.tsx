@@ -4,6 +4,11 @@ import { Space } from "antd";
 import ContactsFilter from "./ContactsFilter";
 import ContactsTable from "./ContactsTable";
 
+// A hand-edited URL can carry any string; an unknown category must be ignored, not sent to Prisma.
+function isContactCategory(value: string | undefined): value is ContactCategory {
+  return !!value && Object.values(ContactCategory).includes(value as ContactCategory);
+}
+
 export default async function ContactsPage({
   params,
   searchParams,
@@ -29,7 +34,7 @@ export default async function ContactsPage({
           ],
         }
       : {}),
-    ...(filters.category ? { category: filters.category as ContactCategory } : {}),
+    ...(isContactCategory(filters.category) ? { category: filters.category } : {}),
     ...(filters.tag ? { tags: { has: filters.tag } } : {}),
     ...(filters.favorites === "1" ? { favorite: true } : {}),
   };

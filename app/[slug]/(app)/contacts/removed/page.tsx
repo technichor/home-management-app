@@ -45,7 +45,7 @@ export default async function RemovedPage({
       </Link>
     ),
     category: c.category,
-    removed: c.deletedAt?.toLocaleDateString() ?? "",
+    removed: (c.deletedAt as Date).toLocaleDateString(),
     action: (
       <form action={restoreContactAction.bind(null, c.id, slug)}>
         <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
@@ -75,7 +75,7 @@ export default async function RemovedPage({
         {h.displayName}
       </Link>
     ),
-    removed: h.deletedAt?.toLocaleDateString() ?? "",
+    removed: (h.deletedAt as Date).toLocaleDateString(),
     action: (
       <form action={restoreHouseholdAction.bind(null, h.id, slug)}>
         <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>

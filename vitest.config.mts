@@ -11,8 +11,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["lib/**/*.ts", "app/**/*.{ts,tsx}", "components/**/*.tsx"],
-      // db.ts is the Prisma client singleton: it only constructs the client.
-      exclude: ["lib/db.ts"],
+      // Every source file is covered; keep it that way.
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },
 });

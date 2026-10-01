@@ -314,6 +314,19 @@ describe("applyImportAction", () => {
     expect(version.householdsSnapshot).toHaveLength(2);
   });
 
+  it("clears a household's address and notes when they are blanked in the CSV", async () => {
+    allowTransaction();
+    vi.mocked(prisma.household.findMany).mockResolvedValue([
+      dbHousehold({ id: "h-edit", displayName: "Smiths", mailingAddress: "1 Main St", notes: "old note", tags: ["x"] }),
+    ]);
+    const households = ["id,*display_name,mailing_address,tags,notes", "h-edit,Smiths,,,"].join(String.fromCharCode(10));
+    await applyImportAction("reynolds-family", { householdsCSV: households, contactsCSV: EMPTY_CONTACTS_CSV });
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: "h-edit" },
+      data: { displayName: "Smiths", mailingAddress: null, tags: [], notes: null },
+    });
+  });
+
   it("revalidates the contacts pages after applying", async () => {
     allowTransaction();
     await applyImportAction("reynolds-family", empty);

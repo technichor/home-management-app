@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
+vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
+vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -21,9 +23,11 @@ vi.mock("@/lib/db", () => ({
 import { restoreContactAction, restoreHouseholdAction } from "@/app/[slug]/(app)/contacts/removed/actions";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getIronSession } from "iron-session";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
   vi.mocked(prisma.contact.update).mockResolvedValue({} as any);
   vi.mocked(prisma.household.update).mockResolvedValue({} as any);
   vi.mocked(prisma.activityLogEntry.create).mockResolvedValue({} as any);
@@ -94,5 +98,21 @@ describe("restoreHouseholdAction", () => {
     await restoreHouseholdAction("hh1", "reynolds-family");
     expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/removed");
     expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/households");
+  });
+});
+
+describe("authentication", () => {
+  it("refuses to restore a contact without a session", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(restoreContactAction("c1", "s")).rejects.toThrow("Not authenticated");
+    expect(prisma.contact.update).not.toHaveBeenCalled();
+    expect(prisma.activityLogEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to restore a household without a session", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(restoreHouseholdAction("h1", "s")).rejects.toThrow("Not authenticated");
+    expect(prisma.household.update).not.toHaveBeenCalled();
+    expect(prisma.activityLogEntry.create).not.toHaveBeenCalled();
   });
 });

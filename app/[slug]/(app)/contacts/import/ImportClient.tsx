@@ -275,7 +275,7 @@ function DiffStep({
             <Statistic
               title="Households removed"
               value={diff.households.removed.length}
-              valueStyle={diff.households.removed.length > 0 ? { color: "#cf1322" } : undefined}
+              styles={diff.households.removed.length > 0 ? { content: { color: "#cf1322" } } : undefined}
             />
           </Col>
           <Col xs={12} sm={6}>
@@ -291,7 +291,7 @@ function DiffStep({
             <Statistic
               title="Contacts removed"
               value={diff.contacts.removed.length}
-              valueStyle={diff.contacts.removed.length > 0 ? { color: "#cf1322" } : undefined}
+              styles={diff.contacts.removed.length > 0 ? { content: { color: "#cf1322" } } : undefined}
             />
           </Col>
           <Col xs={12} sm={6}>
