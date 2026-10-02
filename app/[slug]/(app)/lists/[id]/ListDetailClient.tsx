@@ -76,7 +76,7 @@ function ItemRow({
       }}
     >
       {sortable && (
-        <span {...attributes} {...listeners} style={{ cursor: "grab", color: "rgba(0,0,0,.35)" }} aria-label="Drag to reorder">
+        <span {...attributes} {...listeners} style={{ cursor: "grab", color: "rgba(0,0,0,.35)", touchAction: "none", padding: "10px 6px", margin: "-10px -2px", display: "flex" }} aria-label="Drag to reorder">
           <HolderOutlined />
         </span>
       )}

@@ -61,8 +61,10 @@ export default function ConversationClient({
   async function send() {
     if (!draft.trim() || sending) return;
     setSending(true);
-    const ok = await run(() => sendMessageAction(slug, conversation.id, draft));
-    if (ok) setDraft("");
+    const text = draft;
+    const ok = await run(() => sendMessageAction(slug, conversation.id, text));
+    // Clear the box only if it still holds what was sent, not the next message already being typed.
+    if (ok) setDraft((current) => (current === text ? "" : current));
     setSending(false);
   }
 

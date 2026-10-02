@@ -73,7 +73,7 @@ describe("createHouseholdForUserAction", () => {
   it("creates the household, the founder's contact and the owner link together, then signs in", async () => {
     await expect(
       createHouseholdForUserAction(null, fd({ displayName: "The Smiths", mailingAddress: " 1 Main St " }))
-    ).rejects.toThrow("REDIRECT:/the-smiths/contacts");
+    ).rejects.toThrow("REDIRECT:/the-smiths");
 
     expect(vi.mocked(prisma.household.create).mock.calls[0][0].data).toEqual({
       displayName: "The Smiths",
@@ -98,7 +98,7 @@ describe("createHouseholdForUserAction", () => {
   it("omits an empty address and picks a free slug", async () => {
     vi.mocked(prisma.household.findMany).mockResolvedValue([{ urlSlug: "the-smiths" }] as any);
     await expect(createHouseholdForUserAction(null, fd({ displayName: "The Smiths" }))).rejects.toThrow(
-      "REDIRECT:/the-smiths-2/contacts"
+      "REDIRECT:/the-smiths-2"
     );
     expect(vi.mocked(prisma.household.create).mock.calls[0][0].data.mailingAddress).toBeUndefined();
   });

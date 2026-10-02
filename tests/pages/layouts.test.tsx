@@ -26,7 +26,6 @@ import { getSessionUser } from "@/lib/auth";
 import RootLayout, { metadata } from "@/app/layout";
 import RootPage from "@/app/page";
 import AppLayout from "@/app/[slug]/(app)/layout";
-import AppRootPage from "@/app/[slug]/(app)/page";
 import ContactsLayout from "@/app/[slug]/(app)/contacts/layout";
 import ListsLayout from "@/app/[slug]/(app)/lists/layout";
 import ImportPage from "@/app/[slug]/(app)/contacts/import/page";
@@ -49,7 +48,7 @@ describe("RootLayout", () => {
 describe("RootPage", () => {
   it("redirects a signed-in user with a household to their contacts", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", household: { urlSlug: "smiths", deletedAt: null } } as any);
-    await expect(RootPage()).rejects.toThrow("REDIRECT:/smiths/contacts");
+    await expect(RootPage()).rejects.toThrow("REDIRECT:/smiths");
   });
 
   it("sends a signed-in user without a household to onboarding", async () => {
@@ -82,7 +81,7 @@ describe("AppLayout", () => {
 
   it("redirects a URL for another household's slug to the user's own", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: { ...household, urlSlug: "mine" } } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/mine/contacts");
+    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/mine");
   });
 
   it("renders the nav and children for a member", async () => {
@@ -94,10 +93,6 @@ describe("AppLayout", () => {
 });
 
 describe("small layouts and pages", () => {
-  it("AppRootPage redirects to contacts", async () => {
-    await expect(AppRootPage({ params })).rejects.toThrow("REDIRECT:/s/contacts");
-  });
-
   it("ContactsLayout renders the contacts nav above its children", async () => {
     render(await ContactsLayout({ children: <p>kids</p>, params }));
     expect(screen.getByRole("button", { name: "People" })).toBeInTheDocument();

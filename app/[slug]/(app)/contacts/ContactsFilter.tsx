@@ -52,14 +52,14 @@ export default function ContactsFilter({ slug, allTags, defaults }: ContactsFilt
       onFinish={onFinish}
       style={{ marginBottom: 16, gap: 8 }}
     >
-      <Form.Item name="q" style={{ marginBottom: 0 }}>
+      <Form.Item name="q" className="fill-on-mobile" style={{ marginBottom: 0 }}>
         <Input.Search
           placeholder="Search by name…"
           style={{ width: 200 }}
           allowClear
         />
       </Form.Item>
-      <Form.Item name="category" style={{ marginBottom: 0 }}>
+      <Form.Item name="category" className="fill-on-mobile" style={{ marginBottom: 0 }}>
         <Select placeholder="All categories" allowClear style={{ width: 170 }}>
           {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
             <Select.Option key={value} value={value}>
@@ -69,7 +69,7 @@ export default function ContactsFilter({ slug, allTags, defaults }: ContactsFilt
         </Select>
       </Form.Item>
       {allTags.length > 0 && (
-        <Form.Item name="tag" style={{ marginBottom: 0 }}>
+        <Form.Item name="tag" className="fill-on-mobile" style={{ marginBottom: 0 }}>
           <Select placeholder="All tags" allowClear style={{ width: 140 }}>
             {allTags.map((tag) => (
               <Select.Option key={tag} value={tag}>

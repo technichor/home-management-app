@@ -58,7 +58,7 @@ describe("isUnverified / homePathFor for unverified users", () => {
 
 describe("homePathFor", () => {
   it("goes to the household's contacts when the user has an active household", () => {
-    expect(homePathFor({ id: "u", household: { urlSlug: "smiths", deletedAt: null } })).toBe("/smiths/contacts");
+    expect(homePathFor({ id: "u", household: { urlSlug: "smiths", deletedAt: null } })).toBe("/smiths");
   });
   it("goes to onboarding with no household", () => {
     expect(homePathFor({ id: "u", household: null })).toBe("/onboarding");

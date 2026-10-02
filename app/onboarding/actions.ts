@@ -60,7 +60,7 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
   }
 
   await startSession(user);
-  redirect(`/${urlSlug}/contacts`);
+  redirect(`/${urlSlug}`);
 }
 
 /** Ask to join the household that owns this code. An owner there has to approve. */

@@ -24,7 +24,7 @@ test("sign up, confirm the email, create a household and land in the app", async
   await confirmEmail(page, email);
   await expect(page).toHaveURL(/\/onboarding$/);
   const slug = await createHousehold(page, "The Signups");
-  await expect(page.getByRole("heading", { name: /Contacts/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Welcome back, Sam/ })).toBeVisible();
   await expect(page.getByText("The Signups").first()).toBeVisible();
   expect(slug).toBe("the-signups");
 });
@@ -51,7 +51,7 @@ test("log in, log out, and a wrong password gets a plain error", async ({ page }
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
   await logIn(page, email);
-  await expect(page).toHaveURL(/\/the-logins\/contacts$/);
+  await expect(page).toHaveURL(/\/the-logins$/);
 });
 
 test("signed-out visitors are sent to log in", async ({ page }) => {
@@ -67,7 +67,7 @@ test("forgot password: emailed link sets a new password and signs out other sess
   // A second device that stays signed in on the old password.
   const device = await newSession(browser);
   await logIn(device.page, email);
-  await expect(device.page).toHaveURL(/\/the-forgetfuls\/contacts$/);
+  await expect(device.page).toHaveURL(/\/the-forgetfuls$/);
 
   const fresh = await newSession(browser);
   await fresh.page.goto("/forgot-password");
@@ -86,7 +86,7 @@ test("forgot password: emailed link sets a new password and signs out other sess
   await logIn(fresh.page, email, PASSWORD);
   await expect(fresh.page.getByText("Incorrect email or password.")).toBeVisible();
   await logIn(fresh.page, email, "a-brand-new-password");
-  await expect(fresh.page).toHaveURL(/\/the-forgetfuls\/contacts$/);
+  await expect(fresh.page).toHaveURL(/\/the-forgetfuls$/);
 
   // The old device was signed out by the reset.
   await device.page.goto("/the-forgetfuls/contacts");
@@ -103,7 +103,7 @@ test("change password on the account page signs out other sessions but not this 
   const { email, slug } = await newOwner(page, "change", "The Changers");
   const device = await newSession(browser);
   await logIn(device.page, email);
-  await expect(device.page).toHaveURL(new RegExp(`/${slug}/contacts$`));
+  await expect(device.page).toHaveURL(new RegExp(`/${slug}$`));
 
   await page.goto(`/${slug}/account`);
   await page.locator('input[name="currentPassword"]').fill(PASSWORD);

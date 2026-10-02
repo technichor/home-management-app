@@ -160,7 +160,7 @@ describe("loginAction", () => {
   it("looks the user up by lowercased email, signs in, clears that email's failures and goes to their household", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    await expect(loginAction(null, fd(creds))).rejects.toThrow("REDIRECT:/smiths/contacts");
+    await expect(loginAction(null, fd(creds))).rejects.toThrow("REDIRECT:/smiths");
     expect(vi.mocked(prisma.user.findUnique).mock.calls[0][0].where).toEqual({ email: "sam@example.com" });
     expect(session.userId).toBe("u1");
     expect(clearFailedLogins).toHaveBeenCalledWith("sam@example.com");

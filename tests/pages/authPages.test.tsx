@@ -83,7 +83,7 @@ describe("OnboardingPage", () => {
       id: "u",
       household: { id: "h", urlSlug: "smiths", deletedAt: null },
     } as any);
-    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/smiths/contacts");
+    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/smiths");
   });
 
   it("greets a user with no household and offers logout", async () => {

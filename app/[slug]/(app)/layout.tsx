@@ -17,12 +17,12 @@ export default async function AppLayout({
   const household = user.household;
   if (!household || household.deletedAt) redirect("/onboarding");
   // The slug in the URL is only a label; the data shown always comes from the user's own household.
-  if (household.urlSlug !== slug) redirect(`/${household.urlSlug}/contacts`);
+  if (household.urlSlug !== slug) redirect(`/${household.urlSlug}`);
 
   return (
     <div style={{ minHeight: "100vh", background: "#f5f5f5" }}>
       <AppNav slug={slug} householdName={household.displayName} logoutAction={logoutAction} />
-      <div style={{ padding: "24px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
+      <div className="app-container">
         {children}
       </div>
     </div>

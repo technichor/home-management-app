@@ -42,5 +42,5 @@ export async function acceptHouseholdInviteAction(token: string): Promise<AuthSt
   }
 
   await startSession(user);
-  redirect(invite.household.urlSlug ? `/${invite.household.urlSlug}/contacts` : "/onboarding");
+  redirect(invite.household.urlSlug ? `/${invite.household.urlSlug}` : "/onboarding");
 }

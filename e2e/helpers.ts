@@ -78,7 +78,7 @@ export async function logIn(page: Page, email: string, password = PASSWORD) {
 export async function createHousehold(page: Page, name: string): Promise<string> {
   await page.getByPlaceholder("e.g. The Reynolds Family").fill(name);
   await page.getByRole("button", { name: "Create household" }).click();
-  await expect(page).toHaveURL(/\/[a-z0-9-]+\/contacts$/);
+  await expect(page).toHaveURL(/^http:\/\/[^/]+\/(?!onboarding$)[a-z0-9-]+$/);
   return new URL(page.url()).pathname.split("/")[1];
 }
 

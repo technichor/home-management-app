@@ -1,3 +1,152 @@
 body {
   margin: 0;
 }
+
+/* ---- App shell (see components/AppNav.tsx and app/[slug]/(app)/layout.tsx) ---- */
+
+.app-nav {
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0 24px;
+}
+
+.app-nav-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 12px 0 8px;
+}
+
+.app-nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* The household's name is the first thing to go when space runs out. */
+.app-nav-household {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A horizontally scrolling strip of tabs: never wider than the screen, never wraps. */
+.tab-strip {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+.tab-strip > button {
+  flex: 0 0 auto;
+}
+
+.sub-nav {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.app-container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+/* Flex/grid children may shrink below their content instead of widening the page. */
+.app-container > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .app-nav {
+    padding: 0 12px;
+  }
+  .app-container {
+    padding: 16px 12px;
+  }
+  .sub-nav {
+    margin-bottom: 16px;
+  }
+  /* Inert "coming soon" tabs just take up room on a phone. */
+  .tab-soon {
+    display: none !important;
+  }
+  /* Below 16px iOS Safari zooms the page in when a field is focused. */
+  .ant-input,
+  .ant-input-affix-wrapper input,
+  .ant-input-number-input,
+  .ant-select-selection-search-input,
+  .ant-picker-input input,
+  textarea.ant-input {
+    font-size: 16px !important;
+  }
+}
+
+/* Filter controls fill the row on a phone instead of sitting in a narrow pair. */
+@media (max-width: 640px) {
+  .fill-on-mobile,
+  .ant-form .fill-on-mobile,
+  .ant-form .fill-on-mobile .ant-select,
+  .ant-form .fill-on-mobile .ant-input-search {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .ant-form-inline .fill-on-mobile {
+    flex: 1 1 100%;
+    margin-inline-end: 0;
+  }
+}
+
+/* Secondary info for a table row that has only its first column on a phone. */
+.mobile-only {
+  display: none;
+}
+@media (max-width: 575px) {
+  .mobile-only {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-nav-household {
+    display: none;
+  }
+}
+
+/* Fingers are bigger than cursors. */
+@media (pointer: coarse) {
+  .ant-btn {
+    min-height: 40px;
+  }
+  .ant-btn-sm {
+    min-height: 36px;
+  }
+  .tab-strip > button {
+    min-height: 44px;
+  }
+}
+
+/* The home page's summary cards: one column on a phone, as many as fit on a wide screen. */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}

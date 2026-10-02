@@ -21,7 +21,7 @@ test("one account's contacts, households and exports are invisible to another", 
   await expect(b.page.getByText(/could not be found/i)).toBeVisible();
   await expect(b.page.getByText("Secretive")).toHaveCount(0);
   await b.page.goto(`/${ownerA.slug}/contacts/${contactId}`);
-  await expect(b.page).toHaveURL(new RegExp(`/${ownerB.slug}/contacts$`)); // sent back to B's own
+  await expect(b.page).toHaveURL(new RegExp(`/${ownerB.slug}$`)); // sent back to B's own
   await expect(b.page.getByText("Secretive")).toHaveCount(0);
 
   // B's CSV export has none of A's data.

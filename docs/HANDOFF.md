@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 67 test files, 777 unit tests plus 18 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 797 unit tests plus 23 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -52,6 +52,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /invite/[token]                accept/decline a sync invite (needs a user in a household)
 /[slug]/household              members, invite links, join code + requests, leave
 /[slug]/account                choose/create the Contact the signed-in user acts as
+/[slug]                        HOME (signed-in dashboard: recent messages, lists + progress, upcoming birthdays/anniversaries in 30 days, favorites, quick actions); where login, signup, invite-accept and household creation all land
 /[slug]/contacts               people list, filters; /new add form; /[id] detail (+ sync card), /[id]/edit; /households, /households/[id];
                                /import (two-file CSV, diff + confirm); /removed (soft-deleted + restore);
                                /api/export?file=households|contacts
@@ -83,7 +84,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 5. **Cleanup**: optionally drop `[slug]` from URLs.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.
 7. Real-time messaging is a 5s poll via `router.refresh()`; fine at this scale.
-8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, private contact notes, and a visual/mobile pass.
+8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, private contact notes, and touch-drag reordering on a real phone (the browser tests only check layout at 375px, not a real iOS/Android device).
 
 ## Verify by hand (not yet done in a browser)
 
@@ -94,6 +95,10 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 3b. **Contacts**: Add contact (Family & Friend needs a household; others show an Address field), edit it, check the activity log shows the change, remove it and restore it from Removed; a household member's own profile can't be removed.
 4. **Messages**: group chat, send a message (shows your own name), archive/unarchive, a "Note about a contact".
 5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Both see a shared conversation; messages arrive within ~5s labelled with their household.
+
+## Mobile / responsive
+
+The shell is responsive through classes in `app/globals.css` (not inline styles, so media queries work): `.app-nav` / `.app-nav-top` (top bar wraps; the household name hides under 480px), `.tab-strip` (a horizontally scrolling, never-wrapping tab row used by the main nav and the Contacts/Lists sub-navs; "coming soon" tabs get `.tab-soon` and are hidden under 640px), `.app-container` (padding 24px, 16/12px on phones), `.fill-on-mobile` (filter controls fill the row), `.mobile-only` (extra summary line under a contact's name where table columns are hidden), `.home-grid` (cards: 1 column on a phone). On phones inputs are forced to 16px so iOS Safari doesn't zoom on focus, and `pointer: coarse` devices get 40px buttons / 44px tabs. The drag handle in lists has `touch-action: none`. `e2e/home-and-mobile.e2e.ts` loads every screen at 375px and fails if any is wider than the screen; keep that green when adding pages (add the new path to its list).
 
 ## Gotchas and workflow notes (hard-won)
 

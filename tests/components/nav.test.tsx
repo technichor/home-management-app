@@ -34,6 +34,28 @@ describe("AppNav", () => {
     expect(screen.getAllByText("soon")).toHaveLength(3);
   });
 
+  it("has a Home tab that is highlighted only on the home path", async () => {
+    pathname = "/s";
+    setup();
+    expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(true);
+    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Home" }));
+    expect(push).toHaveBeenCalledWith("/s");
+  });
+
+  it("does not highlight Home on a module path", () => {
+    pathname = "/s/contacts";
+    setup();
+    expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(false);
+    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(true);
+  });
+
+  it("tags the coming-soon tabs so a phone can hide them", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /Meal Planning/ })).toHaveClass("tab-soon");
+    expect(screen.getByRole("button", { name: "Contacts" })).not.toHaveClass("tab-soon");
+  });
+
   it("highlights the module matching the current path", () => {
     pathname = "/s/lists/abc";
     setup();

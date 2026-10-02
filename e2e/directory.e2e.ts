@@ -56,6 +56,8 @@ test("households and contacts: add, edit, remove and restore", async ({ page }) 
   await page.goto(`/${slug}/contacts/removed`);
   await expect(page.getByText("Jo Jones")).toBeVisible();
   await page.getByRole("button", { name: "Restore" }).first().click();
+  // Wait for the restore to finish (the row leaves the Removed list) before moving on.
+  await expect(page.getByRole("button", { name: "Restore" })).toHaveCount(0);
   await page.goto(`/${slug}/contacts`);
   await expect(page.getByRole("link", { name: /Jo Jones/ })).toBeVisible();
 

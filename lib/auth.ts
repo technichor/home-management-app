@@ -30,7 +30,7 @@ export const isUnverified = (user: { emailVerifiedAt?: Date | null }) => user.em
 export function homePathFor(user: SignedInUser): string {
   if (isUnverified(user)) return "/verify-email";
   const household = user.household;
-  return household && !household.deletedAt && household.urlSlug ? `/${household.urlSlug}/contacts` : "/onboarding";
+  return household && !household.deletedAt && household.urlSlug ? `/${household.urlSlug}` : "/onboarding";
 }
 
 export async function startSession(user: { id: string }): Promise<void> {

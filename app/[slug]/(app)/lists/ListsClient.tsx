@@ -105,6 +105,7 @@ export default function ListsClient({
             placeholder="Search lists by name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="fill-on-mobile"
             style={{ maxWidth: 280 }}
           />
           {allTags.length > 0 && (
@@ -114,6 +115,7 @@ export default function ListsClient({
               value={tagFilter}
               onChange={(v) => setTagFilter(v ?? null)}
               options={allTags.map((t) => ({ value: t, label: t }))}
+              className="fill-on-mobile"
               style={{ minWidth: 160 }}
             />
           )}

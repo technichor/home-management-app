@@ -1,9 +1,7 @@
 "use client";
 
-import { Space, Typography, Button, Tag } from "antd";
+import { Button, Tag } from "antd";
 import { usePathname, useRouter } from "next/navigation";
-
-const { Text } = Typography;
 
 interface AppNavProps {
   slug: string;
@@ -12,6 +10,7 @@ interface AppNavProps {
 }
 
 const MODULES = [
+  { key: "home", label: "Home", href: (slug: string) => `/${slug}`, active: true },
   { key: "contacts", label: "Contacts", href: (slug: string) => `/${slug}/contacts`, active: true },
   { key: "lists", label: "Lists", href: (slug: string) => `/${slug}/lists`, active: true },
   { key: "messages", label: "Messages", href: (slug: string) => `/${slug}/messages`, active: true },
@@ -25,45 +24,20 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
   const router = useRouter();
 
   const selectedKey =
-    MODULES.find((m) => m.active && pathname.startsWith(`/${slug}/${m.key}`))?.key ?? "";
+    pathname === `/${slug}`
+      ? "home"
+      : (MODULES.find((m) => m.key !== "home" && m.active && pathname.startsWith(`/${slug}/${m.key}`))?.key ?? "");
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        borderBottom: "1px solid #f0f0f0",
-        padding: "0 24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 0 8px",
-        }}
-      >
-        <Text strong style={{ fontSize: 15 }}>
-          Home Management
-        </Text>
-        <Space>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            {householdName}
-          </Text>
-          <Button
-            type="link"
-            size="small"
-            style={{ padding: 0 }}
-            onClick={() => router.push(`/${slug}/account`)}
-          >
+    <div className="app-nav">
+      <div className="app-nav-top">
+        <span className="app-nav-title">Home Management</span>
+        <div className="app-nav-links">
+          <span className="app-nav-household">{householdName}</span>
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push(`/${slug}/account`)}>
             Account
           </Button>
-          <Button
-            type="link"
-            size="small"
-            style={{ padding: 0 }}
-            onClick={() => router.push(`/${slug}/household`)}
-          >
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push(`/${slug}/household`)}>
             Household
           </Button>
           <form action={logoutAction} style={{ display: "inline" }}>
@@ -71,15 +45,16 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
               Log out
             </Button>
           </form>
-        </Space>
+        </div>
       </div>
 
-      <div style={{ display: "flex", gap: 2 }}>
+      <div className="tab-strip">
         {MODULES.map((mod) => {
           const isSelected = mod.active && selectedKey === mod.key;
           return (
             <button
               key={mod.key}
+              className={mod.active ? undefined : "tab-soon"}
               onClick={mod.active && mod.href ? () => router.push(mod.href!(slug)) : undefined}
               style={{
                 padding: "8px 12px",
@@ -88,11 +63,7 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
                 borderBottom: isSelected ? "2px solid #111827" : "2px solid transparent",
                 cursor: mod.active ? "pointer" : "default",
                 fontSize: 14,
-                color: !mod.active
-                  ? "rgba(0,0,0,.25)"
-                  : isSelected
-                  ? "#111827"
-                  : "rgba(0,0,0,.65)",
+                color: !mod.active ? "rgba(0,0,0,.25)" : isSelected ? "#111827" : "rgba(0,0,0,.65)",
                 fontWeight: isSelected ? 500 : 400,
                 marginBottom: -1,
                 display: "flex",

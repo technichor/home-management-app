@@ -57,6 +57,12 @@ export default function ContactsTable({ contacts, slug }: ContactsTableProps) {
               </Typography.Text>
             )}
           </Link>
+          {/* On a phone the other columns are hidden, so say who this is here. */}
+          <Typography.Text type="secondary" className="mobile-only" style={{ fontSize: 12 }}>
+            {[CATEGORY_LABELS[c.category], c.household?.displayName, c.phoneMobile ?? c.phoneHome ?? c.phoneWork]
+              .filter(Boolean)
+              .join(" · ")}
+          </Typography.Text>
           {c.tags.length > 0 && (
             <Space wrap size={2}>
               {c.tags.map((tag) => (

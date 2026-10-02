@@ -31,7 +31,7 @@ export default function ContactsNav({ slug }: { slug: string }) {
   }
 
   return (
-    <div style={{ display: "flex", gap: 2, marginBottom: 24, borderBottom: "1px solid #f0f0f0" }}>
+    <div className="tab-strip sub-nav">
       {LINKS.map((link) => {
         const active = isActive(link.segment);
         return (

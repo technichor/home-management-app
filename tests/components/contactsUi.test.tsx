@@ -122,7 +122,18 @@ describe("ContactsTable", () => {
     expect(screen.queryByLabelText("star")).not.toBeInTheDocument();
     expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(3); // household, phone, email
-    expect(screen.getByText("Service Provider")).toBeInTheDocument();
+    expect(screen.getAllByText("Service Provider")).toHaveLength(2); // the Category cell and the phone-only summary line
+  });
+
+  it("adds a one-line summary under the name for phones, where only that column shows", () => {
+    render(
+      <ContactsTable
+        slug="s"
+        contacts={[row({ category: "FAMILY_FRIEND", household: { displayName: "The Smiths" }, phoneHome: "222" })]}
+      />
+    );
+    const summary = screen.getByText("Family & Friend · The Smiths · 222");
+    expect(summary).toHaveClass("mobile-only");
   });
 
   it("picks the first available phone number: mobile, then home, then work", () => {

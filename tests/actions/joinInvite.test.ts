@@ -85,7 +85,7 @@ describe("acceptHouseholdInviteAction", () => {
     vi.mocked(prisma.householdInvite.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.contact.create).mockResolvedValue({ id: "c1" } as any);
-    await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/smiths/contacts");
+    await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/smiths");
     expect(vi.mocked(prisma.householdInvite.updateMany).mock.calls[0][0].data).toMatchObject({
       status: "ACCEPTED",
       acceptedById: "u1",

@@ -179,6 +179,19 @@ describe("ConversationClient", () => {
     expect(router.refresh).toHaveBeenCalled();
   });
 
+  it("doesn't wipe the next message typed while the last one is still sending", async () => {
+    let finish!: () => void;
+    vi.mocked(sendMessageAction).mockReturnValueOnce(new Promise<undefined>((resolve) => (finish = () => resolve(undefined))));
+    setup();
+    await userEvent.type(box(), "first{Enter}");
+    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("s", "cv1", "first"));
+    await userEvent.clear(box());
+    await userEvent.type(box(), "second");
+    finish();
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(box()).toHaveValue("second");
+  });
+
   it("sends with the Send button", async () => {
     setup();
     const send = screen.getByRole("button", { name: "Send" });
