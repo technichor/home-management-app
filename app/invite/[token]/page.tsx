@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import Link from "next/link";
-import { Alert, Button, Card, Typography } from "antd";
+import { Alert, Button, Card } from "antd";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { hashInviteToken } from "@/lib/syncToken";
@@ -48,13 +48,13 @@ export default async function InvitePage({
   if (!sync) {
     return (
       <Shell>
-        <Typography.Title level={4} style={{ marginTop: 0 }}>
+        <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
           Invite not found
-        </Typography.Title>
-        <Typography.Text>
+        </h4>
+        <p>
           This link is not valid, or it was replaced by a newer one. Ask the person who sent it for a
           new link.
-        </Typography.Text>
+        </p>
       </Shell>
     );
   }
@@ -64,13 +64,13 @@ export default async function InvitePage({
   if (!session.householdId) {
     return (
       <Shell>
-        <Typography.Title level={4} style={{ marginTop: 0 }}>
+        <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
           {inviter} invited you to sync
-        </Typography.Title>
-        <Typography.Paragraph>
+        </h4>
+        <p>
           Log in to your household first, then open this link again to answer. If your household does
           not have an account yet, someone there needs to set one up.
-        </Typography.Paragraph>
+        </p>
         <Link href="/">
           <Button type="primary">Go to log in</Button>
         </Link>
@@ -81,12 +81,12 @@ export default async function InvitePage({
   if (sync.initiatingHouseholdId === session.householdId) {
     return (
       <Shell>
-        <Typography.Title level={4} style={{ marginTop: 0 }}>
+        <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
           This is your own invite
-        </Typography.Title>
-        <Typography.Text>
+        </h4>
+        <p>
           Send this link to the person you invited. They answer it from their own household.
-        </Typography.Text>
+        </p>
       </Shell>
     );
   }
@@ -102,9 +102,9 @@ export default async function InvitePage({
             : "This invite was revoked.";
     return (
       <Shell>
-        <Typography.Title level={4} style={{ marginTop: 0 }}>
+        <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
           {inviter}
-        </Typography.Title>
+        </h4>
         <Alert type={sync.status === "ACTIVE" ? "success" : "info"} showIcon title={answered} />
         {syncedWithUs && (
           <Link href={`/${session.householdSlug}/messages`} style={{ display: "block", marginTop: 16 }}>
@@ -117,13 +117,13 @@ export default async function InvitePage({
 
   return (
     <Shell>
-      <Typography.Title level={4} style={{ marginTop: 0 }}>
+      <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
         {inviter} wants to sync with your household
-      </Typography.Title>
-      <Typography.Paragraph>
+      </h4>
+      <p>
         Syncing lets both households message each other in shared conversations. This invite was
         addressed to <strong>{sync.counterpartEmail}</strong>.
-      </Typography.Paragraph>
+      </p>
       <InviteResponse token={token} />
     </Shell>
   );
