@@ -29,6 +29,7 @@ vi.mock("@/app/[slug]/(app)/messages/[id]/ConversationClient", () => ({
 }));
 
 import { prisma } from "@/lib/db";
+import { getIronSession } from "iron-session";
 import { conversationsVisibleTo } from "@/lib/messaging";
 import MessagesPage from "@/app/[slug]/(app)/messages/page";
 import ConversationPage from "@/app/[slug]/(app)/messages/[id]/page";
@@ -120,7 +121,7 @@ describe("ConversationPage", () => {
   const run = async () => render(await ConversationPage({ params: Promise.resolve({ slug: "s", id: "cv1" }) }));
 
   beforeEach(() => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ accountContactId: "me1" } as any);
+    vi.mocked(getIronSession).mockResolvedValue({ householdId: "me", contactId: "me1" } as any);
   });
 
   it("looks the conversation up only through the visibility rule", async () => {
@@ -172,12 +173,9 @@ describe("ConversationPage", () => {
     expect(seen.convo.conversation.archived).toBe(true);
   });
 
-  it("cannot send until the account is linked to a contact", async () => {
+  it("cannot send until the user is linked to a contact", async () => {
     vi.mocked(prisma.conversation.findFirst).mockResolvedValue(dbConvo() as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ accountContactId: null } as any);
-    await run();
-    expect(seen.convo.canSend).toBe(false);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
+    vi.mocked(getIronSession).mockResolvedValue({ householdId: "me", contactId: null } as any);
     await run();
     expect(seen.convo.canSend).toBe(false);
   });

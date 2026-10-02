@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { conversationsVisibleTo } from "@/lib/messaging";
 import { conversationNameSchema, messageSchema } from "@/lib/validations";
-import { requireHouseholdId } from "@/lib/auth";
+import { requireHouseholdId, requireMember } from "@/lib/auth";
 
 // Server actions are public endpoints, so each one re-checks that the caller's household may
 // see the conversation. A conversation the caller cannot see is reported as not found.
@@ -70,23 +70,18 @@ export async function startContactThreadAction(slug: string, contactId: string) 
   return { id: created.id };
 }
 
-/** Send a text message as the account's linked contact. There is no sender choice. */
+/** Send a text message as the signed-in user's own contact. There is no sender choice. */
 export async function sendMessageAction(slug: string, conversationId: string, text: string) {
-  const householdId = await requireHouseholdId();
+  const { householdId, contactId: senderContactId } = await requireMember();
   const parsed = messageSchema.safeParse({ text });
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
   const conversation = await loadVisibleConversation(householdId, conversationId);
   if (conversation.archivedAt) throw new Error("Unarchive this conversation to send messages");
 
-  const me = await prisma.household.findUnique({
-    where: { id: householdId },
-    select: { accountContactId: true },
-  });
-  if (!me?.accountContactId) {
+  if (!senderContactId) {
     throw new Error("Link your account to a contact on the Account page before sending messages");
   }
-  const senderContactId = me.accountContactId;
 
   await prisma.$transaction(async (tx) => {
     await tx.message.create({

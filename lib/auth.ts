@@ -61,9 +61,13 @@ export async function requireHouseholdId(): Promise<string> {
 }
 
 /** The same for pages: a signed-out visitor is sent to log in, a household-less user to onboarding. */
-export async function pageHouseholdId(): Promise<string> {
+export async function pageMember() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.householdId || !user.household || user.household.deletedAt) redirect("/onboarding");
-  return user.householdId;
+  return { ...user, householdId: user.householdId, household: user.household };
+}
+
+export async function pageHouseholdId(): Promise<string> {
+  return (await pageMember()).householdId;
 }

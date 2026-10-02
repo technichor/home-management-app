@@ -32,8 +32,7 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
   });
   const urlSlug = pickSlug(base, existing.map((h) => h.urlSlug as string));
 
-  // The founder becomes the household's owner and acts as their own Contact. (The household's
-  // accountContact, used by messaging today, is the founder until messaging goes per-user.)
+  // The founder becomes the household's owner and acts as their own Contact.
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.household.create({
@@ -42,7 +41,6 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
       const contact = await tx.contact.create({
         data: { householdId: created.id, ownerHouseholdId: created.id, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
       });
-      await tx.household.update({ where: { id: created.id }, data: { accountContactId: contact.id } });
       await tx.user.update({
         where: { id: user.id },
         data: { householdId: created.id, role: "OWNER", contactId: contact.id },

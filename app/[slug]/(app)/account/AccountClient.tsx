@@ -48,15 +48,15 @@ export default function AccountClient({
         <Alert
           type="success"
           showIcon
-          title={`This account acts as ${current.name}.`}
-          description="Messages sent from this household show this person as the sender, and this person answers sync invites."
+          title={`You act as ${current.name}.`}
+          description="Messages you send show this person as the sender."
         />
       ) : (
         <Alert
           type="warning"
           showIcon
-          title="No contact is linked to this account yet."
-          description="Choose or create the person this household login acts as. Everyone who uses the shared password will appear as them."
+          title="You are not linked to a contact yet."
+          description="Choose or create the household member you are, so your messages show your name."
         />
       )}
 

@@ -35,12 +35,11 @@ const outsider = (over: object = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
+  vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1", contactId: "me1" } as any);
   vi.mocked(prisma.conversation.findFirst).mockResolvedValue(convo() as any);
   vi.mocked(prisma.conversation.create).mockResolvedValue({ id: "new1" } as any);
   vi.mocked(prisma.conversation.update).mockResolvedValue({} as any);
   vi.mocked(prisma.contact.findUnique).mockResolvedValue(outsider() as any);
-  vi.mocked(prisma.household.findUnique).mockResolvedValue({ accountContactId: "me1" } as any);
   vi.mocked(prisma.sync.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.message.create).mockResolvedValue({} as any);
 });
@@ -115,7 +114,7 @@ describe("startContactThreadAction", () => {
 });
 
 describe("sendMessageAction", () => {
-  it("sends as the account's linked contact and bumps the conversation's recency", async () => {
+  it("sends as the user's own contact and bumps the conversation's recency", async () => {
     await sendMessageAction("s", "cv1", "  hello there ");
     expect(prisma.message.create).toHaveBeenCalledWith({
       data: { conversationId: "cv1", senderContactId: "me1", text: "hello there" },
@@ -153,11 +152,8 @@ describe("sendMessageAction", () => {
     expect(prisma.message.create).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["no linked contact", { accountContactId: null }],
-    ["no household row", null],
-  ])("will not send when the account has %s", async (_name, household) => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(household as any);
+  it("will not send when the user is not linked to a contact", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1", contactId: null } as any);
     await expect(sendMessageAction("s", "cv1", "hi")).rejects.toThrow("Link your account to a contact");
     expect(prisma.message.create).not.toHaveBeenCalled();
   });

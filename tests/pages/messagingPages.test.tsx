@@ -8,7 +8,7 @@ vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth
 vi.mock("@/lib/db", () => ({
   prisma: {
     sync: { findUnique: vi.fn() },
-    household: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
     contact: { findMany: vi.fn() },
   },
 }));
@@ -114,8 +114,8 @@ describe("AccountPage", () => {
   const params = Promise.resolve({ slug: "s" });
 
   it("passes the linked contact and the household's Family & Friend members", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({
-      accountContact: { id: "m1", firstName: "Sam", lastName: "Smith" },
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      contact: { id: "m1", firstName: "Sam", lastName: "Smith" },
     } as any);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([
       { id: "m1", firstName: "Sam", lastName: "Smith" },
@@ -138,14 +138,14 @@ describe("AccountPage", () => {
   });
 
   it("passes no current contact when none is linked yet", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ accountContact: null } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ contact: null } as any);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
     render(await AccountPage({ params }));
     expect(seen.account.current).toBeNull();
   });
 
-  it("copes with the household row being missing", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
+  it("copes with the user row being missing", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
     render(await AccountPage({ params }));
     expect(seen.account.current).toBeNull();

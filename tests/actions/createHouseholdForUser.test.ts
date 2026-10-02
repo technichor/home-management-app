@@ -79,7 +79,6 @@ describe("createHouseholdForUserAction", () => {
       lastName: "Smith",
       category: "FAMILY_FRIEND",
     });
-    expect(prisma.household.update).toHaveBeenCalledWith({ where: { id: "h1" }, data: { accountContactId: "c1" } });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: { householdId: "h1", role: "OWNER", contactId: "c1" },

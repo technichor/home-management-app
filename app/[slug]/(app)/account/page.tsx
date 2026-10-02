@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import AccountClient from "./AccountClient";
-import { pageHouseholdId } from "@/lib/auth";
+import { pageMember } from "@/lib/auth";
 
 export default async function AccountPage({
   params,
@@ -8,13 +8,12 @@ export default async function AccountPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const sessionHouseholdId = await pageHouseholdId();
-  const householdId = sessionHouseholdId;
+  const { id: userId, householdId } = await pageMember();
 
-  const [household, members] = await Promise.all([
-    prisma.household.findUnique({
-      where: { id: householdId },
-      select: { accountContact: { select: { id: true, firstName: true, lastName: true } } },
+  const [me, members] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { contact: { select: { id: true, firstName: true, lastName: true } } },
     }),
     prisma.contact.findMany({
       where: { householdId, deletedAt: null, category: "FAMILY_FRIEND" },
@@ -23,7 +22,7 @@ export default async function AccountPage({
     }),
   ]);
 
-  const current = household?.accountContact;
+  const current = me?.contact;
 
   return (
     <AccountClient

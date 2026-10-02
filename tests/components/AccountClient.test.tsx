@@ -36,12 +36,12 @@ beforeEach(() => {
 describe("AccountClient", () => {
   it("warns when no contact is linked yet", () => {
     setup();
-    expect(screen.getByText("No contact is linked to this account yet.")).toBeInTheDocument();
+    expect(screen.getByText("You are not linked to a contact yet.")).toBeInTheDocument();
   });
 
   it("shows who the account acts as", () => {
     setup(members[0]);
-    expect(screen.getByText("This account acts as Sam Smith.")).toBeInTheDocument();
+    expect(screen.getByText("You act as Sam Smith.")).toBeInTheDocument();
   });
 
   it("links an existing household member", async () => {
