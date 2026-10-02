@@ -43,6 +43,8 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   }
 
   await clearFailedLogins(email);
+  const now = new Date();
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: now, lastSeenAt: now } });
   await startSession(user);
   redirect(safeNext(formData.get("next")) ?? homePathFor(user));
 }

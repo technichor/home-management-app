@@ -9,7 +9,7 @@ vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
 vi.mock("@/lib/db", () => ({
-  prisma: { user: { findUnique: vi.fn(), create: vi.fn() } },
+  prisma: { user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() } },
 }));
 vi.mock("@/lib/emailVerification", () => ({ sendVerificationEmail: vi.fn() }));
 vi.mock("@/lib/rateLimit", () => ({
@@ -69,6 +69,8 @@ describe("signupAction", () => {
       passwordHash: "HASH",
       firstName: "Sam",
       lastName: "Smith",
+      lastLoginAt: expect.any(Date),
+      lastSeenAt: expect.any(Date),
     });
     expect(session.userId).toBe("u1");
     expect(session.save).toHaveBeenCalled();
@@ -163,6 +165,10 @@ describe("loginAction", () => {
     await expect(loginAction(null, fd(creds))).rejects.toThrow("REDIRECT:/home");
     expect(vi.mocked(prisma.user.findUnique).mock.calls[0][0].where).toEqual({ email: "sam@example.com" });
     expect(session.userId).toBe("u1");
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { lastLoginAt: expect.any(Date), lastSeenAt: expect.any(Date) },
+    });
     expect(clearFailedLogins).toHaveBeenCalledWith("sam@example.com");
   });
 

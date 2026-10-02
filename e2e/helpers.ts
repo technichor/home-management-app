@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { PrismaClient } from "@prisma/client";
 import { test as base, expect, type Browser, type Page } from "@playwright/test";
 
 export const PASSWORD = "e2e-password-1";
@@ -141,4 +142,28 @@ export async function addServiceProvider(page: Page, first: string, last: string
   await page.getByRole("button", { name: "Add contact" }).click();
   await expect(page).toHaveURL(/\/contacts\/(?!new$)[a-z0-9]+$/);
   return new URL(page.url()).pathname.split("/").pop()!;
+}
+
+/**
+ * Make an existing user a superuser by writing to the test database directly (the only other way
+ * is through /admin itself, and the first superuser has to come from somewhere).
+ */
+export async function makeSuperuser(email: string) {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.user.update({ where: { email }, data: { isSuperuser: true } });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/** Set exactly this set of users as the only superusers (so "the last superuser" can be tested). */
+export async function onlySuperusers(emails: string[]) {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.user.updateMany({ data: { isSuperuser: false } });
+    await prisma.user.updateMany({ where: { email: { in: emails } }, data: { isSuperuser: true } });
+  } finally {
+    await prisma.$disconnect();
+  }
 }

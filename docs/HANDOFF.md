@@ -1,6 +1,6 @@
 # Handoff: current state of the Home Management App
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0014 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0015 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
 
 ## One-paragraph summary
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 830 unit tests plus 33 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 882 unit tests plus 39 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -40,6 +40,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 - **Joining a household:** an owner makes a single-use invite link (`/join/[token]`, 7-day expiry, token hash stored) on `/household`, or turns on a household join code that lets a household-less user *request* to join (owner approves). Users belong to at most one household. Owners can promote/remove members; members can leave; the last owner can't leave.
 - **Each user acts as their own Contact** (`User.contactId`, created when they found/join a household; relink on `/account`). That contact is the sender of their messages.  The old shared-login columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) were dropped in migration 0012.
 - **Contacts and households are private to a household's directory** (`ownerHouseholdId` on Contact and Household; `lib/scope.ts` has the filters and ownership checks). Every list, detail, restore, export, import, sync and messaging lookup is scoped, and CSV rows can only reference the caller's own households. The account household itself has `ownerHouseholdId = null`; passive households it recorded point at it.
+- **Admin area (superusers only), `/admin`:** `User.isSuperuser` (separate from the household OWNER/MEMBER role; migration 0015 made `corey.b.becker@gmail.com` the first). It lists every account (created, last login, last seen, confirmed, household), has a page per user, lets a superuser **start a password reset** for someone (email them a link, or create a one-time 24-hour link to copy and send by hand; the admin never sees or sets a password, and the user's completing it signs out their other devices), and **grant/revoke superuser** (re-asks the admin's own password, counts wrong guesses against the login limiter, can never remove the last superuser). Everything is written to `AdminAuditEntry` and shown under "Recent admin activity". **It must stay invisible to everyone else:** `app/admin/layout.tsx` AND every admin page call `pageSuperuser()`, which shows the ordinary 404 page (no redirect to login, even when signed out); every admin server action calls `requireSuperuser()` first; the "Admin" nav link is only rendered for superusers; the check reads the database on every request, so granting/revoking takes effect immediately. Known limit: Next's router *prefetch* response for `/admin` returns a content-free route skeleton, so someone crafting raw requests could tell an `/admin` segment exists (nothing else). "Last seen" is refreshed at most every 10 minutes (`lib/auth.ts`); "last login" on password login. `e2e/admin.e2e.ts` covers all of this (it promotes users straight in the test database via `makeSuperuser`).
 - **No household name in URLs.** Every page lives at the same address for every household (`/home`, `/contacts`, `/lists`, `/messages`, `/account`, `/household`, ...); the data always comes from who you're signed in as (`app/(app)/layout.tsx` guards the whole group). Sharing a link to a record only works for people in the same household. `app/not-found.tsx` is the 404 page. The old `Household.urlSlug` column was dropped in migration 0013. **Rule for dropping a column:** first deploy code whose Prisma schema no longer has it (the column can sit unused), and only then apply the drop migration; dropping it while the running code still reads it breaks every query that loads that table.
 - **Server actions are public endpoints.** Every action checks the session itself; list/messaging actions also check ownership/visibility. Several missing-auth bugs were found and fixed in the Contacts import and restore actions; do not add an action without an auth check and a test for it.
 
@@ -52,6 +53,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /invite/[token]                accept/decline a sync invite (needs a user in a household)
 /household              members, invite links, join code + requests, leave
 /account                choose/create the Contact the signed-in user acts as; change email; change password
+/admin  /admin/users/[id]     SUPERUSERS ONLY (404 for everyone else): all users, per-user details, password reset links, grant/revoke superuser, audit log
 /change-email/[token]          confirm a new login email (opened from the email sent to the new address)
 /home                         HOME (signed-in dashboard: recent messages, lists + progress, upcoming birthdays/anniversaries in 30 days, favorites, quick actions); where login, signup, invite-accept and household creation all land
 /contacts               people list, filters; /new add form; /[id] detail (+ sync card), /[id]/edit; /households, /households/[id];
@@ -61,7 +63,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /messages               conversation list (?archived=1); /[id] conversation view
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0014 in prisma/migrations)
+### Data model (prisma/schema.prisma; migrations 0001–0015 in prisma/migrations)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files

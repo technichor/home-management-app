@@ -1,8 +1,12 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
+
+// "Last seen" is refreshed at most this often per user, so reading it costs one write per user per
+// few minutes instead of one per request.
+const SEEN_INTERVAL_MS = 10 * 60 * 1000;
 
 export async function getSessionUser() {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
@@ -13,6 +17,9 @@ export async function getSessionUser() {
   });
   // A password change or reset signs out every session that started before it.
   if (user?.passwordChangedAt && (session.issuedAt ?? 0) < user.passwordChangedAt.getTime()) return null;
+  if (user && (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > SEEN_INTERVAL_MS)) {
+    await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } });
+  }
   return user;
 }
 
@@ -79,4 +86,28 @@ export async function pageMember() {
 
 export async function pageHouseholdId(): Promise<string> {
   return (await pageMember()).householdId;
+}
+
+// ---- Superusers (the /admin area). It must be invisible to everyone else: pages answer with the
+// ordinary "not found" page (even to signed-out visitors, with no redirect to login that would
+// give the address away), and actions refuse as if nothing were there. ----
+
+/** The signed-in user if they are a superuser, else null. */
+export async function getSuperuser() {
+  const user = await getSessionUser();
+  return user?.isSuperuser ? user : null;
+}
+
+/** For admin pages and layouts: anyone but a superuser gets the 404 page. */
+export async function pageSuperuser() {
+  const user = await getSuperuser();
+  if (!user) notFound();
+  return user;
+}
+
+/** For admin server actions (public endpoints): anyone but a superuser is refused. */
+export async function requireSuperuser() {
+  const user = await getSuperuser();
+  if (!user) throw new Error("Not found");
+  return user;
 }

@@ -34,6 +34,15 @@ describe("AppNav", () => {
     expect(screen.getAllByText("soon")).toHaveLength(3);
   });
 
+  it("shows the Admin link only to superusers", async () => {
+    const { unmount } = render(<AppNav householdName="The Smiths" logoutAction={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+    unmount();
+    render(<AppNav householdName="The Smiths" isSuperuser logoutAction={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Admin" }));
+    expect(push).toHaveBeenCalledWith("/admin");
+  });
+
   it("has a Home tab that is highlighted only on the home path", async () => {
     pathname = "/home";
     setup();

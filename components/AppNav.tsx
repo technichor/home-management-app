@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 interface AppNavProps {
   householdName: string;
+  isSuperuser?: boolean;
   logoutAction: () => Promise<void>;
 }
 
@@ -18,7 +19,7 @@ const MODULES = [
   { key: "schedules", label: "Schedules", href: undefined, active: false },
 ];
 
-export default function AppNav({ householdName, logoutAction }: AppNavProps) {
+export default function AppNav({ householdName, isSuperuser, logoutAction }: AppNavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -39,6 +40,11 @@ export default function AppNav({ householdName, logoutAction }: AppNavProps) {
           <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/household")}>
             Household
           </Button>
+          {isSuperuser && (
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/admin")}>
+              Admin
+            </Button>
+          )}
           <form action={logoutAction} style={{ display: "inline" }}>
             <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
               Log out

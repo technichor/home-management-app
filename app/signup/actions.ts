@@ -32,7 +32,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   let user;
   try {
     user = await prisma.user.create({
-      data: { email, passwordHash, firstName, lastName },
+      data: { email, passwordHash, firstName, lastName, lastLoginAt: new Date(), lastSeenAt: new Date() },
       include: { household: { select: { id: true, deletedAt: true } } },
     });
   } catch (e) {

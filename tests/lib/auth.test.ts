@@ -5,13 +5,16 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
+  notFound: vi.fn(() => {
+    throw new Error("NOT_FOUND");
+  }),
 }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn(), update: vi.fn() } } }));
 
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { getSessionUser, getHouseholdId, homePathFor, isUnverified, startSession, requireHouseholdId, pageHouseholdId } from "@/lib/auth";
+import { getSuperuser, pageSuperuser, requireSuperuser, getSessionUser, getHouseholdId, homePathFor, isUnverified, startSession, requireHouseholdId, pageHouseholdId } from "@/lib/auth";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -29,6 +32,30 @@ describe("getSessionUser", () => {
     // a cookie from before sessions carried issuedAt counts as oldest
     vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
     expect(await getSessionUser()).toBeNull();
+  });
+
+  it("records when the user was last seen, but at most every ten minutes", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", lastSeenAt: null } as any);
+    await getSessionUser();
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: { lastSeenAt: expect.any(Date) } });
+
+    vi.mocked(prisma.user.update).mockClear();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", lastSeenAt: new Date(Date.now() - 11 * 60_000) } as any);
+    await getSessionUser();
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+
+    vi.mocked(prisma.user.update).mockClear();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", lastSeenAt: new Date(Date.now() - 2 * 60_000) } as any);
+    await getSessionUser();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("doesn't count a signed-out (invalidated) session as seen", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", issuedAt: 1000 } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", passwordChangedAt: new Date(2000), lastSeenAt: null } as any);
+    expect(await getSessionUser()).toBeNull();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("keeps sessions that started after the last password change", async () => {
@@ -150,5 +177,32 @@ describe("requireMember / requireOwner", () => {
     await expect(requireOwner()).rejects.toThrow("Only a household owner");
     vi.mocked(prisma.user.findUnique).mockResolvedValue(member("OWNER") as any);
     expect((await requireOwner()).role).toBe("OWNER");
+  });
+});
+
+describe("superuser guards", () => {
+  const sessionFor = (user: unknown) => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
+  };
+  const recent = new Date();
+
+  it("let a superuser through", async () => {
+    sessionFor({ id: "u1", isSuperuser: true, lastSeenAt: recent });
+    expect(await getSuperuser()).toMatchObject({ id: "u1" });
+    expect(await pageSuperuser()).toMatchObject({ id: "u1" });
+    expect(await requireSuperuser()).toMatchObject({ id: "u1" });
+  });
+
+  it("treat everyone else as if the area didn't exist", async () => {
+    for (const user of [{ id: "u1", isSuperuser: false, lastSeenAt: recent }, null]) {
+      sessionFor(user);
+      expect(await getSuperuser()).toBeNull();
+      await expect(pageSuperuser()).rejects.toThrow("NOT_FOUND");
+      await expect(requireSuperuser()).rejects.toThrow("Not found");
+    }
+    vi.mocked(getIronSession).mockResolvedValue({} as any); // signed out: also not found, never a redirect to login
+    await expect(pageSuperuser()).rejects.toThrow("NOT_FOUND");
+    await expect(requireSuperuser()).rejects.toThrow("Not found");
   });
 });

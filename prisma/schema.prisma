@@ -271,6 +271,16 @@ model User {
   verificationTokens EmailVerificationToken[]
   emailChangeTokens  EmailChangeToken[]
 
+  // Can open /admin (see all users, start password resets, grant superuser). Separate from the
+  // household OWNER/MEMBER role.
+  isSuperuser       Boolean           @default(false)
+  // When they last logged in with a password, and when they were last seen using the app
+  // (updated at most every few minutes; see lib/auth.ts).
+  lastLoginAt       DateTime?
+  lastSeenAt        DateTime?
+  adminActionsTaken AdminAuditEntry[] @relation("AuditActor")
+  adminActionsOnMe  AdminAuditEntry[] @relation("AuditTarget")
+
   @@index([householdId])
 }
 
@@ -370,4 +380,18 @@ model EmailChangeToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// A record of what superusers did in /admin. Never edited or deleted by the app.
+model AdminAuditEntry {
+  id           String   @id @default(cuid())
+  actorId      String?
+  actor        User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUserId String?
+  targetUser   User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  action       String
+  detail       String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }

@@ -77,6 +77,16 @@ describe("AppLayout", () => {
     await expect(AppLayout({ children: null })).rejects.toThrow("REDIRECT:/onboarding");
   });
 
+  it("shows the Admin link to a superuser and not to anyone else", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household, isSuperuser: true } as any);
+    const { unmount } = render(await AppLayout({ children: null }));
+    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+    unmount();
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household, isSuperuser: false } as any);
+    render(await AppLayout({ children: null }));
+    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  });
+
   it("renders the nav and children for a member", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household } as any);
     render(await AppLayout({ children: <p>page body</p> }));

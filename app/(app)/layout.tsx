@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ minHeight: "100vh", background: "#f5f5f5" }}>
-      <AppNav householdName={household.displayName} logoutAction={logoutAction} />
+      <AppNav householdName={household.displayName} isSuperuser={user.isSuperuser} logoutAction={logoutAction} />
       <div className="app-container">
         {children}
       </div>
