@@ -13,9 +13,7 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   }),
 }));
-vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
-vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { household: { findUnique: vi.fn() }, user: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/auth")>()), getSessionUser: vi.fn() }));
 vi.mock("@ant-design/nextjs-registry", () => ({
   AntdRegistry: ({ children }: any) => <>{children}</>,
 }));
@@ -24,8 +22,7 @@ vi.mock("@/app/[slug]/(app)/contacts/import/ImportClient", () => ({
 }));
 vi.mock("@/app/login/actions", () => ({ logoutAction: vi.fn() }));
 
-import { getIronSession } from "iron-session";
-import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import RootLayout, { metadata } from "@/app/layout";
 import RootPage from "@/app/page";
 import AppLayout from "@/app/[slug]/(app)/layout";
@@ -51,22 +48,17 @@ describe("RootLayout", () => {
 
 describe("RootPage", () => {
   it("redirects a signed-in user with a household to their contacts", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      id: "u1",
-      household: { id: "h1", urlSlug: "smiths", deletedAt: null },
-    } as any);
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", household: { urlSlug: "smiths", deletedAt: null } } as any);
     await expect(RootPage()).rejects.toThrow("REDIRECT:/smiths/contacts");
   });
 
   it("sends a signed-in user without a household to onboarding", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", household: null } as any);
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", household: null } as any);
     await expect(RootPage()).rejects.toThrow("REDIRECT:/onboarding");
   });
 
   it("offers login and signup to a visitor with no session", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    vi.mocked(getSessionUser).mockResolvedValue(null);
     render(await RootPage());
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
@@ -74,69 +66,27 @@ describe("RootPage", () => {
 });
 
 describe("AppLayout", () => {
-  const household = { id: "h1", displayName: "The Smiths", passwordHash: "x", deletedAt: null };
+  const household = { id: "h1", displayName: "The Smiths", urlSlug: "s", deletedAt: null };
 
-  it("404s for an unknown slug", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("NOT_FOUND");
+  it("sends a signed-out visitor to log in", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/login");
   });
 
-  it("404s for a household that is not an account", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ ...household, passwordHash: null } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("NOT_FOUND");
+  it("sends a user with no household, or a deleted one, to onboarding", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: null } as any);
+    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/onboarding");
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: { ...household, deletedAt: new Date() } } as any);
+    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/onboarding");
   });
 
-  it("404s for a deleted household", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ ...household, deletedAt: new Date() } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("NOT_FOUND");
+  it("redirects a URL for another household's slug to the user's own", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: { ...household, urlSlug: "mine" } } as any);
+    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/mine/contacts");
   });
 
-  it("redirects to login when the session is for another household", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(household as any);
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "other" } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/s");
-  });
-
-  describe("with a signed-in user", () => {
-    beforeEach(() => {
-      vi.mocked(prisma.household.findUnique).mockResolvedValue(household as any);
-    });
-
-    it("sends a user who is not a member of this household to the login", async () => {
-      vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", householdId: "h1" } as any);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: "other", household: null } as any);
-      await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/s");
-    });
-
-    it("does not trust a leftover household in the session once the user was removed", async () => {
-      vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", householdId: "h1" } as any);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: null, household: null } as any);
-      await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/s");
-    });
-
-    it("refreshes a member whose session predates joining", async () => {
-      vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: "h1", household: null } as any);
-      await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/enter");
-    });
-
-    it("renders for a member", async () => {
-      vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", householdId: "h1" } as any);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: "h1", household: null } as any);
-      render(await AppLayout({ children: <p>member body</p>, params }));
-      expect(screen.getByText("member body")).toBeInTheDocument();
-    });
-
-    it("falls back to the household login when the session's user no longer exists", async () => {
-      vi.mocked(getIronSession).mockResolvedValue({ userId: "gone", householdId: "other" } as any);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
-      await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/s");
-    });
-  });
-
-  it("renders the nav and children when logged in", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(household as any);
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
+  it("renders the nav and children for a member", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household } as any);
     render(await AppLayout({ children: <p>page body</p>, params }));
     expect(screen.getByText("The Smiths")).toBeInTheDocument();
     expect(screen.getByText("page body")).toBeInTheDocument();

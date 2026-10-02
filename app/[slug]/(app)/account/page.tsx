@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import AccountClient from "./AccountClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function AccountPage({
   params,
@@ -10,8 +8,8 @@ export default async function AccountPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  const householdId = session.householdId;
+  const sessionHouseholdId = await pageHouseholdId();
+  const householdId = sessionHouseholdId;
 
   const [household, members] = await Promise.all([
     prisma.household.findUnique({

@@ -1,18 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { conversationsVisibleTo } from "@/lib/messaging";
 import { conversationNameSchema, messageSchema } from "@/lib/validations";
-
-async function requireHouseholdId() {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
-  return session.householdId;
-}
+import { requireHouseholdId } from "@/lib/auth";
 
 // Server actions are public endpoints, so each one re-checks that the caller's household may
 // see the conversation. A conversation the caller cannot see is reported as not found.

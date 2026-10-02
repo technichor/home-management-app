@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   contactSchema,
   householdSchema,
-  createHouseholdSchema,
   personNameSchema,
   requestSyncSchema,
 } from "@/lib/validations";
@@ -103,73 +102,6 @@ describe("householdSchema", () => {
       tags: ["friends", "church"],
       notes: "Met at work",
     });
-    expect(r.success).toBe(true);
-  });
-});
-
-describe("createHouseholdSchema", () => {
-  const valid = {
-    firstName: "Sam",
-    lastName: "Reynolds",
-    displayName: "The Reynolds",
-    urlSlug: "reynolds-family",
-    password: "secure-pw-1",
-  };
-
-  it("requires the owner's first and last name", () => {
-    const first = createHouseholdSchema.safeParse({ ...valid, firstName: "  " });
-    const last = createHouseholdSchema.safeParse({ ...valid, lastName: "" });
-    expect(first.success).toBe(false);
-    expect(last.success).toBe(false);
-    expect(first.error?.issues[0].message).toBe("First name is required");
-    expect(last.error?.issues[0].message).toBe("Last name is required");
-  });
-
-  it("trims the owner's name", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, firstName: "  Sam ", lastName: " Reynolds  " });
-    expect(r.success && [r.data.firstName, r.data.lastName]).toEqual(["Sam", "Reynolds"]);
-  });
-
-  it("requires displayName", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, displayName: "" });
-    expect(r.success).toBe(false);
-  });
-
-  it("requires slug at least 2 chars", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "a" });
-    expect(r.success).toBe(false);
-  });
-
-  it("rejects slug with spaces", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "my household" });
-    expect(r.success).toBe(false);
-  });
-
-  it("rejects slug with uppercase", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "MyHousehold" });
-    expect(r.success).toBe(false);
-  });
-
-  it("rejects slug with special chars", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "my!slug" });
-    expect(r.success).toBe(false);
-  });
-
-  it("requires password at least 8 chars", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, password: "short" });
-    expect(r.success).toBe(false);
-  });
-
-  it("accepts valid input", () => {
-    const r = createHouseholdSchema.safeParse(valid);
-    expect(r.success).toBe(true);
-    if (r.success) {
-      expect(r.data.urlSlug).toBe("reynolds-family");
-    }
-  });
-
-  it("accepts slug with numbers and hyphens", () => {
-    const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "smith-family-123" });
     expect(r.success).toBe(true);
   });
 });

@@ -1,9 +1,7 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import Link from "next/link";
 import { Card, Tag, Space, Empty } from "antd";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function HouseholdsPage({
   params,
@@ -12,11 +10,8 @@ export default async function HouseholdsPage({
 }) {
   const { slug } = await params;
 
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-  const myHouseholdId = session.householdId;
+  const sessionHouseholdId = await pageHouseholdId();
+  const myHouseholdId = sessionHouseholdId;
 
   const households = await prisma.household.findMany({
     where: { deletedAt: null },

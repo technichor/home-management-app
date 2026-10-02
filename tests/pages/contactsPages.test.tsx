@@ -27,6 +27,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => ({
   prisma: {
     contact: { findMany: vi.fn(), findUnique: vi.fn() },
@@ -58,7 +59,6 @@ import ContactDetailPage from "@/app/[slug]/(app)/contacts/[id]/page";
 import HouseholdsPage from "@/app/[slug]/(app)/contacts/households/page";
 import HouseholdDetailPage from "@/app/[slug]/(app)/contacts/households/[id]/page";
 import RemovedPage from "@/app/[slug]/(app)/contacts/removed/page";
-import HouseholdLoginPage from "@/app/[slug]/page";
 
 const params = Promise.resolve({ slug: "s" });
 const idParams = (id: string) => Promise.resolve({ slug: "s", id });
@@ -384,37 +384,3 @@ describe("RemovedPage", () => {
   });
 });
 
-describe("HouseholdLoginPage", () => {
-  const dbHousehold = { id: "h1", displayName: "The Smiths", passwordHash: "x", deletedAt: null };
-  const run = (error?: string) => HouseholdLoginPage({ params, searchParams: Promise.resolve({ error }) });
-
-  it("404s for an unknown slug, a non-account household, and a removed one", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValueOnce(null);
-    await expect(run()).rejects.toThrow("NOT_FOUND");
-    vi.mocked(prisma.household.findUnique).mockResolvedValueOnce({ ...dbHousehold, passwordHash: null } as any);
-    await expect(run()).rejects.toThrow("NOT_FOUND");
-    vi.mocked(prisma.household.findUnique).mockResolvedValueOnce({ ...dbHousehold, deletedAt: new Date() } as any);
-    await expect(run()).rejects.toThrow("NOT_FOUND");
-  });
-
-  it("sends an already-logged-in household straight to its contacts", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(dbHousehold as any);
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
-    await expect(run()).rejects.toThrow("REDIRECT:/s/contacts");
-  });
-
-  it("shows the password form", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(dbHousehold as any);
-    render(await run());
-    expect(screen.getByText("The Smiths")).toBeInTheDocument();
-    expect(document.querySelector("input[type=password]")).toBeRequired();
-    expect(screen.getByRole("button", { name: "Log in" })).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("shows the error from the URL", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(dbHousehold as any);
-    render(await run("Incorrect password"));
-    expect(screen.getByText("Incorrect password")).toBeInTheDocument();
-  });
-});

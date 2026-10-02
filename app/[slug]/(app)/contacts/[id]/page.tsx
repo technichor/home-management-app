@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import SyncCard from "./SyncCard";
 import Link from "next/link";
 import { ContactCategory, ActivityAction } from "@prisma/client";
@@ -14,6 +11,7 @@ import {
   Breadcrumb,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { pageHouseholdId } from "@/lib/auth";
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   FAMILY_FRIEND: "Family & Friend",
@@ -59,12 +57,12 @@ export default async function ContactDetailPage({
 
   if (!contact) notFound();
 
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  const sessionHouseholdId = await pageHouseholdId();
   // People in our own household can already message each other; sync is for everyone else.
-  const canSync = contact.householdId !== session.householdId;
+  const canSync = contact.householdId !== sessionHouseholdId;
   const latestSync = canSync
     ? await prisma.sync.findFirst({
-        where: { relatedContactId: contact.id, initiatingHouseholdId: session.householdId },
+        where: { relatedContactId: contact.id, initiatingHouseholdId: sessionHouseholdId },
         orderBy: { createdAt: "desc" },
         include: { counterpartHousehold: { select: { displayName: true } } },
       })

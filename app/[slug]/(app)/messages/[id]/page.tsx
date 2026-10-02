@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { conversationsVisibleTo } from "@/lib/messaging";
 import ConversationClient from "./ConversationClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 // How many of the most recent messages to show.
 const MESSAGE_WINDOW = 200;
@@ -15,8 +13,8 @@ export default async function ConversationPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  const householdId = session.householdId!;
+  const sessionHouseholdId = await pageHouseholdId();
+  const householdId = sessionHouseholdId;
 
   const [conversation, me] = await Promise.all([
     prisma.conversation.findFirst({

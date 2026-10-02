@@ -1,22 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { parseListItemsCSV } from "@/lib/listCsv";
 import type { ListSortMode } from "@prisma/client";
 import { updateRatings, ComparisonOutcome, DEFAULT_RATING } from "@/lib/elo";
+import { requireHouseholdId } from "@/lib/auth";
 
 export async function createListAction(slug: string, name: string, tags: string[]) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
+  const householdId = await requireHouseholdId();
   const cleanName = name.trim();
   if (!cleanName) throw new Error("List name is required");
 
   const list = await prisma.list.create({
-    data: { householdId: session.householdId, name: cleanName, tags },
+    data: { householdId, name: cleanName, tags },
   });
 
   revalidatePath(`/${slug}/lists`);
@@ -57,10 +54,9 @@ export async function deleteListAction(id: string, slug: string) {
 // ---------- Items ----------
 
 async function requireList(listId: string) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
+  const householdId = await requireHouseholdId();
   const list = await prisma.list.findUnique({ where: { id: listId } });
-  if (!list || list.householdId !== session.householdId) throw new Error("List not found");
+  if (!list || list.householdId !== householdId) throw new Error("List not found");
   return list;
 }
 

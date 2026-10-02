@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     contact: { findUnique: vi.fn(), create: vi.fn() },

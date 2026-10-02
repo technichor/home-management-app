@@ -1,12 +1,8 @@
 import { SessionOptions } from "iron-session";
 
 export interface SessionData {
-  // The signed-in individual. Household access is derived from this user.
+  // The signed-in individual. Their household is looked up from the database on every request.
   userId?: string;
-  // Legacy shared-household-login fields; still read by the /[slug] routes until they are
-  // replaced. Set at user login when the user's household still has a slug.
-  householdId: string;
-  householdSlug: string;
 }
 
 export const sessionOptions: SessionOptions = {

@@ -71,7 +71,6 @@ describe("createHouseholdForUserAction", () => {
       displayName: "The Smiths",
       mailingAddress: "1 Main St",
       urlSlug: "the-smiths",
-      passwordHash: "!no-shared-password",
     });
     expect(vi.mocked(prisma.contact.create).mock.calls[0][0].data).toEqual({
       householdId: "h1",
@@ -85,10 +84,7 @@ describe("createHouseholdForUserAction", () => {
       data: { householdId: "h1", role: "OWNER", contactId: "c1" },
     });
     expect(prisma.activityLogEntry.createMany).toHaveBeenCalled();
-    expect(startSession).toHaveBeenCalledWith({
-      id: "u1",
-      household: { id: "h1", urlSlug: "the-smiths", deletedAt: null },
-    });
+    expect(startSession).toHaveBeenCalledWith(user);
   });
 
   it("omits an empty address and picks a free slug", async () => {

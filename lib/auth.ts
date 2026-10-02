@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
@@ -14,25 +15,26 @@ export async function getSessionUser() {
 
 type SignedInUser = {
   id: string;
-  household: { id: string; urlSlug: string | null; deletedAt: Date | null } | null;
+  household: { urlSlug: string | null; deletedAt: Date | null } | null;
 };
 
 // Where a signed-in user belongs: a user with no (active) household can't use any feature yet,
-// so they go to onboarding. (Until the /[slug] routes are replaced, the household's slug is the route.)
+// so they go to onboarding.
 export function homePathFor(user: SignedInUser): string {
   const household = user.household;
   return household && !household.deletedAt && household.urlSlug ? `/${household.urlSlug}/contacts` : "/onboarding";
 }
 
-export async function startSession(user: SignedInUser): Promise<void> {
+export async function startSession(user: { id: string }): Promise<void> {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   session.userId = user.id;
-  const household = user.household;
-  if (household && !household.deletedAt && household.urlSlug) {
-    session.householdId = household.id;
-    session.householdSlug = household.urlSlug;
-  }
   await session.save();
+}
+
+/** The caller's active household id, or null (for callers that report errors as values). */
+export async function getHouseholdId(): Promise<string | null> {
+  const user = await getSessionUser();
+  return user?.householdId && user.household && !user.household.deletedAt ? user.householdId : null;
 }
 
 /**
@@ -51,4 +53,17 @@ export async function requireOwner() {
   const user = await requireMember();
   if (user.role !== "OWNER") throw new Error("Only a household owner can do that.");
   return user;
+}
+
+/** The caller's active household id, for server actions (public endpoints: always call this). */
+export async function requireHouseholdId(): Promise<string> {
+  return (await requireMember()).householdId;
+}
+
+/** The same for pages: a signed-out visitor is sent to log in, a household-less user to onboarding. */
+export async function pageHouseholdId(): Promise<string> {
+  const user = await getSessionUser();
+  if (!user) redirect("/login");
+  if (!user.householdId || !user.household || user.household.deletedAt) redirect("/onboarding");
+  return user.householdId;
 }

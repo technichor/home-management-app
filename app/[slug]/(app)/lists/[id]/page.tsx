@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import Link from "next/link";
 import { Breadcrumb } from "antd";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import ListDetailClient from "./ListDetailClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function ListDetailPage({
   params,
@@ -16,13 +14,13 @@ export default async function ListDetailPage({
 }) {
   const { slug, id } = await params;
   const { import: importParam } = await searchParams;
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  const sessionHouseholdId = await pageHouseholdId();
 
   const list = await prisma.list.findUnique({
     where: { id },
     include: { items: { orderBy: { position: "asc" } } },
   });
-  if (!list || list.householdId !== session.householdId) notFound();
+  if (!list || list.householdId !== sessionHouseholdId) notFound();
 
   const contacts = await prisma.contact.findMany({
     where: { deletedAt: null },

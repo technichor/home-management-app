@@ -1,17 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { personNameSchema } from "@/lib/validations";
-
-async function requireHouseholdId() {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
-  return session.householdId;
-}
+import { requireHouseholdId } from "@/lib/auth";
 
 /** Make an existing member of this household the contact the account acts as. */
 export async function linkAccountContactAction(slug: string, contactId: string) {

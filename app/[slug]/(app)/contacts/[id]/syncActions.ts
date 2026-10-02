@@ -1,20 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { requestSyncSchema } from "@/lib/validations";
 import { generateInviteToken } from "@/lib/syncToken";
+import { requireHouseholdId } from "@/lib/auth";
 
 export type SyncActionResult = { ok: true; invitePath: string } | { ok: false; error: string };
-
-async function requireHouseholdId() {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
-  return session.householdId;
-}
 
 /**
  * Start a sync from an existing contact. No email is sent: the caller gets a one-time link

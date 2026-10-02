@@ -1,12 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
+}));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
 
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { getSessionUser, homePathFor, startSession } from "@/lib/auth";
+import { getSessionUser, getHouseholdId, homePathFor, startSession, requireHouseholdId, pageHouseholdId } from "@/lib/auth";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -27,32 +32,64 @@ describe("getSessionUser", () => {
 
 describe("homePathFor", () => {
   it("goes to the household's contacts when the user has an active household", () => {
-    expect(homePathFor({ id: "u", household: { id: "h", urlSlug: "smiths", deletedAt: null } })).toBe("/smiths/contacts");
+    expect(homePathFor({ id: "u", household: { urlSlug: "smiths", deletedAt: null } })).toBe("/smiths/contacts");
   });
   it("goes to onboarding with no household", () => {
     expect(homePathFor({ id: "u", household: null })).toBe("/onboarding");
   });
   it("goes to onboarding when the household is deleted or has no slug", () => {
-    expect(homePathFor({ id: "u", household: { id: "h", urlSlug: "s", deletedAt: new Date() } })).toBe("/onboarding");
-    expect(homePathFor({ id: "u", household: { id: "h", urlSlug: null, deletedAt: null } })).toBe("/onboarding");
+    expect(homePathFor({ id: "u", household: { urlSlug: "s", deletedAt: new Date() } })).toBe("/onboarding");
+    expect(homePathFor({ id: "u", household: { urlSlug: null, deletedAt: null } })).toBe("/onboarding");
   });
 });
 
 describe("startSession", () => {
-  it("stores the user and bridges the legacy household fields", async () => {
+  it("stores only the user id", async () => {
     const session: any = { save: vi.fn() };
     vi.mocked(getIronSession).mockResolvedValue(session);
-    await startSession({ id: "u1", household: { id: "h1", urlSlug: "smiths", deletedAt: null } });
-    expect(session).toMatchObject({ userId: "u1", householdId: "h1", householdSlug: "smiths" });
+    await startSession({ id: "u1" });
+    expect(session.userId).toBe("u1");
     expect(session.save).toHaveBeenCalled();
   });
+});
 
-  it("stores only the user when there is no usable household", async () => {
-    const session: any = { save: vi.fn() };
-    vi.mocked(getIronSession).mockResolvedValue(session);
-    await startSession({ id: "u1", household: null });
-    expect(session.userId).toBe("u1");
-    expect(session.householdId).toBeUndefined();
+describe("getHouseholdId", () => {
+  it("is the user's household id, or null without an active household", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: "h1", household: { deletedAt: null } } as any);
+    expect(await getHouseholdId()).toBe("h1");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: "h1", household: { deletedAt: new Date() } } as any);
+    expect(await getHouseholdId()).toBeNull();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: null, household: null } as any);
+    expect(await getHouseholdId()).toBeNull();
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    expect(await getHouseholdId()).toBeNull();
+  });
+});
+
+describe("requireHouseholdId / pageHouseholdId", () => {
+  const withHousehold = { id: "u1", householdId: "h1", household: { id: "h1", deletedAt: null } };
+
+  it("return the household id", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(withHousehold as any);
+    expect(await requireHouseholdId()).toBe("h1");
+    expect(await pageHouseholdId()).toBe("h1");
+  });
+
+  it("requireHouseholdId throws when there is none", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(requireHouseholdId()).rejects.toThrow("Not authenticated");
+  });
+
+  it("pageHouseholdId sends visitors to log in and household-less users to onboarding", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(pageHouseholdId()).rejects.toThrow("REDIRECT:/login");
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", householdId: null, household: null } as any);
+    await expect(pageHouseholdId()).rejects.toThrow("REDIRECT:/onboarding");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...withHousehold, household: { id: "h1", deletedAt: new Date() } } as any);
+    await expect(pageHouseholdId()).rejects.toThrow("REDIRECT:/onboarding");
   });
 });
 

@@ -1,11 +1,9 @@
 import { notFound, redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import Link from "next/link";
 import { Breadcrumb } from "antd";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import CompareClient from "./CompareClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function ComparePage({
   params,
@@ -13,13 +11,13 @@ export default async function ComparePage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  const sessionHouseholdId = await pageHouseholdId();
 
   const list = await prisma.list.findUnique({
     where: { id },
     include: { items: { where: { checked: false }, orderBy: { position: "asc" } } },
   });
-  if (!list || list.householdId !== session.householdId) notFound();
+  if (!list || list.householdId !== sessionHouseholdId) notFound();
   if (list.sortMode !== "PAIRWISE") redirect(`/${slug}/lists/${id}`);
 
   return (

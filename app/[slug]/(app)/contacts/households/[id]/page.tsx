@@ -1,8 +1,5 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import Link from "next/link";
 import {
   Descriptions,
@@ -12,6 +9,7 @@ import {
   Breadcrumb,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function HouseholdDetailPage({
   params,
@@ -20,11 +18,8 @@ export default async function HouseholdDetailPage({
 }) {
   const { slug, id } = await params;
 
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-  const myHouseholdId = session.householdId;
+  const sessionHouseholdId = await pageHouseholdId();
+  const myHouseholdId = sessionHouseholdId;
 
   const household = await prisma.household.findUnique({
     where: { id },

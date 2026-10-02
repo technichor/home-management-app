@@ -89,7 +89,7 @@ describe("acceptHouseholdInviteAction", () => {
       data: { householdId: "h1", role: "MEMBER" },
     });
     expect(vi.mocked(prisma.joinRequest.updateMany).mock.calls[0][0].data).toMatchObject({ status: "CANCELLED" });
-    expect(startSession).toHaveBeenCalledWith({ id: "u1", household: invite().household });
+    expect(startSession).toHaveBeenCalledWith(user);
   });
 
   it("goes to onboarding if the household has no slug", async () => {

@@ -40,6 +40,6 @@ export async function acceptHouseholdInviteAction(token: string): Promise<AuthSt
     return { error: e.message };
   }
 
-  await startSession({ id: user.id, household: invite.household });
+  await startSession(user);
   redirect(invite.household.urlSlug ? `/${invite.household.urlSlug}/contacts` : "/onboarding");
 }

@@ -1,10 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { getHouseholdId } from "@/lib/auth";
 import {
   parseHouseholdsCSV,
   parseContactsCSV,
@@ -53,11 +51,7 @@ function parseImportFiles(householdsCSV: string, contactsCSV: string) {
 export async function validateImportAction(
   formData: FormData
 ): Promise<ValidateImportResult> {
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-  if (!session.householdId) {
+  if (!(await getHouseholdId())) {
     return {
       ok: false,
       errors: [{ row: 0, column: "session", message: "Not authenticated." }],
@@ -125,21 +119,10 @@ export async function applyImportAction(
   slug: string,
   input: ApplyImportInput
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-
-  const myHousehold = await prisma.household.findUnique({
-    where: { urlSlug: slug },
-    select: { id: true },
-  });
-
-  if (!myHousehold || session.householdId !== myHousehold.id) {
+  const myHouseholdId = await getHouseholdId();
+  if (!myHouseholdId) {
     return { ok: false, error: "Not authenticated." };
   }
-
-  const myHouseholdId = myHousehold.id;
 
   const { parsedHouseholds, parsedContacts, errors } = parseImportFiles(
     input.householdsCSV,

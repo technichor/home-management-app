@@ -6,8 +6,6 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${url}`);
   }),
 }));
-vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
-vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireOwner: vi.fn(), requireMember: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
@@ -33,7 +31,6 @@ import {
 } from "@/app/[slug]/(app)/household/actions";
 import { prisma } from "@/lib/db";
 import { requireOwner, requireMember } from "@/lib/auth";
-import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
 
 const owner: any = { id: "o1", role: "OWNER", householdId: "h1", household: { id: "h1", urlSlug: "smiths" } };
@@ -195,21 +192,13 @@ describe("removeMemberAction", () => {
 });
 
 describe("leaveHouseholdAction", () => {
-  let session: any;
-  beforeEach(() => {
-    session = { householdId: "h1", householdSlug: "smiths", save: vi.fn() };
-    vi.mocked(getIronSession).mockResolvedValue(session);
-  });
-
-  it("lets a member leave and clears the legacy session fields", async () => {
+  it("lets a member leave and goes to onboarding", async () => {
     vi.mocked(requireMember).mockResolvedValue(member);
     await expect(leaveHouseholdAction()).rejects.toThrow("REDIRECT:/onboarding");
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "m1" },
       data: { householdId: null, role: "MEMBER", contactId: null },
     });
-    expect(session.householdId).toBe("");
-    expect(session.save).toHaveBeenCalled();
   });
 
   it("stops the only owner from leaving", async () => {

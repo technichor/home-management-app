@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => ({
   prisma: {
     sync: { findUnique: vi.fn() },
@@ -62,7 +63,7 @@ describe("InvitePage", () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
     render(await run());
     expect(screen.getByText("Reynolds invited you to sync")).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/login?next=%2Finvite%2Ftok");
     expect(screen.queryByText("invite response")).not.toBeInTheDocument();
   });
 

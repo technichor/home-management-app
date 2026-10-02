@@ -1,15 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { requireMember, requireOwner } from "@/lib/auth";
 import { generateInviteToken } from "@/lib/syncToken";
 import { generateJoinCode } from "@/lib/joinCode";
 import { detachUser, INVITE_TTL_MS, joinHouseholdTx, MembershipError } from "@/lib/membership";
-import { sessionOptions, SessionData } from "@/lib/session";
 
 export type HouseholdActionResult = { ok: true } | { ok: false; error: string };
 
@@ -136,10 +133,5 @@ export async function leaveHouseholdAction(): Promise<HouseholdActionResult> {
   }
   await detachUser(prisma, user.id);
 
-  // Drop the legacy household fields too, so this session can't keep reaching the household.
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  session.householdId = "";
-  session.householdSlug = "";
-  await session.save();
   redirect("/onboarding");
 }

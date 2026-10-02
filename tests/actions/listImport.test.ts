@@ -5,6 +5,7 @@ vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({
   getIronSession: vi.fn().mockResolvedValue({ householdId: "h1" }),
 }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => ({
   prisma: {
     list: { findUnique: vi.fn() },

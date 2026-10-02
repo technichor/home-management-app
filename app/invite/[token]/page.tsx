@@ -1,9 +1,7 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import Link from "next/link";
 import { Alert, Button, Card } from "antd";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { getSessionUser } from "@/lib/auth";
 import { hashInviteToken } from "@/lib/syncToken";
 import InviteResponse from "./InviteResponse";
 
@@ -32,7 +30,9 @@ export default async function InvitePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  const user = await getSessionUser();
+  const household = user?.household && !user.household.deletedAt ? user.household : null;
+  const householdId = household?.id;
 
   const sync = await prisma.sync.findUnique({
     where: { inviteTokenHash: hashInviteToken(token) },
@@ -61,24 +61,23 @@ export default async function InvitePage({
 
   const inviter = sync.initiatingHousehold.displayName;
 
-  if (!session.householdId) {
+  if (!householdId) {
     return (
       <Shell>
         <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
           {inviter} invited you to sync
         </h4>
         <p>
-          Log in to your household first, then open this link again to answer. If your household does
-          not have an account yet, someone there needs to set one up.
+          Log in and join or create a household first, then open this link again to answer.
         </p>
-        <Link href="/">
-          <Button type="primary">Go to log in</Button>
+        <Link href={`/login?next=${encodeURIComponent(`/invite/${token}`)}`}>
+          <Button type="primary">Log in</Button>
         </Link>
       </Shell>
     );
   }
 
-  if (sync.initiatingHouseholdId === session.householdId) {
+  if (sync.initiatingHouseholdId === householdId) {
     return (
       <Shell>
         <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>
@@ -92,7 +91,7 @@ export default async function InvitePage({
   }
 
   if (sync.status !== "PENDING") {
-    const syncedWithUs = sync.status === "ACTIVE" && sync.counterpartHouseholdId === session.householdId;
+    const syncedWithUs = sync.status === "ACTIVE" && sync.counterpartHouseholdId === householdId;
     const answered = syncedWithUs
       ? `You are synced with ${inviter}.`
       : sync.status === "ACTIVE"
@@ -107,7 +106,7 @@ export default async function InvitePage({
         </h4>
         <Alert type={sync.status === "ACTIVE" ? "success" : "info"} showIcon title={answered} />
         {syncedWithUs && (
-          <Link href={`/${session.householdSlug}/messages`} style={{ display: "block", marginTop: 16 }}>
+          <Link href={`/${household?.urlSlug}/messages`} style={{ display: "block", marginTop: 16 }}>
             <Button type="primary">Open messages</Button>
           </Link>
         )}

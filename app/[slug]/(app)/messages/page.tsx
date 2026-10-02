@@ -1,9 +1,7 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { conversationsVisibleTo, previewText } from "@/lib/messaging";
 import MessagesClient from "./MessagesClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function MessagesPage({
   params,
@@ -14,8 +12,8 @@ export default async function MessagesPage({
 }) {
   const [{ slug }, { archived }] = await Promise.all([params, searchParams]);
   const showArchived = archived === "1";
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  const householdId = session.householdId!;
+  const sessionHouseholdId = await pageHouseholdId();
+  const householdId = sessionHouseholdId;
 
   const [conversations, outsiders, activeSyncs] = await Promise.all([
     prisma.conversation.findMany({

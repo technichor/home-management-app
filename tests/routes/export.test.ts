@@ -8,6 +8,7 @@ vi.mock("next/headers", () => ({
 vi.mock("iron-session", () => ({
   getIronSession: vi.fn(),
 }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -30,10 +31,6 @@ function makeRequest(slug: string, file?: string) {
   return new NextRequest(url);
 }
 
-function makeParams(slug: string) {
-  return { params: Promise.resolve({ slug }) };
-}
-
 const SLUG = "reynolds-family";
 const HH_ID = "hh1";
 
@@ -43,18 +40,9 @@ beforeEach(() => {
 
 describe("GET /[slug]/contacts/api/export", () => {
   it("returns 401 when not authenticated", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "other" } as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: HH_ID } as any);
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
 
-    const res = await GET(makeRequest(SLUG, "households"), makeParams(SLUG));
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 401 when household not found", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: HH_ID } as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-
-    const res = await GET(makeRequest(SLUG, "households"), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG, "households"));
     expect(res.status).toBe(401);
   });
 
@@ -62,7 +50,7 @@ describe("GET /[slug]/contacts/api/export", () => {
     vi.mocked(getIronSession).mockResolvedValue({ householdId: HH_ID } as any);
     vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: HH_ID } as any);
 
-    const res = await GET(makeRequest(SLUG), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG));
     expect(res.status).toBe(400);
   });
 
@@ -70,7 +58,7 @@ describe("GET /[slug]/contacts/api/export", () => {
     vi.mocked(getIronSession).mockResolvedValue({ householdId: HH_ID } as any);
     vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: HH_ID } as any);
 
-    const res = await GET(makeRequest(SLUG, "users"), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG, "users"));
     expect(res.status).toBe(400);
   });
 
@@ -81,7 +69,7 @@ describe("GET /[slug]/contacts/api/export", () => {
       { id: HH_ID, displayName: "The Reynolds Family", mailingAddress: null, tags: [], notes: null },
     ] as any);
 
-    const res = await GET(makeRequest(SLUG, "households"), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG, "households"));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/csv");
     expect(res.headers.get("Content-Disposition")).toContain("households.csv");
@@ -98,7 +86,7 @@ describe("GET /[slug]/contacts/api/export", () => {
       { id: HH_ID, displayName: "Test", mailingAddress: null, tags: [], notes: null },
     ] as any);
 
-    const res = await GET(makeRequest(SLUG, "households"), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG, "households"));
     const body = await res.text();
     expect(body).not.toContain("urlSlug");
     expect(body).not.toContain("passwordHash");
@@ -120,7 +108,7 @@ describe("GET /[slug]/contacts/api/export", () => {
       },
     ] as any);
 
-    const res = await GET(makeRequest(SLUG, "contacts"), makeParams(SLUG));
+    const res = await GET(makeRequest(SLUG, "contacts"));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/csv");
     expect(res.headers.get("Content-Disposition")).toContain("contacts.csv");

@@ -11,6 +11,7 @@ vi.mock("next/headers", () => ({
 vi.mock("iron-session", () => ({
   getIronSession: vi.fn(),
 }));
+vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -188,18 +189,10 @@ describe("applyImportAction", () => {
     vi.mocked(prisma.importVersion.create).mockResolvedValue({} as any);
   }
 
-  it("rejects a session for a different household", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "other" } as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: "hh1" } as any);
+  it("rejects a caller who is not signed in to a household", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
     const result = await applyImportAction("reynolds-family", empty);
     expect(result).toEqual({ ok: false, error: "Not authenticated." });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it("rejects an unknown household slug", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-    const result = await applyImportAction("nope", empty);
-    expect(result.ok).toBe(false);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { slugify, pickSlug, RESERVED_SLUGS } from "@/lib/slug";
-import { createHouseholdSchema } from "@/lib/validations";
+import { slugify, pickSlug } from "@/lib/slug";
 
 describe("slugify", () => {
   it("lowercases, strips accents and punctuation, and hyphenates", () => {
@@ -25,18 +24,5 @@ describe("pickSlug", () => {
   });
   it("never returns a reserved slug", () => {
     expect(pickSlug("login", [])).toBe("login-2");
-  });
-});
-
-describe("legacy slug validation", () => {
-  it.each(RESERVED_SLUGS)("rejects the reserved slug %s", (slug) => {
-    const r = createHouseholdSchema.safeParse({
-      firstName: "A",
-      lastName: "B",
-      displayName: "X",
-      urlSlug: slug,
-      password: "longenough",
-    });
-    expect(r.success).toBe(false);
   });
 });

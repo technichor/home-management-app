@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { getHouseholdId } from "@/lib/auth";
 import { householdsToCSV, contactsToCSV } from "@/lib/csv";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await params;
-
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-
-  const household = await prisma.household.findUnique({
-    where: { urlSlug: slug },
-    select: { id: true },
-  });
-
-  if (!household || session.householdId !== household.id) {
+export async function GET(request: NextRequest) {
+  if (!(await getHouseholdId())) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

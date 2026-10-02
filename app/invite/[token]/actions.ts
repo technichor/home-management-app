@@ -1,9 +1,7 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { requireHouseholdId } from "@/lib/auth";
 import { hashInviteToken } from "@/lib/syncToken";
 
 export type RespondResult = { ok: true; status: "ACTIVE" | "DECLINED" } | { ok: false; error: string };
@@ -18,9 +16,7 @@ export async function respondToInviteAction(
   token: string,
   decision: "accept" | "decline"
 ): Promise<RespondResult> {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  if (!session.householdId) throw new Error("Not authenticated");
-  const householdId = session.householdId;
+  const householdId = await requireHouseholdId();
 
   if (decision !== "accept" && decision !== "decline") {
     return { ok: false, error: "Invalid response." };

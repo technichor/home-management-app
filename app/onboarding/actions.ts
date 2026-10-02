@@ -9,10 +9,6 @@ import { normalizeJoinCode } from "@/lib/joinCode";
 import { newHouseholdSchema } from "@/lib/validations";
 import type { AuthState } from "@/app/signup/actions";
 
-// A placeholder that no password can match: the household has no shared login of its own, but
-// the /[slug] routes (until they are replaced) still require a non-empty passwordHash.
-const NO_SHARED_PASSWORD = "!no-shared-password";
-
 export async function createHouseholdForUserAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -38,11 +34,10 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
 
   // The founder becomes the household's owner and acts as their own Contact. (The household's
   // accountContact, used by messaging today, is the founder until messaging goes per-user.)
-  let household;
   try {
-    household = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       const created = await tx.household.create({
-        data: { displayName, mailingAddress, urlSlug, passwordHash: NO_SHARED_PASSWORD },
+        data: { displayName, mailingAddress, urlSlug },
       });
       const contact = await tx.contact.create({
         data: { householdId: created.id, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
@@ -58,7 +53,6 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
           { entityType: "CONTACT", entityId: contact.id, action: "CREATED", source: "MANUAL" },
         ],
       });
-      return created;
     });
   } catch (e) {
     // Someone took the same slug between the lookup and the insert.
@@ -66,7 +60,7 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
     throw e;
   }
 
-  await startSession({ id: user.id, household: { id: household.id, urlSlug, deletedAt: null } });
+  await startSession(user);
   redirect(`/${urlSlug}/contacts`);
 }
 

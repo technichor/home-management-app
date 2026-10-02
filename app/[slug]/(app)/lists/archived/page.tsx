@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { sessionOptions, SessionData } from "@/lib/session";
 import ArchivedListsClient from "./ArchivedListsClient";
+import { pageHouseholdId } from "@/lib/auth";
 
 export default async function ArchivedListsPage({
   params,
@@ -11,10 +9,10 @@ export default async function ArchivedListsPage({
 }) {
   const { slug } = await params;
 
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  const sessionHouseholdId = await pageHouseholdId();
 
   const lists = await prisma.list.findMany({
-    where: { householdId: session.householdId!, archivedAt: { not: null } },
+    where: { householdId: sessionHouseholdId, archivedAt: { not: null } },
     include: { items: { select: { id: true, checked: true } } },
     orderBy: { archivedAt: "desc" },
   });
