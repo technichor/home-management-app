@@ -24,7 +24,7 @@ const selected = (el: HTMLElement) => el.style.fontWeight === "500";
 describe("AppNav", () => {
   const setup = () => {
     const logoutAction = vi.fn().mockResolvedValue(undefined);
-    render(<AppNav slug="s" householdName="The Smiths" logoutAction={logoutAction} />);
+    render(<AppNav householdName="The Smiths" logoutAction={logoutAction} />);
     return { logoutAction };
   };
 
@@ -35,16 +35,16 @@ describe("AppNav", () => {
   });
 
   it("has a Home tab that is highlighted only on the home path", async () => {
-    pathname = "/s";
+    pathname = "/home";
     setup();
     expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(true);
     expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Home" }));
-    expect(push).toHaveBeenCalledWith("/s");
+    expect(push).toHaveBeenCalledWith("/home");
   });
 
   it("does not highlight Home on a module path", () => {
-    pathname = "/s/contacts";
+    pathname = "/contacts";
     setup();
     expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(false);
     expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(true);
@@ -57,21 +57,21 @@ describe("AppNav", () => {
   });
 
   it("highlights the module matching the current path", () => {
-    pathname = "/s/lists/abc";
+    pathname = "/lists/abc";
     setup();
     expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(true);
     expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
   });
 
   it("highlights Messages on a messages path", () => {
-    pathname = "/s/messages/abc";
+    pathname = "/messages/abc";
     setup();
     expect(selected(screen.getByRole("button", { name: "Messages" }))).toBe(true);
     expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(false);
   });
 
   it("highlights nothing for an unknown path", () => {
-    pathname = "/s/other";
+    pathname = "/other";
     setup();
     expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(false);
     expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
@@ -82,9 +82,9 @@ describe("AppNav", () => {
     await userEvent.click(screen.getByRole("button", { name: "Contacts" }));
     await userEvent.click(screen.getByRole("button", { name: "Lists" }));
     await userEvent.click(screen.getByRole("button", { name: "Messages" }));
-    expect(push).toHaveBeenNthCalledWith(1, "/s/contacts");
-    expect(push).toHaveBeenNthCalledWith(2, "/s/lists");
-    expect(push).toHaveBeenNthCalledWith(3, "/s/messages");
+    expect(push).toHaveBeenNthCalledWith(1, "/contacts");
+    expect(push).toHaveBeenNthCalledWith(2, "/lists");
+    expect(push).toHaveBeenNthCalledWith(3, "/messages");
   });
 
   it("does nothing when a coming-soon module is clicked", async () => {
@@ -96,13 +96,13 @@ describe("AppNav", () => {
   it("opens the account page", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(push).toHaveBeenCalledWith("/s/account");
+    expect(push).toHaveBeenCalledWith("/account");
   });
 
   it("opens the household page", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Household" }));
-    expect(push).toHaveBeenCalledWith("/s/household");
+    expect(push).toHaveBeenCalledWith("/household");
   });
 
   it("logs out via the form action", async () => {
@@ -114,65 +114,65 @@ describe("AppNav", () => {
 
 describe("ContactsNav", () => {
   it.each([
-    ["/s/contacts", "People"],
-    ["/s/contacts/abc123", "People"],
-    ["/s/contacts/households", "Households"],
-    ["/s/contacts/households/h1", "Households"],
-    ["/s/contacts/import", "Import"],
-    ["/s/contacts/removed", "Removed"],
+    ["/contacts", "People"],
+    ["/contacts/abc123", "People"],
+    ["/contacts/households", "Households"],
+    ["/contacts/households/h1", "Households"],
+    ["/contacts/import", "Import"],
+    ["/contacts/removed", "Removed"],
   ])("on %s the %s tab is active", (path, label) => {
     pathname = path;
-    render(<ContactsNav slug="s" />);
+    render(<ContactsNav />);
     for (const name of ["People", "Households", "Import", "Removed"]) {
       expect(selected(screen.getByRole("button", { name }))).toBe(name === label);
     }
   });
 
   it("has no active tab outside contacts", () => {
-    pathname = "/s/lists";
-    render(<ContactsNav slug="s" />);
+    pathname = "/lists";
+    render(<ContactsNav />);
     expect(screen.getAllByRole("button").some(selected)).toBe(false);
   });
 
   it("navigates to each tab", async () => {
-    render(<ContactsNav slug="s" />);
+    render(<ContactsNav />);
     await userEvent.click(screen.getByRole("button", { name: "People" }));
     await userEvent.click(screen.getByRole("button", { name: "Households" }));
     await userEvent.click(screen.getByRole("button", { name: "Import" }));
     await userEvent.click(screen.getByRole("button", { name: "Removed" }));
     expect(push.mock.calls.map((c) => c[0])).toEqual([
-      "/s/contacts",
-      "/s/contacts/households",
-      "/s/contacts/import",
-      "/s/contacts/removed",
+      "/contacts",
+      "/contacts/households",
+      "/contacts/import",
+      "/contacts/removed",
     ]);
   });
 });
 
 describe("ListsNav", () => {
   it.each([
-    ["/s/lists", "Active"],
-    ["/s/lists/abc", "Active"],
-    ["/s/lists/abc/compare", "Active"],
-    ["/s/lists/archived", "Archived"],
+    ["/lists", "Active"],
+    ["/lists/abc", "Active"],
+    ["/lists/abc/compare", "Active"],
+    ["/lists/archived", "Archived"],
   ])("on %s the %s tab is active", (path, label) => {
     pathname = path;
-    render(<ListsNav slug="s" />);
+    render(<ListsNav />);
     for (const name of ["Active", "Archived"]) {
       expect(selected(screen.getByRole("button", { name }))).toBe(name === label);
     }
   });
 
   it("has no active tab outside lists", () => {
-    pathname = "/s/contacts";
-    render(<ListsNav slug="s" />);
+    pathname = "/contacts";
+    render(<ListsNav />);
     expect(screen.getAllByRole("button").some(selected)).toBe(false);
   });
 
   it("navigates to each tab", async () => {
-    render(<ListsNav slug="s" />);
+    render(<ListsNav />);
     await userEvent.click(screen.getByRole("button", { name: "Active" }));
     await userEvent.click(screen.getByRole("button", { name: "Archived" }));
-    expect(push.mock.calls.map((c) => c[0])).toEqual(["/s/lists", "/s/lists/archived"]);
+    expect(push.mock.calls.map((c) => c[0])).toEqual(["/lists", "/lists/archived"]);
   });
 });

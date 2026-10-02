@@ -28,7 +28,7 @@ import {
   promoteMemberAction,
   removeMemberAction,
   leaveHouseholdAction,
-} from "@/app/[slug]/(app)/household/actions";
+} from "@/app/(app)/household/actions";
 import { prisma } from "@/lib/db";
 import { requireOwner, requireMember } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -66,7 +66,7 @@ describe("createInviteAction", () => {
     expect(data.tokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(data)).not.toContain((r as any).invitePath.slice(6));
     expect(data.expiresAt.getTime()).toBeGreaterThan(Date.now());
-    expect(revalidatePath).toHaveBeenCalledWith("/smiths/household");
+    expect(revalidatePath).toHaveBeenCalledWith("/household");
   });
 });
 

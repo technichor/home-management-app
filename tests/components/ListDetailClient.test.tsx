@@ -6,7 +6,7 @@ import { App } from "antd";
 
 const router = { push: vi.fn(), refresh: vi.fn(), replace: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/app/[slug]/(app)/lists/actions", () => ({
+vi.mock("@/app/(app)/lists/actions", () => ({
   addItemsAction: vi.fn(),
   toggleItemAction: vi.fn(),
   updateItemAction: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
     },
   };
 });
-vi.mock("@/app/[slug]/(app)/lists/ImportItemsModal", () => ({
+vi.mock("@/app/(app)/lists/ImportItemsModal", () => ({
   default: ({ open, onClose, onDone }: any) =>
     open ? (
       <div>
@@ -37,7 +37,7 @@ vi.mock("@/app/[slug]/(app)/lists/ImportItemsModal", () => ({
     ) : null,
 }));
 
-import ListDetailClient from "@/app/[slug]/(app)/lists/[id]/ListDetailClient";
+import ListDetailClient from "@/app/(app)/lists/[id]/ListDetailClient";
 import {
   addItemsAction,
   toggleItemAction,
@@ -45,7 +45,7 @@ import {
   deleteItemAction,
   reorderItemsAction,
   setSortModeAction,
-} from "@/app/[slug]/(app)/lists/actions";
+} from "@/app/(app)/lists/actions";
 
 const items = [
   { id: "a", text: "milk", quantity: "2 gallons", notes: "whole", checked: false, assignedToContactId: "c1" },
@@ -59,7 +59,6 @@ const contacts = [
 
 function setup(props: Partial<React.ComponentProps<typeof ListDetailClient>> = {}) {
   const base = {
-    slug: "s",
     listId: "l1",
     listName: "Groceries",
     sortMode: "MANUAL" as const,
@@ -120,7 +119,7 @@ describe("quick add", () => {
   it("adds on Enter and clears the box", async () => {
     setup();
     await userEvent.type(box(), "butter{Enter}");
-    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", "s", ["butter"]));
+    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["butter"]));
     expect(box()).toHaveValue("");
     expect(router.refresh).toHaveBeenCalled();
   });
@@ -130,7 +129,7 @@ describe("quick add", () => {
     await userEvent.click(box());
     await userEvent.paste("one\ntwo");
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", "s", ["one", "two"]));
+    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["one", "two"]));
   });
 
   it("does not submit on Shift+Enter or blank input", async () => {
@@ -162,9 +161,9 @@ describe("check, edit, delete", () => {
   it("checks and unchecks an item", async () => {
     setup();
     await userEvent.click(within(rowOf("milk")).getByRole("checkbox"));
-    await waitFor(() => expect(toggleItemAction).toHaveBeenCalledWith("a", "s", true));
+    await waitFor(() => expect(toggleItemAction).toHaveBeenCalledWith("a", true));
     await userEvent.click(within(rowOf("eggs")).getByRole("checkbox"));
-    await waitFor(() => expect(toggleItemAction).toHaveBeenCalledWith("b", "s", false));
+    await waitFor(() => expect(toggleItemAction).toHaveBeenCalledWith("b", false));
   });
 
   it("deletes after confirming", async () => {
@@ -173,7 +172,7 @@ describe("check, edit, delete", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent('Delete "milk"?');
     await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(deleteItemAction).toHaveBeenCalledWith("a", "s"));
+    await waitFor(() => expect(deleteItemAction).toHaveBeenCalledWith("a"));
   });
 
   it("edits every field, including the assignee", async () => {
@@ -192,7 +191,7 @@ describe("check, edit, delete", () => {
     await userEvent.click(await screen.findByTitle("Pat Jones"));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
-      expect(updateItemAction).toHaveBeenCalledWith("a", "s", {
+      expect(updateItemAction).toHaveBeenCalledWith("a", {
         text: "oat milk",
         quantity: "1 carton",
         notes: "unsweetened",
@@ -208,7 +207,7 @@ describe("check, edit, delete", () => {
     expect(screen.getByPlaceholderText("Notes")).toHaveValue("");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
-      expect(updateItemAction).toHaveBeenCalledWith("c", "s", {
+      expect(updateItemAction).toHaveBeenCalledWith("c", {
         text: "bread",
         quantity: "",
         notes: "",
@@ -226,7 +225,7 @@ describe("check, edit, delete", () => {
     await userEvent.click(select.querySelector(".ant-select-clear") as HTMLElement);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
-      expect(updateItemAction).toHaveBeenCalledWith("a", "s", expect.objectContaining({ assignedToContactId: null }))
+      expect(updateItemAction).toHaveBeenCalledWith("a", expect.objectContaining({ assignedToContactId: null }))
     );
   });
 
@@ -249,7 +248,7 @@ describe("sort mode", () => {
   it("hides drag handles and offers Prioritize when pairwise", () => {
     setup({ sortMode: "PAIRWISE" });
     expect(screen.queryByLabelText("Drag to reorder")).not.toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/s/lists/l1/compare");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/lists/l1/compare");
   });
 
   it("hides Prioritize in pairwise mode with fewer than two unchecked items", () => {
@@ -263,7 +262,7 @@ describe("sort mode", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("Switch to pairwise ranking?");
     await userEvent.click(within(dialog).getByRole("button", { name: "Switch" }));
-    await waitFor(() => expect(setSortModeAction).toHaveBeenCalledWith("l1", "s", "PAIRWISE"));
+    await waitFor(() => expect(setSortModeAction).toHaveBeenCalledWith("l1", "PAIRWISE"));
   });
 
   it("switches to manual after confirmation", async () => {
@@ -272,7 +271,7 @@ describe("sort mode", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("Switch to manual sorting?");
     await userEvent.click(within(dialog).getByRole("button", { name: "Switch" }));
-    await waitFor(() => expect(setSortModeAction).toHaveBeenCalledWith("l1", "s", "MANUAL"));
+    await waitFor(() => expect(setSortModeAction).toHaveBeenCalledWith("l1", "MANUAL"));
   });
 });
 
@@ -281,7 +280,7 @@ describe("drag to reorder", () => {
     setup();
     // Displayed order is milk, bread, eggs (checked last). Drag bread above milk.
     onDragEnd({ active: { id: "c" }, over: { id: "a" } });
-    expect(reorderItemsAction).toHaveBeenCalledWith("l1", "s", ["c", "a", "b"]);
+    expect(reorderItemsAction).toHaveBeenCalledWith("l1", ["c", "a", "b"]);
   });
 
   it("ignores a drop with no target or onto itself", () => {
@@ -311,7 +310,7 @@ describe("CSV import entry", () => {
   it("opens straight away when asked, and refreshes when done", async () => {
     setup({ openImport: true });
     await userEvent.click(screen.getByText("finish import"));
-    expect(router.replace).toHaveBeenCalledWith("/s/lists/l1");
+    expect(router.replace).toHaveBeenCalledWith("/lists/l1");
     expect(router.refresh).toHaveBeenCalled();
     expect(screen.queryByText("import modal")).not.toBeInTheDocument();
   });

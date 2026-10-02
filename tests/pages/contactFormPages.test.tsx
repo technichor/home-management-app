@@ -14,12 +14,12 @@ vi.mock("@/lib/db", () => ({
   prisma: { contact: { findUnique: vi.fn() }, household: { findMany: vi.fn() } },
 }));
 const seen: Record<string, any> = {};
-vi.mock("@/app/[slug]/(app)/contacts/ContactForm", () => ({
+vi.mock("@/app/(app)/contacts/ContactForm", () => ({
   default: (p: any) => ((seen.form = p), <div>contact form</div>),
 }));
 
-import NewContactPage from "@/app/[slug]/(app)/contacts/new/page";
-import EditContactPage from "@/app/[slug]/(app)/contacts/[id]/edit/page";
+import NewContactPage from "@/app/(app)/contacts/new/page";
+import EditContactPage from "@/app/(app)/contacts/[id]/edit/page";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 
@@ -39,9 +39,9 @@ beforeEach(() => {
 
 describe("NewContactPage", () => {
   it("offers only the caller's own (non-removed) households", async () => {
-    render(await NewContactPage({ params: Promise.resolve({ slug: "s" }) }));
+    render(await NewContactPage());
     expect(screen.getByText("contact form")).toBeInTheDocument();
-    expect(seen.form).toMatchObject({ slug: "s", households: [{ id: "h1", displayName: "The Smiths" }] });
+    expect(seen.form).toMatchObject({ households: [{ id: "h1", displayName: "The Smiths" }] });
     expect(seen.form.contact).toBeUndefined();
     expect(vi.mocked(prisma.household.findMany).mock.calls[0][0]!.where).toEqual({
       OR: [{ id: "mine" }, { ownerHouseholdId: "mine" }],
@@ -51,7 +51,7 @@ describe("NewContactPage", () => {
 });
 
 describe("EditContactPage", () => {
-  const run = () => EditContactPage({ params: Promise.resolve({ slug: "s", id: "c1" }) });
+  const run = () => EditContactPage({ params: Promise.resolve({ id: "c1" }) });
 
   it.each([
     ["missing", null],

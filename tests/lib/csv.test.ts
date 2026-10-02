@@ -79,7 +79,7 @@ describe("householdsToCSV", () => {
   });
 
   it("never includes urlSlug or passwordHash columns", () => {
-    const csv = householdsToCSV([makeHousehold({ urlSlug: "smiths", passwordHash: "hash" })]);
+    const csv = householdsToCSV([makeHousehold({ passwordHash: "hash" })]);
     expect(csv).not.toContain("urlSlug");
     expect(csv).not.toContain("passwordHash");
     expect(csv).not.toContain("url_slug");

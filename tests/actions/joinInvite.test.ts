@@ -33,7 +33,7 @@ const invite = (over: any = {}) => ({
   householdId: "h1",
   status: "PENDING",
   expiresAt: future,
-  household: { id: "h1", urlSlug: "smiths", deletedAt: null },
+  household: { id: "h1", deletedAt: null },
   ...over,
 });
 
@@ -64,7 +64,7 @@ describe("acceptHouseholdInviteAction", () => {
     vi.mocked(prisma.householdInvite.findUnique).mockResolvedValue(null);
     expect(await acceptHouseholdInviteAction("tok")).toEqual({ error: "This invite link is not valid." });
     vi.mocked(prisma.householdInvite.findUnique).mockResolvedValue(
-      invite({ household: { id: "h1", urlSlug: "s", deletedAt: new Date() } }) as any
+      invite({ household: { id: "h1", deletedAt: new Date() } }) as any
     );
     expect(await acceptHouseholdInviteAction("tok")).toEqual({ error: "This invite link is not valid." });
     vi.mocked(prisma.householdInvite.findUnique).mockResolvedValue(invite({ status: "REVOKED" }) as any);
@@ -85,7 +85,7 @@ describe("acceptHouseholdInviteAction", () => {
     vi.mocked(prisma.householdInvite.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.contact.create).mockResolvedValue({ id: "c1" } as any);
-    await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/smiths");
+    await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/home");
     expect(vi.mocked(prisma.householdInvite.updateMany).mock.calls[0][0].data).toMatchObject({
       status: "ACCEPTED",
       acceptedById: "u1",
@@ -96,16 +96,6 @@ describe("acceptHouseholdInviteAction", () => {
     });
     expect(vi.mocked(prisma.joinRequest.updateMany).mock.calls[0][0].data).toMatchObject({ status: "CANCELLED" });
     expect(startSession).toHaveBeenCalledWith(user);
-  });
-
-  it("goes to onboarding if the household has no slug", async () => {
-    vi.mocked(prisma.householdInvite.findUnique).mockResolvedValue(
-      invite({ household: { id: "h1", urlSlug: null, deletedAt: null } }) as any
-    );
-    vi.mocked(prisma.householdInvite.updateMany).mockResolvedValue({ count: 1 });
-    vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 });
-    vi.mocked(prisma.contact.create).mockResolvedValue({ id: "c1" } as any);
-    await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/onboarding");
   });
 
   it("loses a race for the same invite gracefully", async () => {

@@ -15,7 +15,7 @@ vi.mock("@/lib/db", () => {
   return { prisma };
 });
 
-import { recordComparisonAction } from "@/app/[slug]/(app)/lists/actions";
+import { recordComparisonAction } from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
 const item = (id: string, rating: number, position: number, listId = "l1") => ({
@@ -41,7 +41,7 @@ function setItems(items: ReturnType<typeof item>[]) {
 describe("recordComparisonAction", () => {
   it("updates both ratings, bumps both counts, and returns the new ratings", async () => {
     setItems([item("a", 1500, 0), item("b", 1500, 1)]);
-    const r = await recordComparisonAction("l1", "s", "a", "b", "A");
+    const r = await recordComparisonAction("l1", "a", "b", "A");
     expect(r.a).toBeCloseTo(1516);
     expect(r.b).toBeCloseTo(1484);
     expect(prisma.listItem.update).toHaveBeenCalledWith({
@@ -57,28 +57,28 @@ describe("recordComparisonAction", () => {
   it("rewrites position by rating descending", async () => {
     // b currently sits above a; after the sort-by-rating step with a above b it must swap.
     setItems([item("b", 1484, 0), item("a", 1516, 1)]);
-    await recordComparisonAction("l1", "s", "a", "b", "A");
+    await recordComparisonAction("l1", "a", "b", "A");
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "a" }, data: { position: 0 } });
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "b" }, data: { position: 1 } });
   });
 
   it("rejects comparing an item with itself", async () => {
-    await expect(recordComparisonAction("l1", "s", "a", "a", "A")).rejects.toThrow("two different items");
+    await expect(recordComparisonAction("l1", "a", "a", "A")).rejects.toThrow("two different items");
   });
 
   it("rejects an unknown outcome", async () => {
-    await expect(recordComparisonAction("l1", "s", "a", "b", "C" as any)).rejects.toThrow("Invalid comparison result");
+    await expect(recordComparisonAction("l1", "a", "b", "C" as any)).rejects.toThrow("Invalid comparison result");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects an item from another list", async () => {
     setItems([item("a", 1500, 0), item("b", 1500, 0, "other")]);
-    await expect(recordComparisonAction("l1", "s", "a", "b", "A")).rejects.toThrow("Item not found");
+    await expect(recordComparisonAction("l1", "a", "b", "A")).rejects.toThrow("Item not found");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects another household's list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "other" } as any);
-    await expect(recordComparisonAction("l1", "s", "a", "b", "A")).rejects.toThrow("List not found");
+    await expect(recordComparisonAction("l1", "a", "b", "A")).rejects.toThrow("List not found");
   });
 });

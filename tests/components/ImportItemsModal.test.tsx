@@ -3,17 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/app/[slug]/(app)/lists/actions", () => ({ importItemsAction: vi.fn() }));
+vi.mock("@/app/(app)/lists/actions", () => ({ importItemsAction: vi.fn() }));
 
-import ImportItemsModal from "@/app/[slug]/(app)/lists/ImportItemsModal";
-import { importItemsAction } from "@/app/[slug]/(app)/lists/actions";
+import ImportItemsModal from "@/app/(app)/lists/ImportItemsModal";
+import { importItemsAction } from "@/app/(app)/lists/actions";
 
 const onClose = vi.fn();
 const onDone = vi.fn();
 
 function setup(open = true) {
   return render(
-    <ImportItemsModal open={open} onClose={onClose} onDone={onDone} listId="l1" listName="Packing" slug="s" />
+    <ImportItemsModal open={open} onClose={onClose} onDone={onDone} listId="l1" listName="Packing" />
   );
 }
 
@@ -46,7 +46,7 @@ describe("ImportItemsModal", () => {
     expect(await screen.findByText('2 items will be added to "Packing".')).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /items\.csv/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Add 2 items" }));
-    await waitFor(() => expect(importItemsAction).toHaveBeenCalledWith("l1", "s", csv));
+    await waitFor(() => expect(importItemsAction).toHaveBeenCalledWith("l1", csv));
     expect(onDone).toHaveBeenCalled();
   });
 

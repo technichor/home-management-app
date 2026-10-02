@@ -73,12 +73,11 @@ describe("createHouseholdForUserAction", () => {
   it("creates the household, the founder's contact and the owner link together, then signs in", async () => {
     await expect(
       createHouseholdForUserAction(null, fd({ displayName: "The Smiths", mailingAddress: " 1 Main St " }))
-    ).rejects.toThrow("REDIRECT:/the-smiths");
+    ).rejects.toThrow("REDIRECT:/home");
 
     expect(vi.mocked(prisma.household.create).mock.calls[0][0].data).toEqual({
       displayName: "The Smiths",
       mailingAddress: "1 Main St",
-      urlSlug: "the-smiths",
     });
     expect(vi.mocked(prisma.contact.create).mock.calls[0][0].data).toEqual({
       householdId: "h1",
@@ -95,19 +94,15 @@ describe("createHouseholdForUserAction", () => {
     expect(startSession).toHaveBeenCalledWith(user);
   });
 
-  it("omits an empty address and picks a free slug", async () => {
-    vi.mocked(prisma.household.findMany).mockResolvedValue([{ urlSlug: "the-smiths" }] as any);
-    await expect(createHouseholdForUserAction(null, fd({ displayName: "The Smiths" }))).rejects.toThrow(
-      "REDIRECT:/the-smiths-2"
-    );
+  it("omits an empty address", async () => {
+    await expect(createHouseholdForUserAction(null, fd({ displayName: "The Smiths" }))).rejects.toThrow("REDIRECT:/home");
     expect(vi.mocked(prisma.household.create).mock.calls[0][0].data.mailingAddress).toBeUndefined();
   });
 
-  it("reports a slug taken in a race", async () => {
-    vi.mocked(prisma.household.create).mockRejectedValue(Object.assign(new Error("dup"), { code: "P2002" }));
-    expect(await createHouseholdForUserAction(null, fd({ displayName: "X Y" }))).toEqual({
-      error: "That name was just taken. Try again.",
-    });
+  it("lets two households have the same name (there is no URL slug to keep unique)", async () => {
+    await expect(createHouseholdForUserAction(null, fd({ displayName: "The Smiths" }))).rejects.toThrow("REDIRECT:/home");
+    await expect(createHouseholdForUserAction(null, fd({ displayName: "The Smiths" }))).rejects.toThrow("REDIRECT:/home");
+    expect(prisma.household.create).toHaveBeenCalledTimes(2);
   });
 
   it("rethrows unexpected errors", async () => {

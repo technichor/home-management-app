@@ -17,7 +17,7 @@ vi.mock("@/app/invite/[token]/InviteResponse", () => ({
   default: (p: any) => ((seen.response = p), <div>invite response</div>),
 }));
 vi.mock("@/components/ChangePasswordForm", () => ({ default: () => <div>change password form</div> }));
-vi.mock("@/app/[slug]/(app)/account/AccountClient", () => ({
+vi.mock("@/app/(app)/account/AccountClient", () => ({
   default: (p: any) => ((seen.account = p), <div>account client</div>),
 }));
 
@@ -25,7 +25,7 @@ import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { hashInviteToken } from "@/lib/syncToken";
 import InvitePage from "@/app/invite/[token]/page";
-import AccountPage from "@/app/[slug]/(app)/account/page";
+import AccountPage from "@/app/(app)/account/page";
 
 const run = () => InvitePage({ params: Promise.resolve({ token: "tok" }) });
 
@@ -101,7 +101,7 @@ describe("InvitePage: after accepting", () => {
     vi.mocked(getIronSession).mockResolvedValue({ householdId: "me", householdSlug: "smiths" } as any);
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync({ status: "ACTIVE", counterpartHouseholdId: "me" }) as any);
     render(await run());
-    expect(screen.getByRole("link", { name: "Open messages" })).toHaveAttribute("href", "/smiths/messages");
+    expect(screen.getByRole("link", { name: "Open messages" })).toHaveAttribute("href", "/messages");
   });
 
   it("does not offer messages to someone who is not part of the sync", async () => {
@@ -112,7 +112,6 @@ describe("InvitePage: after accepting", () => {
 });
 
 describe("AccountPage", () => {
-  const params = Promise.resolve({ slug: "s" });
 
   it("passes the linked contact and the household's Family & Friend members", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
@@ -122,10 +121,9 @@ describe("AccountPage", () => {
       { id: "m1", firstName: "Sam", lastName: "Smith" },
       { id: "m2", firstName: "Pat", lastName: "Smith" },
     ] as any);
-    render(await AccountPage({ params }));
+    render(await AccountPage());
     expect(screen.getByText("change password form")).toBeInTheDocument();
     expect(seen.account).toEqual({
-      slug: "s",
       current: { id: "m1", name: "Sam Smith" },
       members: [
         { id: "m1", name: "Sam Smith" },
@@ -142,14 +140,14 @@ describe("AccountPage", () => {
   it("passes no current contact when none is linked yet", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ contact: null } as any);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    render(await AccountPage({ params }));
+    render(await AccountPage());
     expect(seen.account.current).toBeNull();
   });
 
   it("copes with the user row being missing", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    render(await AccountPage({ params }));
+    render(await AccountPage());
     expect(seen.account.current).toBeNull();
   });
 });

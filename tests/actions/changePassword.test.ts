@@ -10,7 +10,7 @@ vi.mock("@/lib/rateLimit", () => ({
   recordFailedLogin: vi.fn(),
 }));
 
-import { changePasswordAction } from "@/app/[slug]/(app)/account/actions";
+import { changePasswordAction } from "@/app/(app)/account/actions";
 import { prisma } from "@/lib/db";
 import { requireMember, startSession } from "@/lib/auth";
 import { loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";

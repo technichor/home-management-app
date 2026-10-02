@@ -20,7 +20,7 @@ import {
   setSortModeAction,
   reorderItemsAction,
   recordComparisonAction,
-} from "@/app/[slug]/(app)/lists/actions";
+} from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
 function listWithMode(sortMode: "MANUAL" | "PAIRWISE") {
@@ -38,7 +38,7 @@ beforeEach(() => {
 describe("setSortModeAction", () => {
   it("manual -> pairwise: sets the mode and resets every rating and count, without touching position", async () => {
     listWithMode("MANUAL");
-    await setSortModeAction("l1", "s", "PAIRWISE");
+    await setSortModeAction("l1", "PAIRWISE");
     expect(prisma.list.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { sortMode: "PAIRWISE" } });
     expect(prisma.listItem.updateMany).toHaveBeenCalledWith({
       where: { listId: "l1" },
@@ -50,26 +50,26 @@ describe("setSortModeAction", () => {
 
   it("pairwise -> manual: sets the mode and leaves items alone", async () => {
     listWithMode("PAIRWISE");
-    await setSortModeAction("l1", "s", "MANUAL");
+    await setSortModeAction("l1", "MANUAL");
     expect(prisma.list.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { sortMode: "MANUAL" } });
     expect(prisma.listItem.updateMany).not.toHaveBeenCalled();
   });
 
   it("does nothing when the mode is unchanged (does not wipe ratings)", async () => {
     listWithMode("PAIRWISE");
-    await setSortModeAction("l1", "s", "PAIRWISE");
+    await setSortModeAction("l1", "PAIRWISE");
     expect(prisma.list.update).not.toHaveBeenCalled();
     expect(prisma.listItem.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid mode", async () => {
     listWithMode("MANUAL");
-    await expect(setSortModeAction("l1", "s", "RANDOM" as any)).rejects.toThrow("Invalid sort mode");
+    await expect(setSortModeAction("l1", "RANDOM" as any)).rejects.toThrow("Invalid sort mode");
   });
 
   it("rejects another household's list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "other", sortMode: "MANUAL" } as any);
-    await expect(setSortModeAction("l1", "s", "PAIRWISE")).rejects.toThrow("List not found");
+    await expect(setSortModeAction("l1", "PAIRWISE")).rejects.toThrow("List not found");
     expect(prisma.list.update).not.toHaveBeenCalled();
   });
 });
@@ -77,19 +77,19 @@ describe("setSortModeAction", () => {
 describe("mode guards", () => {
   it("manual reorder is rejected on a pairwise list", async () => {
     listWithMode("PAIRWISE");
-    await expect(reorderItemsAction("l1", "s", ["a", "b"])).rejects.toThrow("pairwise");
+    await expect(reorderItemsAction("l1", ["a", "b"])).rejects.toThrow("pairwise");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("manual reorder works on a manual list", async () => {
     listWithMode("MANUAL");
-    await reorderItemsAction("l1", "s", ["b", "a"]);
+    await reorderItemsAction("l1", ["b", "a"]);
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "b" }, data: { position: 0 } });
   });
 
   it("comparisons are rejected on a manual list", async () => {
     listWithMode("MANUAL");
-    await expect(recordComparisonAction("l1", "s", "a", "b", "A")).rejects.toThrow("sorted manually");
+    await expect(recordComparisonAction("l1", "a", "b", "A")).rejects.toThrow("sorted manually");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 });

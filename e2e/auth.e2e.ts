@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect } from "@playwright/test";
 import {
   PASSWORD,
   confirmEmail,
@@ -9,6 +9,7 @@ import {
   newOwner,
   newSession,
   signUp,
+  test,
   uniqueEmail,
 } from "./helpers";
 
@@ -23,10 +24,9 @@ test("sign up, confirm the email, create a household and land in the app", async
 
   await confirmEmail(page, email);
   await expect(page).toHaveURL(/\/onboarding$/);
-  const slug = await createHousehold(page, "The Signups");
+  await createHousehold(page, "The Signups");
   await expect(page.getByRole("heading", { name: /Welcome back, Sam/ })).toBeVisible();
   await expect(page.getByText("The Signups").first()).toBeVisible();
-  expect(slug).toBe("the-signups");
 });
 
 test("a confirmation link works once", async ({ page, browser }) => {
@@ -51,11 +51,11 @@ test("log in, log out, and a wrong password gets a plain error", async ({ page }
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
   await logIn(page, email);
-  await expect(page).toHaveURL(/\/the-logins$/);
+  await expect(page).toHaveURL(/\/home$/);
 });
 
 test("signed-out visitors are sent to log in", async ({ page }) => {
-  await page.goto("/the-logins/contacts");
+  await page.goto("/contacts");
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/onboarding");
   await expect(page).toHaveURL(/\/login$/);
@@ -67,7 +67,7 @@ test("forgot password: emailed link sets a new password and signs out other sess
   // A second device that stays signed in on the old password.
   const device = await newSession(browser);
   await logIn(device.page, email);
-  await expect(device.page).toHaveURL(/\/the-forgetfuls$/);
+  await expect(device.page).toHaveURL(/\/home$/);
 
   const fresh = await newSession(browser);
   await fresh.page.goto("/forgot-password");
@@ -86,10 +86,10 @@ test("forgot password: emailed link sets a new password and signs out other sess
   await logIn(fresh.page, email, PASSWORD);
   await expect(fresh.page.getByText("Incorrect email or password.")).toBeVisible();
   await logIn(fresh.page, email, "a-brand-new-password");
-  await expect(fresh.page).toHaveURL(/\/the-forgetfuls$/);
+  await expect(fresh.page).toHaveURL(/\/home$/);
 
   // The old device was signed out by the reset.
-  await device.page.goto("/the-forgetfuls/contacts");
+  await device.page.goto("/contacts");
   await expect(device.page).toHaveURL(/\/login$/);
 
   // A reset link can't be reused.
@@ -100,21 +100,21 @@ test("forgot password: emailed link sets a new password and signs out other sess
 });
 
 test("change password on the account page signs out other sessions but not this one", async ({ page, browser }) => {
-  const { email, slug } = await newOwner(page, "change", "The Changers");
+  const { email } = await newOwner(page, "change", "The Changers");
   const device = await newSession(browser);
   await logIn(device.page, email);
-  await expect(device.page).toHaveURL(new RegExp(`/${slug}$`));
+  await expect(device.page).toHaveURL(new RegExp(`/home$`));
 
-  await page.goto(`/${slug}/account`);
+  await page.goto(`/account`);
   await page.locator('input[name="currentPassword"]').fill(PASSWORD);
   await page.locator('input[name="newPassword"]').fill("changed-password-9");
   await page.locator('input[name="confirmPassword"]').fill("changed-password-9");
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByText("Password changed.")).toBeVisible();
 
-  await page.goto(`/${slug}/contacts`);
-  await expect(page).toHaveURL(new RegExp(`/${slug}/contacts$`)); // this session survived
-  await device.page.goto(`/${slug}/contacts`);
+  await page.goto(`/contacts`);
+  await expect(page).toHaveURL(new RegExp(`/contacts$`)); // this session survived
+  await device.page.goto(`/contacts`);
   await expect(device.page).toHaveURL(/\/login$/); // the other one did not
   await device.context.close();
 });

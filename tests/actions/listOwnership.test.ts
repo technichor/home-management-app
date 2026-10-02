@@ -17,7 +17,7 @@ import {
   archiveListAction,
   unarchiveListAction,
   deleteListAction,
-} from "@/app/[slug]/(app)/lists/actions";
+} from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
 beforeEach(() => {
@@ -29,19 +29,19 @@ beforeEach(() => {
 describe("renameListAction: name validation", () => {
   it("trims the new name and rejects a blank one", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1" } as any);
-    await renameListAction("l1", "  New  ", "s");
+    await renameListAction("l1", "  New  ");
     expect(prisma.list.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { name: "New" } });
-    await expect(renameListAction("l1", " ", "s")).rejects.toThrow("List name is required");
+    await expect(renameListAction("l1", " ")).rejects.toThrow("List name is required");
     expect(prisma.list.update).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("list actions: household ownership", () => {
   const calls: [string, () => Promise<unknown>][] = [
-    ["renameListAction", () => renameListAction("l1", "New", "s")],
-    ["archiveListAction", () => archiveListAction("l1", "s")],
-    ["unarchiveListAction", () => unarchiveListAction("l1", "s")],
-    ["deleteListAction", () => deleteListAction("l1", "s")],
+    ["renameListAction", () => renameListAction("l1", "New")],
+    ["archiveListAction", () => archiveListAction("l1")],
+    ["unarchiveListAction", () => unarchiveListAction("l1")],
+    ["deleteListAction", () => deleteListAction("l1")],
   ];
 
   it.each(calls)("%s works on the logged-in household's list", async (_name, call) => {

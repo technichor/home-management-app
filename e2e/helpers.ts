@@ -1,7 +1,35 @@
 import { readFileSync } from "node:fs";
-import { expect, type Browser, type Page } from "@playwright/test";
+import { test as base, expect, type Browser, type Page } from "@playwright/test";
 
 export const PASSWORD = "e2e-password-1";
+
+// Every page.goto fails the test if it lands on the app's 404 page, so a test can't quietly pass
+// against a URL that no longer exists. A test that is *meant* to see a 404 uses gotoMissing().
+function guardNotFound(page: Page): Page {
+  const raw = page.goto.bind(page);
+  (page as unknown as { __rawGoto: typeof raw }).__rawGoto = raw;
+  page.goto = (async (url: string, options?: Parameters<typeof raw>[1]) => {
+    const response = await raw(url, options);
+    await expect(
+      page.getByRole("heading", { name: "This page could not be found." }),
+      `${url} unexpectedly shows the 404 page`
+    ).toHaveCount(0);
+    return response;
+  }) as typeof page.goto;
+  return page;
+}
+
+/** Playwright's `test`, with the 404 guard on the default `page`. */
+export const test = base.extend({
+  page: async ({ page }, provide) => {
+    await provide(guardNotFound(page));
+  },
+});
+
+/** Visit a URL that is supposed to be missing (no 404 guard). */
+export async function gotoMissing(page: Page, url: string) {
+  return (page as unknown as { __rawGoto: Page["goto"] }).__rawGoto(url);
+}
 
 let counter = 0;
 /** An address no other test uses (they all share one database). */
@@ -74,12 +102,11 @@ export async function logIn(page: Page, email: string, password = PASSWORD) {
   await page.getByRole("button", { name: "Log in" }).click();
 }
 
-/** From /onboarding: create a household and land in the app. Returns the household's URL slug. */
-export async function createHousehold(page: Page, name: string): Promise<string> {
+/** From /onboarding: create a household and land on the home page. */
+export async function createHousehold(page: Page, name: string) {
   await page.getByPlaceholder("e.g. The Reynolds Family").fill(name);
   await page.getByRole("button", { name: "Create household" }).click();
-  await expect(page).toHaveURL(/^http:\/\/[^/]+\/(?!onboarding$)[a-z0-9-]+$/);
-  return new URL(page.url()).pathname.split("/")[1];
+  await expect(page).toHaveURL(/\/home$/);
 }
 
 /** A new user who has signed up, confirmed their email and created a household. */
@@ -88,14 +115,14 @@ export async function newOwner(page: Page, tag: string, householdName: string) {
   await signUp(page, { first: "Casey", last: tag, email });
   await confirmEmail(page, email);
   await expect(page).toHaveURL(/\/onboarding$/);
-  const slug = await createHousehold(page, householdName);
-  return { email, slug };
+  await createHousehold(page, householdName);
+  return { email };
 }
 
 /** A separate browser session (its own cookies), so two users can be signed in at once. */
 export async function newSession(browser: Browser) {
   const context = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_APP_PORT ?? 3100}` });
-  return { context, page: await context.newPage() };
+  return { context, page: guardNotFound(await context.newPage()) };
 }
 
 /** Pick an option in an Ant Design Select by its field label and the option's text. */
@@ -105,8 +132,8 @@ export async function choose(page: Page, label: string | RegExp, optionText: str
 }
 
 /** Fill the "Add contact" form for a Service Provider (no household needed) and save it. */
-export async function addServiceProvider(page: Page, slug: string, first: string, last: string, extra: { address?: string } = {}) {
-  await page.goto(`/${slug}/contacts/new`);
+export async function addServiceProvider(page: Page, first: string, last: string, extra: { address?: string } = {}) {
+  await page.goto(`/contacts/new`);
   await page.getByLabel("First name").fill(first);
   await page.getByLabel("Last name").fill(last);
   await choose(page, "Category", "Service Provider");

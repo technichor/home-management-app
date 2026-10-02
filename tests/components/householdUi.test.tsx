@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
-vi.mock("@/app/[slug]/(app)/household/actions", () => ({
+vi.mock("@/app/(app)/household/actions", () => ({
   createInviteAction: vi.fn(),
   revokeInviteAction: vi.fn(),
   setJoinCodeAction: vi.fn(),
@@ -17,10 +17,10 @@ vi.mock("@/app/[slug]/(app)/household/actions", () => ({
 vi.mock("@/app/join/[token]/actions", () => ({ acceptHouseholdInviteAction: vi.fn() }));
 vi.mock("@/app/onboarding/actions", () => ({ requestJoinAction: vi.fn() }));
 
-import HouseholdClient from "@/app/[slug]/(app)/household/HouseholdClient";
+import HouseholdClient from "@/app/(app)/household/HouseholdClient";
 import AcceptInvite from "@/app/join/[token]/AcceptInvite";
 import JoinRequestForm from "@/components/JoinRequestForm";
-import * as actions from "@/app/[slug]/(app)/household/actions";
+import * as actions from "@/app/(app)/household/actions";
 import { acceptHouseholdInviteAction } from "@/app/join/[token]/actions";
 import { requestJoinAction } from "@/app/onboarding/actions";
 

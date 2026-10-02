@@ -7,20 +7,20 @@ const LINKS = [
   { label: "Archived", segment: "archived" },
 ];
 
-export default function ListsNav({ slug }: { slug: string }) {
+export default function ListsNav() {
   const pathname = usePathname();
   const router = useRouter();
 
   function href(segment: string) {
-    return segment ? `/${slug}/lists/${segment}` : `/${slug}/lists`;
+    return segment ? `/lists/${segment}` : "/lists";
   }
 
   function isActive(segment: string) {
     if (segment === "") {
       return (
-        pathname === `/${slug}/lists` ||
-        (pathname.startsWith(`/${slug}/lists/`) &&
-          !pathname.startsWith(`/${slug}/lists/archived`))
+        pathname === "/lists" ||
+        (pathname.startsWith("/lists/") &&
+          !pathname.startsWith("/lists/archived"))
       );
     }
     return pathname === href(segment) || pathname.startsWith(href(segment) + "/");

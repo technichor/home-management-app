@@ -36,32 +36,30 @@ vi.mock("@/lib/db", () => ({
     sync: { findFirst: vi.fn() },
   },
 }));
-vi.mock("@/app/[slug]/(app)/contacts/removed/actions", () => ({
+vi.mock("@/app/(app)/contacts/removed/actions", () => ({
   restoreContactAction: vi.fn(),
   restoreHouseholdAction: vi.fn(),
 }));
 vi.mock("@/app/[slug]/actions", () => ({ loginAction: vi.fn() }));
 const seen: Record<string, any> = {};
-vi.mock("@/app/[slug]/(app)/contacts/[id]/SyncCard", () => ({
+vi.mock("@/app/(app)/contacts/[id]/SyncCard", () => ({
   default: (p: any) => ((seen.syncCard = p), <div>sync card</div>),
 }));
-vi.mock("@/app/[slug]/(app)/contacts/ContactsFilter", () => ({
+vi.mock("@/app/(app)/contacts/ContactsFilter", () => ({
   default: (p: any) => ((seen.filter = p), <div>filter</div>),
 }));
-vi.mock("@/app/[slug]/(app)/contacts/ContactsTable", () => ({
+vi.mock("@/app/(app)/contacts/ContactsTable", () => ({
   default: (p: any) => ((seen.table = p), <div>table</div>),
 }));
 
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import ContactsPage from "@/app/[slug]/(app)/contacts/page";
-import ContactDetailPage from "@/app/[slug]/(app)/contacts/[id]/page";
-import HouseholdsPage from "@/app/[slug]/(app)/contacts/households/page";
-import HouseholdDetailPage from "@/app/[slug]/(app)/contacts/households/[id]/page";
-import RemovedPage from "@/app/[slug]/(app)/contacts/removed/page";
-
-const params = Promise.resolve({ slug: "s" });
-const idParams = (id: string) => Promise.resolve({ slug: "s", id });
+import ContactsPage from "@/app/(app)/contacts/page";
+import ContactDetailPage from "@/app/(app)/contacts/[id]/page";
+import HouseholdsPage from "@/app/(app)/contacts/households/page";
+import HouseholdDetailPage from "@/app/(app)/contacts/households/[id]/page";
+import RemovedPage from "@/app/(app)/contacts/removed/page";
+const idParams = (id: string) => Promise.resolve({ id });
 
 const contact = (over: object = {}) => ({
   id: "c1", ownerHouseholdId: "mine", householdId: null, firstName: "Jane", lastName: "Smith", nickname: null,
@@ -73,7 +71,7 @@ const contact = (over: object = {}) => ({
 });
 const household = (over: object = {}) => ({
   id: "h1", ownerHouseholdId: "mine", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
-  urlSlug: null, deletedAt: null, contacts: [], ...over,
+  deletedAt: null, contacts: [], ...over,
 });
 
 beforeEach(() => {
@@ -89,7 +87,7 @@ describe("ContactsPage", () => {
     vi.mocked(prisma.contact.findMany).mockResolvedValueOnce(rows).mockResolvedValueOnce(all);
   };
   const run = async (filters: object = {}) =>
-    render(await ContactsPage({ params, searchParams: Promise.resolve(filters) }));
+    render(await ContactsPage({ searchParams: Promise.resolve(filters) }));
   const whereOf = () => vi.mocked(prisma.contact.findMany).mock.calls[0]?.[0]?.where as any;
 
   it("lists active contacts with no filters and the unique sorted tags", async () => {
@@ -97,14 +95,14 @@ describe("ContactsPage", () => {
     await run();
     expect(whereOf()).toEqual({ ownerHouseholdId: "mine", deletedAt: null });
     expect(screen.getByText("Contacts (2)")).toBeInTheDocument();
-    expect(seen.filter).toMatchObject({ slug: "s", allTags: ["a", "b"], defaults: {} });
+    expect(seen.filter).toMatchObject({ allTags: ["a", "b"], defaults: {} });
     expect(seen.table.contacts).toHaveLength(2);
   });
 
   it("links to the add-contact form", async () => {
     setup();
     await run();
-    expect(screen.getByRole("link", { name: "Add contact" })).toHaveAttribute("href", "/s/contacts/new");
+    expect(screen.getByRole("link", { name: "Add contact" })).toHaveAttribute("href", "/contacts/new");
   });
 
   it("shows no count when there are no contacts", async () => {
@@ -151,7 +149,7 @@ describe("ContactDetailPage", () => {
 
   it("offers Edit for a live contact but not a removed one", async () => {
     await run(contact());
-    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/s/contacts/c1/edit");
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/contacts/c1/edit");
   });
 
   it("does not offer Edit for a removed contact", async () => {
@@ -182,7 +180,7 @@ describe("ContactDetailPage", () => {
     expect(screen.getByText("Removed")).toBeInTheDocument();
     expect(screen.getByText("Service Provider")).toBeInTheDocument();
     expect(screen.getByText("9 Elm St")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "The Smiths" })).toHaveAttribute("href", "/s/contacts/households/h1");
+    expect(screen.getByRole("link", { name: "The Smiths" })).toHaveAttribute("href", "/contacts/households/h1");
     for (const t of ["111", "222", "333", "a@x.com", "b@x.com", "Sam", "2026-01-01", "2026-02-02", "plumber", "trusted", "Friend of Bailey", "Call first"]) {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
@@ -212,7 +210,7 @@ describe("ContactDetailPage", () => {
     expect(screen.getByText("Address (from household)")).toBeInTheDocument();
     expect(screen.getByText("1 Main St")).toBeInTheDocument();
     expect(screen.queryByText("ignored own address")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "The Smiths" })).toHaveAttribute("href", "/s/contacts/households/h1");
+    expect(screen.getByRole("link", { name: "The Smiths" })).toHaveAttribute("href", "/contacts/households/h1");
   });
 
   it("says so when the household has no address", async () => {
@@ -236,7 +234,7 @@ describe("ContactDetailPage", () => {
     it("offers sync to a contact outside our household, defaulting to their primary email", async () => {
       await run(contact({ emailPrimary: "pat@x.com" }));
       expect(screen.getByText("sync card")).toBeInTheDocument();
-      expect(seen.syncCard).toEqual({ slug: "s", contactId: "c1", defaultEmail: "pat@x.com", sync: null });
+      expect(seen.syncCard).toEqual({ contactId: "c1", defaultEmail: "pat@x.com", sync: null });
     });
 
     it("defaults to an empty email when the contact has none", async () => {
@@ -291,15 +289,15 @@ describe("ContactDetailPage", () => {
 describe("HouseholdsPage", () => {
   it("shows an empty state", async () => {
     vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    render(await HouseholdsPage({ params }));
+    render(await HouseholdsPage());
     expect(screen.getByText(/No households yet/)).toBeInTheDocument();
     expect(screen.getByText("Households (0)")).toBeInTheDocument();
   });
 
   it("links to the add-household form", async () => {
     vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    render(await HouseholdsPage({ params }));
-    expect(screen.getByRole("link", { name: "Add household" })).toHaveAttribute("href", "/s/contacts/households/new");
+    render(await HouseholdsPage());
+    expect(screen.getByRole("link", { name: "Add household" })).toHaveAttribute("href", "/contacts/households/new");
   });
 
   it("shows cards, marks our own household, and lists members, address and tags", async () => {
@@ -313,13 +311,13 @@ describe("HouseholdsPage", () => {
       }),
       household({ id: "h2", displayName: "Reynolds" }),
     ] as any);
-    render(await HouseholdsPage({ params }));
+    render(await HouseholdsPage());
     expect(screen.getByText("Households (2)")).toBeInTheDocument();
     expect(screen.getAllByText("Our household")).toHaveLength(1);
     expect(screen.getByText("1 Main St")).toBeInTheDocument();
     expect(screen.getByText("Sam Smith, Pat Smith")).toBeInTheDocument();
     expect(screen.getByText("home")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Reynolds/ })).toHaveAttribute("href", "/s/contacts/households/h2");
+    expect(screen.getByRole("link", { name: /Reynolds/ })).toHaveAttribute("href", "/contacts/households/h2");
   });
 });
 
@@ -337,7 +335,7 @@ describe("HouseholdDetailPage", () => {
 
   it("offers Edit for a live household but not a removed one", async () => {
     await run(household());
-    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/s/contacts/households/h1/edit");
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/contacts/households/h1/edit");
   });
 
   it("does not offer Edit for a removed household", async () => {
@@ -402,7 +400,7 @@ describe("RemovedPage", () => {
   it("shows empty tables when nothing was removed", async () => {
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
     vi.mocked(prisma.household.findMany).mockResolvedValue([]);
-    render(await RemovedPage({ params }));
+    render(await RemovedPage());
     expect(screen.getByText("No removed contacts.")).toBeInTheDocument();
     expect(screen.getByText("No removed households.")).toBeInTheDocument();
   });
@@ -414,11 +412,11 @@ describe("RemovedPage", () => {
     vi.mocked(prisma.household.findMany).mockResolvedValue([
       household({ id: "h1", displayName: "Old Family", deletedAt: new Date("2026-03-05T12:00:00Z") }),
     ] as any);
-    render(await RemovedPage({ params }));
+    render(await RemovedPage());
     expect(screen.getByText("Contacts (1)")).toBeInTheDocument();
     expect(screen.getByText("Households (1)")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Jane Smith" })).toHaveAttribute("href", "/s/contacts/c1");
-    expect(screen.getByRole("link", { name: "Old Family" })).toHaveAttribute("href", "/s/contacts/households/h1");
+    expect(screen.getByRole("link", { name: "Jane Smith" })).toHaveAttribute("href", "/contacts/c1");
+    expect(screen.getByRole("link", { name: "Old Family" })).toHaveAttribute("href", "/contacts/households/h1");
     expect(screen.getByText(new Date("2026-03-04T12:00:00Z").toLocaleDateString())).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Restore" })).toHaveLength(2);
     const row = screen.getByText("Jane Smith").closest("tr") as HTMLElement;

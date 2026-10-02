@@ -6,13 +6,13 @@ import { App } from "antd";
 
 const router = { refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/app/[slug]/(app)/account/actions", () => ({
+vi.mock("@/app/(app)/account/actions", () => ({
   linkAccountContactAction: vi.fn(),
   createAccountContactAction: vi.fn(),
 }));
 
-import AccountClient from "@/app/[slug]/(app)/account/AccountClient";
-import { linkAccountContactAction, createAccountContactAction } from "@/app/[slug]/(app)/account/actions";
+import AccountClient from "@/app/(app)/account/AccountClient";
+import { linkAccountContactAction, createAccountContactAction } from "@/app/(app)/account/actions";
 
 const members = [
   { id: "m1", name: "Sam Smith" },
@@ -22,7 +22,7 @@ const members = [
 function setup(current: { id: string; name: string } | null = null, list = members) {
   return render(
     <App>
-      <AccountClient slug="s" current={current} members={list} />
+      <AccountClient current={current} members={list} />
     </App>
   );
 }
@@ -51,7 +51,7 @@ describe("AccountClient", () => {
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByTitle("Pat Smith"));
     await userEvent.click(use);
-    await waitFor(() => expect(linkAccountContactAction).toHaveBeenCalledWith("s", "m2"));
+    await waitFor(() => expect(linkAccountContactAction).toHaveBeenCalledWith("m2"));
     expect(router.refresh).toHaveBeenCalled();
   });
 
@@ -76,7 +76,7 @@ describe("AccountClient", () => {
     expect(create).toBeDisabled();
     await userEvent.type(screen.getByPlaceholderText("Last name"), "Jones");
     await userEvent.click(create);
-    await waitFor(() => expect(createAccountContactAction).toHaveBeenCalledWith("s", "Lee", "Jones"));
+    await waitFor(() => expect(createAccountContactAction).toHaveBeenCalledWith("Lee", "Jones"));
     await waitFor(() => expect(screen.getByPlaceholderText("First name")).toHaveValue(""));
   });
 

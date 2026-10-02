@@ -33,7 +33,7 @@ import {
   updateItemAction,
   deleteItemAction,
   reorderItemsAction,
-} from "@/app/[slug]/(app)/lists/actions";
+} from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
 const myList = { id: "l1", householdId: "h1", sortMode: "MANUAL" };
@@ -53,24 +53,24 @@ beforeEach(() => {
 
 describe("createListAction", () => {
   it("creates the list in the session's household and returns its id", async () => {
-    const r = await createListAction("reynolds", "Costco run", ["grocery"]);
+    const r = await createListAction("Costco run", ["grocery"]);
     expect(r).toEqual({ id: "new" });
     expect(prisma.list.create).toHaveBeenCalledWith({
       data: { householdId: "h1", name: "Costco run", tags: ["grocery"] },
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/reynolds/lists");
+    expect(revalidatePath).toHaveBeenCalledWith("/lists");
   });
 
   it("rejects an unauthenticated session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(createListAction("reynolds", "x", [])).rejects.toThrow("Not authenticated");
+    await expect(createListAction("x", [])).rejects.toThrow("Not authenticated");
     expect(prisma.list.create).not.toHaveBeenCalled();
   });
 
   it("trims the name and rejects a blank one", async () => {
-    await createListAction("reynolds", "  Trip  ", []);
+    await createListAction("  Trip  ", []);
     expect(prisma.list.create).toHaveBeenCalledWith({ data: { householdId: "h1", name: "Trip", tags: [] } });
-    await expect(createListAction("reynolds", "   ", [])).rejects.toThrow("List name is required");
+    await expect(createListAction("   ", [])).rejects.toThrow("List name is required");
     expect(prisma.list.create).toHaveBeenCalledTimes(1);
   });
 });
@@ -78,14 +78,14 @@ describe("createListAction", () => {
 describe("requireList (shared by every item action)", () => {
   it("rejects an unauthenticated session before touching the database", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(addItemsAction("l1", "s", ["milk"])).rejects.toThrow("Not authenticated");
+    await expect(addItemsAction("l1", ["milk"])).rejects.toThrow("Not authenticated");
     expect(prisma.list.findUnique).not.toHaveBeenCalled();
   });
 });
 
 describe("addItemsAction", () => {
   it("appends trimmed, non-blank lines after the last position", async () => {
-    await addItemsAction("l1", "s", ["  milk ", "", "   ", "eggs"]);
+    await addItemsAction("l1", ["  milk ", "", "   ", "eggs"]);
     expect(prisma.listItem.createMany).toHaveBeenCalledWith({
       data: [
         { listId: "l1", text: "milk", position: 3 },
@@ -96,25 +96,25 @@ describe("addItemsAction", () => {
 
   it("starts at position 0 on an empty list", async () => {
     vi.mocked(prisma.listItem.aggregate).mockResolvedValue({ _max: { position: null } } as any);
-    await addItemsAction("l1", "s", ["milk"]);
+    await addItemsAction("l1", ["milk"]);
     expect(vi.mocked(prisma.listItem.createMany).mock.calls[0]?.[0]?.data).toMatchObject([{ position: 0 }]);
   });
 
   it("does nothing when every line is blank", async () => {
-    await addItemsAction("l1", "s", ["", "  "]);
+    await addItemsAction("l1", ["", "  "]);
     expect(prisma.listItem.createMany).not.toHaveBeenCalled();
   });
 
   it("rejects another household's list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
-    await expect(addItemsAction("l1", "s", ["milk"])).rejects.toThrow("List not found");
+    await expect(addItemsAction("l1", ["milk"])).rejects.toThrow("List not found");
     expect(prisma.listItem.createMany).not.toHaveBeenCalled();
   });
 });
 
 describe("toggleItemAction", () => {
   it("sets checked and stamps checkedAt", async () => {
-    await toggleItemAction("i1", "s", true);
+    await toggleItemAction("i1", true);
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
       data: { checked: true, checkedAt: expect.any(Date) },
@@ -122,7 +122,7 @@ describe("toggleItemAction", () => {
   });
 
   it("clears checkedAt when unchecking", async () => {
-    await toggleItemAction("i1", "s", false);
+    await toggleItemAction("i1", false);
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
       data: { checked: false, checkedAt: null },
@@ -131,19 +131,19 @@ describe("toggleItemAction", () => {
 
   it("rejects an item in another household's list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
-    await expect(toggleItemAction("i1", "s", true)).rejects.toThrow("List not found");
+    await expect(toggleItemAction("i1", true)).rejects.toThrow("List not found");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects a missing item", async () => {
     vi.mocked(prisma.listItem.findUnique).mockResolvedValue(null);
-    await expect(toggleItemAction("nope", "s", true)).rejects.toThrow("Item not found");
+    await expect(toggleItemAction("nope", true)).rejects.toThrow("Item not found");
   });
 });
 
 describe("updateItemAction", () => {
   it("trims text, and turns blank quantity and notes into null", async () => {
-    await updateItemAction("i1", "s", { text: "  milk  ", quantity: "  ", notes: "" });
+    await updateItemAction("i1", { text: "  milk  ", quantity: "  ", notes: "" });
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
       data: { text: "milk", quantity: null, notes: null },
@@ -151,7 +151,7 @@ describe("updateItemAction", () => {
   });
 
   it("only changes the fields it is given", async () => {
-    await updateItemAction("i1", "s", { quantity: "2 gallons" });
+    await updateItemAction("i1", { quantity: "2 gallons" });
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
       data: { quantity: "2 gallons" },
@@ -159,12 +159,12 @@ describe("updateItemAction", () => {
   });
 
   it("rejects blank item text", async () => {
-    await expect(updateItemAction("i1", "s", { text: "   " })).rejects.toThrow("Item text is required");
+    await expect(updateItemAction("i1", { text: "   " })).rejects.toThrow("Item text is required");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("assigns an existing contact", async () => {
-    await updateItemAction("i1", "s", { assignedToContactId: "c1" });
+    await updateItemAction("i1", { assignedToContactId: "c1" });
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
       data: { assignedToContactId: "c1" },
@@ -172,7 +172,7 @@ describe("updateItemAction", () => {
   });
 
   it("clears the assignee with null without looking up a contact", async () => {
-    await updateItemAction("i1", "s", { assignedToContactId: null });
+    await updateItemAction("i1", { assignedToContactId: null });
     expect(prisma.contact.findUnique).not.toHaveBeenCalled();
     expect(prisma.listItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
@@ -182,25 +182,25 @@ describe("updateItemAction", () => {
 
   it("rejects a soft-deleted contact", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue({ id: "c1", deletedAt: new Date() } as any);
-    await expect(updateItemAction("i1", "s", { assignedToContactId: "c1" })).rejects.toThrow("Contact not found");
+    await expect(updateItemAction("i1", { assignedToContactId: "c1" })).rejects.toThrow("Contact not found");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects a contact that does not exist", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(null);
-    await expect(updateItemAction("i1", "s", { assignedToContactId: "gone" })).rejects.toThrow("Contact not found");
+    await expect(updateItemAction("i1", { assignedToContactId: "gone" })).rejects.toThrow("Contact not found");
   });
 });
 
 describe("deleteItemAction", () => {
   it("deletes the item", async () => {
-    await deleteItemAction("i1", "s");
+    await deleteItemAction("i1");
     expect(prisma.listItem.delete).toHaveBeenCalledWith({ where: { id: "i1" } });
   });
 
   it("rejects an item in another household's list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
-    await expect(deleteItemAction("i1", "s")).rejects.toThrow("List not found");
+    await expect(deleteItemAction("i1")).rejects.toThrow("List not found");
     expect(prisma.listItem.delete).not.toHaveBeenCalled();
   });
 });
@@ -211,23 +211,23 @@ describe("reorderItemsAction", () => {
   });
 
   it("writes position 0..n-1 in the given order", async () => {
-    await reorderItemsAction("l1", "s", ["c", "a", "b"]);
+    await reorderItemsAction("l1", ["c", "a", "b"]);
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "c" }, data: { position: 0 } });
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "a" }, data: { position: 1 } });
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "b" }, data: { position: 2 } });
   });
 
   it("rejects an id list that is missing an item", async () => {
-    await expect(reorderItemsAction("l1", "s", ["a", "b"])).rejects.toThrow("does not match");
+    await expect(reorderItemsAction("l1", ["a", "b"])).rejects.toThrow("does not match");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects an id that is not in the list", async () => {
-    await expect(reorderItemsAction("l1", "s", ["a", "b", "zzz"])).rejects.toThrow("does not match");
+    await expect(reorderItemsAction("l1", ["a", "b", "zzz"])).rejects.toThrow("does not match");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate ids", async () => {
-    await expect(reorderItemsAction("l1", "s", ["a", "a", "b"])).rejects.toThrow("does not match");
+    await expect(reorderItemsAction("l1", ["a", "a", "b"])).rejects.toThrow("does not match");
   });
 });

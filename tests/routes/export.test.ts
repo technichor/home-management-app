@@ -22,7 +22,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { GET } from "@/app/[slug]/(app)/contacts/api/export/route";
+import { GET } from "@/app/(app)/contacts/api/export/route";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 

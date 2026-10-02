@@ -33,7 +33,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   try {
     user = await prisma.user.create({
       data: { email, passwordHash, firstName, lastName },
-      include: { household: { select: { id: true, urlSlug: true, deletedAt: true } } },
+      include: { household: { select: { id: true, deletedAt: true } } },
     });
   } catch (e) {
     // Lost a race with another signup for the same email.

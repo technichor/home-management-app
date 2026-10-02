@@ -37,7 +37,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { validateImportAction, applyImportAction } from "@/app/[slug]/(app)/contacts/import/actions";
+import { validateImportAction, applyImportAction } from "@/app/(app)/contacts/import/actions";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
@@ -210,7 +210,7 @@ describe("applyImportAction", () => {
 
   it("rejects a caller who is not signed in to a household", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    const result = await applyImportAction("reynolds-family", empty);
+    const result = await applyImportAction(empty);
     expect(result).toEqual({ ok: false, error: "Not authenticated." });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -218,7 +218,7 @@ describe("applyImportAction", () => {
   it("re-validates the CSVs and writes nothing when they are invalid", async () => {
     allowTransaction();
     const bad = `id,household_id,first_name,last_name,*category\n,,,,\n`;
-    const result = await applyImportAction("reynolds-family", { householdsCSV: EMPTY_HOUSEHOLDS_CSV, contactsCSV: bad });
+    const result = await applyImportAction({ householdsCSV: EMPTY_HOUSEHOLDS_CSV, contactsCSV: bad });
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/\d+ errors?/);
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -227,13 +227,13 @@ describe("applyImportAction", () => {
   it("uses the singular for a single error", async () => {
     allowTransaction();
     const bad = `id,*display_name\nh1,\n`;
-    const result = await applyImportAction("reynolds-family", { householdsCSV: bad, contactsCSV: EMPTY_CONTACTS_CSV });
+    const result = await applyImportAction({ householdsCSV: bad, contactsCSV: EMPTY_CONTACTS_CSV });
     expect(result.error).toContain("1 error.");
   });
 
   it("commits an empty import with only a version snapshot", async () => {
     allowTransaction();
-    const result = await applyImportAction("reynolds-family", empty);
+    const result = await applyImportAction(empty);
     expect(result).toEqual({ ok: true });
     expect(prisma.activityLogEntry.createMany).not.toHaveBeenCalled();
     expect(prisma.importVersion.create).toHaveBeenCalledWith({
@@ -269,7 +269,7 @@ describe("applyImportAction", () => {
       ",h-edit,Sam,Smith,FAMILY_FRIEND,true,pal",
     ].join("\n");
 
-    const result = await applyImportAction("me", { householdsCSV: households, contactsCSV: contacts });
+    const result = await applyImportAction({ householdsCSV: households, contactsCSV: contacts });
     expect(result).toEqual({ ok: true });
 
     // households
@@ -332,7 +332,7 @@ describe("applyImportAction", () => {
       dbHousehold({ id: "h-edit", displayName: "Smiths", mailingAddress: "1 Main St", notes: "old note", tags: ["x"] }),
     ]);
     const households = ["id,*display_name,mailing_address,tags,notes", "h-edit,Smiths,,,"].join(String.fromCharCode(10));
-    await applyImportAction("reynolds-family", { householdsCSV: households, contactsCSV: EMPTY_CONTACTS_CSV });
+    await applyImportAction({ householdsCSV: households, contactsCSV: EMPTY_CONTACTS_CSV });
     expect(prisma.household.update).toHaveBeenCalledWith({
       where: { id: "h-edit" },
       data: { displayName: "Smiths", mailingAddress: null, tags: [], notes: null },
@@ -341,9 +341,9 @@ describe("applyImportAction", () => {
 
   it("revalidates the contacts pages after applying", async () => {
     allowTransaction();
-    await applyImportAction("reynolds-family", empty);
-    expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts");
-    expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/households");
-    expect(revalidatePath).toHaveBeenCalledWith("/reynolds-family/contacts/removed");
+    await applyImportAction(empty);
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts/households");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts/removed");
   });
 });

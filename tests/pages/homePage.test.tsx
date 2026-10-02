@@ -12,12 +12,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import HomePage from "@/app/[slug]/(app)/page";
+import HomePage from "@/app/(app)/home/page";
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import { conversationsVisibleTo } from "@/lib/messaging";
-
-const params = Promise.resolve({ slug: "s" });
 const me = (role = "OWNER") => ({ firstName: "Sam", role, householdId: "h1", household: { displayName: "The Smiths" } });
 
 beforeEach(() => {
@@ -34,7 +32,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-const run = async () => render(await HomePage({ params }));
+const run = async () => render(await HomePage());
 
 describe("HomePage", () => {
   it("greets the user and shows empty states", async () => {
@@ -51,8 +49,8 @@ describe("HomePage", () => {
 
   it("offers quick actions, with Invite only for owners", async () => {
     const { unmount } = await run();
-    expect(screen.getByRole("link", { name: "Add contact" })).toHaveAttribute("href", "/s/contacts/new");
-    expect(screen.getByRole("link", { name: "Invite someone" })).toHaveAttribute("href", "/s/household");
+    expect(screen.getByRole("link", { name: "Add contact" })).toHaveAttribute("href", "/contacts/new");
+    expect(screen.getByRole("link", { name: "Invite someone" })).toHaveAttribute("href", "/household");
     unmount();
     vi.mocked(pageMember).mockResolvedValue(me("MEMBER") as any);
     vi.mocked(prisma.contact.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
@@ -79,7 +77,7 @@ describe("HomePage", () => {
       { id: "cv2", name: "Empty chat", messages: [] },
     ] as any);
     await run();
-    expect(screen.getByRole("link", { name: /Weekend plans/ })).toHaveAttribute("href", "/s/messages/cv1");
+    expect(screen.getByRole("link", { name: /Weekend plans/ })).toHaveAttribute("href", "/messages/cv1");
     expect(screen.getByText("Pat: Who is bringing snacks?")).toBeInTheDocument();
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
   });
@@ -89,7 +87,7 @@ describe("HomePage", () => {
       { id: "l1", name: "Costco run", items: [{ checked: true }, { checked: false }, { checked: false }] },
     ] as any);
     await run();
-    expect(screen.getByRole("link", { name: /Costco run/ })).toHaveAttribute("href", "/s/lists/l1");
+    expect(screen.getByRole("link", { name: /Costco run/ })).toHaveAttribute("href", "/lists/l1");
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
   });
 
@@ -105,7 +103,7 @@ describe("HomePage", () => {
     expect(screen.getByText("In 8 days")).toBeInTheDocument();
     expect(screen.getByText("· Birthday")).toBeInTheDocument();
     expect(screen.getByText("· Important date")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Jo Jones/ })[0]).toHaveAttribute("href", "/s/contacts/c1");
+    expect(screen.getAllByRole("link", { name: /Jo Jones/ })[0]).toHaveAttribute("href", "/contacts/c1");
   });
 
   it("shows favorites and the counts", async () => {
@@ -115,7 +113,7 @@ describe("HomePage", () => {
       .mockResolvedValueOnce([{ id: "c2", firstName: "Kim", lastName: "Wu" }] as any);
     vi.mocked(prisma.contact.count).mockResolvedValue(1);
     await run();
-    expect(screen.getByRole("link", { name: /Kim Wu/ })).toHaveAttribute("href", "/s/contacts/c2");
+    expect(screen.getByRole("link", { name: /Kim Wu/ })).toHaveAttribute("href", "/contacts/c2");
     expect(screen.getByText("1 person in 1 household")).toBeInTheDocument();
   });
 

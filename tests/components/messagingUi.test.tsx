@@ -6,7 +6,7 @@ import { App } from "antd";
 
 const router = { push: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/app/[slug]/(app)/messages/actions", () => ({
+vi.mock("@/app/(app)/messages/actions", () => ({
   createGroupConversationAction: vi.fn(),
   startContactThreadAction: vi.fn(),
   sendMessageAction: vi.fn(),
@@ -14,15 +14,15 @@ vi.mock("@/app/[slug]/(app)/messages/actions", () => ({
   unarchiveConversationAction: vi.fn(),
 }));
 
-import MessagesClient, { ConversationRow } from "@/app/[slug]/(app)/messages/MessagesClient";
-import ConversationClient, { MessageView, POLL_INTERVAL_MS } from "@/app/[slug]/(app)/messages/[id]/ConversationClient";
+import MessagesClient, { ConversationRow } from "@/app/(app)/messages/MessagesClient";
+import ConversationClient, { MessageView, POLL_INTERVAL_MS } from "@/app/(app)/messages/[id]/ConversationClient";
 import {
   createGroupConversationAction,
   startContactThreadAction,
   sendMessageAction,
   archiveConversationAction,
   unarchiveConversationAction,
-} from "@/app/[slug]/(app)/messages/actions";
+} from "@/app/(app)/messages/actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -42,7 +42,7 @@ describe("MessagesClient", () => {
   const setup = (conversations: ConversationRow[] = [row()], showArchived = false, contacts = [{ id: "c1", name: "Pat Jones" }]) =>
     render(
       <App>
-        <MessagesClient slug="s" conversations={conversations} contacts={contacts} showArchived={showArchived} />
+        <MessagesClient conversations={conversations} contacts={contacts} showArchived={showArchived} />
       </App>
     );
 
@@ -52,7 +52,7 @@ describe("MessagesClient", () => {
       row({ id: "cv2", name: "Pat", kind: "private", preview: null, previewSender: null }),
       row({ id: "cv3", name: "A & B", kind: "synced" }),
     ]);
-    expect(screen.getByRole("link", { name: /Trip/ })).toHaveAttribute("href", "/s/messages/cv1");
+    expect(screen.getByRole("link", { name: /Trip/ })).toHaveAttribute("href", "/messages/cv1");
     expect(screen.getAllByText("Sam: see you there")).toHaveLength(2);
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
     expect(screen.getByText("Group")).toBeInTheDocument();
@@ -70,11 +70,11 @@ describe("MessagesClient", () => {
 
   it("switches between the active and archived views", () => {
     const { unmount } = setup();
-    expect(screen.getByRole("link", { name: "Archived" })).toHaveAttribute("href", "/s/messages?archived=1");
+    expect(screen.getByRole("link", { name: "Archived" })).toHaveAttribute("href", "/messages?archived=1");
     unmount();
     setup([row()], true);
     expect(screen.getByText("Archived conversations")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to messages" })).toHaveAttribute("href", "/s/messages");
+    expect(screen.getByRole("link", { name: "Back to messages" })).toHaveAttribute("href", "/messages");
     expect(screen.queryByRole("button", { name: "New group chat" })).not.toBeInTheDocument();
   });
 
@@ -85,8 +85,8 @@ describe("MessagesClient", () => {
     expect(create).toBeDisabled();
     await userEvent.type(screen.getByPlaceholderText(/Name, e.g./), "Weekend");
     await userEvent.click(create);
-    await waitFor(() => expect(createGroupConversationAction).toHaveBeenCalledWith("s", "Weekend"));
-    expect(router.push).toHaveBeenCalledWith("/s/messages/new1");
+    await waitFor(() => expect(createGroupConversationAction).toHaveBeenCalledWith("Weekend"));
+    expect(router.push).toHaveBeenCalledWith("/messages/new1");
   });
 
   it("opens a private note thread about a chosen contact", async () => {
@@ -97,8 +97,8 @@ describe("MessagesClient", () => {
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByTitle("Pat Jones"));
     await userEvent.click(open);
-    await waitFor(() => expect(startContactThreadAction).toHaveBeenCalledWith("s", "c1"));
-    expect(router.push).toHaveBeenCalledWith("/s/messages/thread1");
+    await waitFor(() => expect(startContactThreadAction).toHaveBeenCalledWith("c1"));
+    expect(router.push).toHaveBeenCalledWith("/messages/thread1");
   });
 
   it("shows the reason when creating fails, and a generic message for non-errors", async () => {
@@ -135,7 +135,6 @@ describe("ConversationClient", () => {
     render(
       <App>
         <ConversationClient
-          slug="s"
           conversation={{ id: "cv1", name: "Trip", synced: false, archived: false }}
           messages={msgs}
           canSend
@@ -174,7 +173,7 @@ describe("ConversationClient", () => {
   it("sends on Enter, clears the box, and refreshes", async () => {
     setup();
     await userEvent.type(box(), "on my way{Enter}");
-    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("s", "cv1", "on my way"));
+    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("cv1", "on my way"));
     expect(box()).toHaveValue("");
     expect(router.refresh).toHaveBeenCalled();
   });
@@ -184,7 +183,7 @@ describe("ConversationClient", () => {
     vi.mocked(sendMessageAction).mockReturnValueOnce(new Promise<undefined>((resolve) => (finish = () => resolve(undefined))));
     setup();
     await userEvent.type(box(), "first{Enter}");
-    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("s", "cv1", "first"));
+    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("cv1", "first"));
     await userEvent.clear(box());
     await userEvent.type(box(), "second");
     finish();
@@ -198,7 +197,7 @@ describe("ConversationClient", () => {
     expect(send).toBeDisabled();
     await userEvent.type(box(), "ok");
     await userEvent.click(send);
-    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("s", "cv1", "ok"));
+    await waitFor(() => expect(sendMessageAction).toHaveBeenCalledWith("cv1", "ok"));
   });
 
   it("does not send on Shift+Enter or when blank", async () => {
@@ -228,7 +227,7 @@ describe("ConversationClient", () => {
   it("explains how to fix an unlinked account and blocks sending", () => {
     setup({ canSend: false });
     expect(screen.getByText("Your account is not linked to a contact yet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Account page/ })).toHaveAttribute("href", "/s/account");
+    expect(screen.getByRole("link", { name: /Account page/ })).toHaveAttribute("href", "/account");
     expect(box()).toBeDisabled();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
@@ -238,19 +237,19 @@ describe("ConversationClient", () => {
     expect(screen.getByText("Unarchive this conversation to send messages.")).toBeInTheDocument();
     expect(box()).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Unarchive" }));
-    await waitFor(() => expect(unarchiveConversationAction).toHaveBeenCalledWith("s", "cv1"));
+    await waitFor(() => expect(unarchiveConversationAction).toHaveBeenCalledWith("cv1"));
     expect(router.refresh).toHaveBeenCalled();
   });
 
   it("archives a conversation", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
-    await waitFor(() => expect(archiveConversationAction).toHaveBeenCalledWith("s", "cv1"));
+    await waitFor(() => expect(archiveConversationAction).toHaveBeenCalledWith("cv1"));
   });
 
   it("links back to the list", () => {
     setup();
-    expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/s/messages");
+    expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/messages");
   });
 
   describe("polling", () => {

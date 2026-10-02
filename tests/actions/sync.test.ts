@@ -19,7 +19,7 @@ import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { hashInviteToken } from "@/lib/syncToken";
-import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
+import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/(app)/contacts/[id]/syncActions";
 import { respondToInviteAction } from "@/app/invite/[token]/actions";
 
 const outsider = (over: object = {}) => ({ id: "c1", ownerHouseholdId: "h1", householdId: "other", deletedAt: null, ...over });
@@ -35,7 +35,7 @@ beforeEach(() => {
 
 describe("requestSyncAction", () => {
   it("creates a pending sync and returns a one-time link whose hash is what gets stored", async () => {
-    const result = await requestSyncAction("s", "c1", "  Pat@Example.com ");
+    const result = await requestSyncAction("c1", "  Pat@Example.com ");
     expect(result.ok).toBe(true);
     const invitePath = (result as { invitePath: string }).invitePath;
     expect(invitePath).toMatch(/^\/invite\/[A-Za-z0-9_-]{43}$/);
@@ -49,17 +49,17 @@ describe("requestSyncAction", () => {
       inviteTokenHash: hashInviteToken(token),
     });
     expect(JSON.stringify(data)).not.toContain(token);
-    expect(revalidatePath).toHaveBeenCalledWith("/s/contacts/c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts/c1");
   });
 
   it("requires a session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(requestSyncAction("s", "c1", "a@b.co")).rejects.toThrow("Not authenticated");
+    await expect(requestSyncAction("c1", "a@b.co")).rejects.toThrow("Not authenticated");
     expect(prisma.sync.create).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed email", async () => {
-    const result = await requestSyncAction("s", "c1", "nope");
+    const result = await requestSyncAction("c1", "nope");
     expect(result).toEqual({ ok: false, error: "Enter a valid email address" });
     expect(prisma.sync.create).not.toHaveBeenCalled();
   });
@@ -69,30 +69,30 @@ describe("requestSyncAction", () => {
     ["a removed contact", outsider({ deletedAt: new Date() })],
   ])("rejects %s", async (_name, contact) => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(contact as any);
-    expect(await requestSyncAction("s", "c1", "a@b.co")).toEqual({ ok: false, error: "Contact not found." });
+    expect(await requestSyncAction("c1", "a@b.co")).toEqual({ ok: false, error: "Contact not found." });
     expect(prisma.sync.create).not.toHaveBeenCalled();
   });
 
   it("rejects someone in our own household", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(outsider({ householdId: "h1" }) as any);
-    const result = await requestSyncAction("s", "c1", "a@b.co");
+    const result = await requestSyncAction("c1", "a@b.co");
     expect(result).toEqual({ ok: false, error: "People in your own household can already message each other." });
     expect(prisma.sync.create).not.toHaveBeenCalled();
   });
 
   it("accepts a contact with no household at all", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(outsider({ householdId: null }) as any);
-    expect((await requestSyncAction("s", "c1", "a@b.co")).ok).toBe(true);
+    expect((await requestSyncAction("c1", "a@b.co")).ok).toBe(true);
   });
 
   it("refuses a second open sync for the same contact", async () => {
     vi.mocked(prisma.sync.findFirst).mockResolvedValue({ status: "PENDING" } as any);
-    expect(await requestSyncAction("s", "c1", "a@b.co")).toEqual({
+    expect(await requestSyncAction("c1", "a@b.co")).toEqual({
       ok: false,
       error: "An invite to this contact is already pending.",
     });
     vi.mocked(prisma.sync.findFirst).mockResolvedValue({ status: "ACTIVE" } as any);
-    expect(await requestSyncAction("s", "c1", "a@b.co")).toEqual({
+    expect(await requestSyncAction("c1", "a@b.co")).toEqual({
       ok: false,
       error: "You are already synced with this contact.",
     });
@@ -109,17 +109,17 @@ describe("revokeInviteAction", () => {
   it("revokes our own pending invite and stamps when", async () => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
     vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 1 } as any);
-    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: true });
+    expect(await revokeInviteAction("sy1")).toEqual({ ok: true });
     expect(prisma.sync.updateMany).toHaveBeenCalledWith({
       where: { id: "sy1", status: "PENDING" },
       data: { status: "REVOKED", respondedAt: expect.any(Date) },
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/s/contacts/c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts/c1");
   });
 
   it("requires a session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(revokeInviteAction("s", "sy1")).rejects.toThrow("Not authenticated");
+    await expect(revokeInviteAction("sy1")).rejects.toThrow("Not authenticated");
     expect(prisma.sync.updateMany).not.toHaveBeenCalled();
   });
 
@@ -128,14 +128,14 @@ describe("revokeInviteAction", () => {
     ["another household's sync", { ...mine, initiatingHouseholdId: "other" }],
   ])("won't revoke %s", async (_name, sync) => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync as any);
-    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: false, error: "Invite not found." });
+    expect(await revokeInviteAction("sy1")).toEqual({ ok: false, error: "Invite not found." });
     expect(prisma.sync.updateMany).not.toHaveBeenCalled();
   });
 
   it("won't revoke an invite that was answered in the meantime", async () => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
     vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 0 } as any);
-    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: false, error: "Only a pending invite can be revoked." });
+    expect(await revokeInviteAction("sy1")).toEqual({ ok: false, error: "Only a pending invite can be revoked." });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
@@ -145,19 +145,19 @@ describe("regenerateInviteAction", () => {
 
   it("replaces the link on our own pending invite", async () => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
-    const result = await regenerateInviteAction("s", "sy1");
+    const result = await regenerateInviteAction("sy1");
     expect(result.ok).toBe(true);
     const token = (result as { invitePath: string }).invitePath.replace("/invite/", "");
     expect(prisma.sync.updateMany).toHaveBeenCalledWith({
       where: { id: "sy1", status: "PENDING" },
       data: { inviteTokenHash: hashInviteToken(token) },
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/s/contacts/c1");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts/c1");
   });
 
   it("requires a session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(regenerateInviteAction("s", "sy1")).rejects.toThrow("Not authenticated");
+    await expect(regenerateInviteAction("sy1")).rejects.toThrow("Not authenticated");
   });
 
   it.each([
@@ -165,14 +165,14 @@ describe("regenerateInviteAction", () => {
     ["another household's sync", { ...mine, initiatingHouseholdId: "other" }],
   ])("rejects %s", async (_name, sync) => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync as any);
-    expect(await regenerateInviteAction("s", "sy1")).toEqual({ ok: false, error: "Invite not found." });
+    expect(await regenerateInviteAction("sy1")).toEqual({ ok: false, error: "Invite not found." });
     expect(prisma.sync.updateMany).not.toHaveBeenCalled();
   });
 
   it("will not touch an invite that is no longer pending", async () => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
     vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 0 } as any);
-    expect(await regenerateInviteAction("s", "sy1")).toEqual({
+    expect(await regenerateInviteAction("sy1")).toEqual({
       ok: false,
       error: "Only a pending invite can get a new link.",
     });

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 
 const router = { push: vi.fn(), refresh: vi.fn(), replace: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/app/[slug]/(app)/lists/actions", () => ({
+vi.mock("@/app/(app)/lists/actions", () => ({
   createListAction: vi.fn(),
   renameListAction: vi.fn(),
   archiveListAction: vi.fn(),
@@ -13,15 +13,15 @@ vi.mock("@/app/[slug]/(app)/lists/actions", () => ({
   deleteListAction: vi.fn(),
 }));
 
-import ListsClient from "@/app/[slug]/(app)/lists/ListsClient";
-import ArchivedListsClient from "@/app/[slug]/(app)/lists/archived/ArchivedListsClient";
+import ListsClient from "@/app/(app)/lists/ListsClient";
+import ArchivedListsClient from "@/app/(app)/lists/archived/ArchivedListsClient";
 import {
   createListAction,
   renameListAction,
   archiveListAction,
   unarchiveListAction,
   deleteListAction,
-} from "@/app/[slug]/(app)/lists/actions";
+} from "@/app/(app)/lists/actions";
 
 const lists = [
   { id: "l1", name: "Costco run", tags: ["grocery", "weekly"], totalItems: 5, checkedItems: 2 },
@@ -41,22 +41,22 @@ async function openRowMenu(listName: string) {
 
 describe("ListsClient", () => {
   it("shows an empty state with no lists, and no filters", () => {
-    render(<ListsClient lists={[]} slug="s" />);
+    render(<ListsClient lists={[]} />);
     expect(screen.getByText(/No active lists/)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Search lists by name")).not.toBeInTheDocument();
   });
 
   it("lists names, tags, counts and links", () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     expect(screen.getByText("Lists (3)")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Costco run" })).toHaveAttribute("href", "/s/lists/l1");
+    expect(screen.getByRole("link", { name: "Costco run" })).toHaveAttribute("href", "/lists/l1");
     expect(screen.getByText("2 / 5")).toBeInTheDocument();
     expect(screen.getByText("empty")).toBeInTheDocument();
     expect(screen.getByText("grocery")).toBeInTheDocument();
   });
 
   it("filters by name search and shows a no-match message", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     const search = screen.getByPlaceholderText("Search lists by name");
     await userEvent.type(search, "cost");
     expect(screen.getByText("Costco run")).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("ListsClient", () => {
   });
 
   it("filters by tag", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByTitle("grocery"));
     expect(screen.getByText("Costco run")).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("ListsClient", () => {
   });
 
   it("clears the tag filter", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await userEvent.click(screen.getByRole("combobox"));
     await userEvent.click(await screen.findByTitle("grocery"));
     expect(screen.queryByText("Garden")).not.toBeInTheDocument();
@@ -86,33 +86,33 @@ describe("ListsClient", () => {
   });
 
   it("hides the tag filter when no list has tags", () => {
-    render(<ListsClient lists={[lists[1]]} slug="s" />);
+    render(<ListsClient lists={[lists[1]]} />);
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("creates a list and opens it", async () => {
-    render(<ListsClient lists={[]} slug="s" />);
+    render(<ListsClient lists={[]} />);
     await userEvent.click(screen.getByRole("button", { name: "New list" }));
     const create = screen.getByRole("button", { name: "Create" });
     expect(create).toBeDisabled();
     await userEvent.type(screen.getByPlaceholderText("e.g. Costco run"), "  Trip  ");
     await userEvent.type(screen.getByPlaceholderText("grocery, urgent"), "a, ,b");
     await userEvent.click(create);
-    await waitFor(() => expect(createListAction).toHaveBeenCalledWith("s", "Trip", ["a", "b"]));
-    expect(router.push).toHaveBeenCalledWith("/s/lists/new1");
+    await waitFor(() => expect(createListAction).toHaveBeenCalledWith("Trip", ["a", "b"]));
+    expect(router.push).toHaveBeenCalledWith("/lists/new1");
   });
 
   it("opens the CSV import after creating when asked", async () => {
-    render(<ListsClient lists={[]} slug="s" />);
+    render(<ListsClient lists={[]} />);
     await userEvent.click(screen.getByRole("button", { name: "New list" }));
     await userEvent.type(screen.getByPlaceholderText("e.g. Costco run"), "Trip");
     await userEvent.click(screen.getByRole("checkbox"));
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/s/lists/new1?import=1"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/lists/new1?import=1"));
   });
 
   it("ignores Enter on a blank name and resets when cancelled", async () => {
-    render(<ListsClient lists={[]} slug="s" />);
+    render(<ListsClient lists={[]} />);
     await userEvent.click(screen.getByRole("button", { name: "New list" }));
     const name = screen.getByPlaceholderText("e.g. Costco run");
     await userEvent.type(name, "{Enter}");
@@ -124,7 +124,7 @@ describe("ListsClient", () => {
   });
 
   it("renames a list", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await openRowMenu("Costco run");
     await userEvent.click(await screen.findByText("Rename"));
     const input = await screen.findByDisplayValue("Costco run");
@@ -133,12 +133,12 @@ describe("ListsClient", () => {
     await userEvent.type(input, "{Enter}");
     expect(renameListAction).not.toHaveBeenCalled();
     await userEvent.type(input, "Bulk run{Enter}");
-    await waitFor(() => expect(renameListAction).toHaveBeenCalledWith("l1", "Bulk run", "s"));
+    await waitFor(() => expect(renameListAction).toHaveBeenCalledWith("l1", "Bulk run"));
     expect(router.refresh).toHaveBeenCalled();
   });
 
   it("cancels a rename", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await openRowMenu("Costco run");
     await userEvent.click(await screen.findByText("Rename"));
     await screen.findByDisplayValue("Costco run");
@@ -147,16 +147,16 @@ describe("ListsClient", () => {
   });
 
   it("archives a list", async () => {
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await openRowMenu("Costco run");
     await userEvent.click(await screen.findByText("Archive"));
-    await waitFor(() => expect(archiveListAction).toHaveBeenCalledWith("l1", "s"));
+    await waitFor(() => expect(archiveListAction).toHaveBeenCalledWith("l1"));
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 
   it("does not delete when the confirmation is declined", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await openRowMenu("Costco run");
     await userEvent.click(await screen.findByText("Delete"));
     expect(deleteListAction).not.toHaveBeenCalled();
@@ -164,10 +164,10 @@ describe("ListsClient", () => {
 
   it("deletes a list once confirmed", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<ListsClient lists={lists} slug="s" />);
+    render(<ListsClient lists={lists} />);
     await openRowMenu("Packing");
     await userEvent.click(await screen.findByText("Delete"));
-    await waitFor(() => expect(deleteListAction).toHaveBeenCalledWith("l2", "s"));
+    await waitFor(() => expect(deleteListAction).toHaveBeenCalledWith("l2"));
     expect(router.refresh).toHaveBeenCalled();
   });
 });
@@ -179,12 +179,12 @@ describe("ArchivedListsClient", () => {
   ];
 
   it("shows an empty state", () => {
-    render(<ArchivedListsClient lists={[]} slug="s" />);
+    render(<ArchivedListsClient lists={[]} />);
     expect(screen.getByText("No archived lists.")).toBeInTheDocument();
   });
 
   it("lists archived lists with dates, tags and counts", () => {
-    render(<ArchivedListsClient lists={archived} slug="s" />);
+    render(<ArchivedListsClient lists={archived} />);
     expect(screen.getByText("Archived lists (2)")).toBeInTheDocument();
     expect(screen.getByText("archived 1/2/2026")).toBeInTheDocument();
     expect(screen.getByText("grocery")).toBeInTheDocument();
@@ -193,15 +193,15 @@ describe("ArchivedListsClient", () => {
   });
 
   it("unarchives a list", async () => {
-    render(<ArchivedListsClient lists={archived} slug="s" />);
+    render(<ArchivedListsClient lists={archived} />);
     await userEvent.click(screen.getAllByRole("button", { name: "Unarchive" })[0]);
-    await waitFor(() => expect(unarchiveListAction).toHaveBeenCalledWith("l1", "s"));
+    await waitFor(() => expect(unarchiveListAction).toHaveBeenCalledWith("l1"));
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 
   it("deletes a list only after confirmation", async () => {
     const confirmSpy = vi.spyOn(window, "confirm");
-    render(<ArchivedListsClient lists={archived} slug="s" />);
+    render(<ArchivedListsClient lists={archived} />);
     const buttons = screen.getAllByRole("button", { name: "Delete" });
 
     confirmSpy.mockReturnValueOnce(false);
@@ -210,6 +210,6 @@ describe("ArchivedListsClient", () => {
 
     confirmSpy.mockReturnValueOnce(true);
     await userEvent.click(buttons[1]);
-    await waitFor(() => expect(deleteListAction).toHaveBeenCalledWith("l2", "s"));
+    await waitFor(() => expect(deleteListAction).toHaveBeenCalledWith("l2"));
   });
 });

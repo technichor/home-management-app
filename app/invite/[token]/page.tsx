@@ -106,7 +106,7 @@ export default async function InvitePage({
         </h4>
         <Alert type={sync.status === "ACTIVE" ? "success" : "info"} showIcon title={answered} />
         {syncedWithUs && (
-          <Link href={`/${household?.urlSlug}/messages`} style={{ display: "block", marginTop: 16 }}>
+          <Link href="/messages" style={{ display: "block", marginTop: 16 }}>
             <Button type="primary">Open messages</Button>
           </Link>
         )}

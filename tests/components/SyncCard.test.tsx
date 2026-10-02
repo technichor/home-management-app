@@ -6,16 +6,16 @@ import { App } from "antd";
 
 const router = { refresh: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-vi.mock("@/app/[slug]/(app)/contacts/[id]/syncActions", () => ({
+vi.mock("@/app/(app)/contacts/[id]/syncActions", () => ({
   requestSyncAction: vi.fn(),
   regenerateInviteAction: vi.fn(),
   revokeInviteAction: vi.fn(),
 }));
 vi.mock("@/app/invite/[token]/actions", () => ({ respondToInviteAction: vi.fn() }));
 
-import SyncCard, { SyncInfo } from "@/app/[slug]/(app)/contacts/[id]/SyncCard";
+import SyncCard, { SyncInfo } from "@/app/(app)/contacts/[id]/SyncCard";
 import InviteResponse from "@/app/invite/[token]/InviteResponse";
-import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
+import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/(app)/contacts/[id]/syncActions";
 import { respondToInviteAction } from "@/app/invite/[token]/actions";
 
 const sync = (over: Partial<SyncInfo> = {}): SyncInfo => ({
@@ -29,7 +29,7 @@ const sync = (over: Partial<SyncInfo> = {}): SyncInfo => ({
 function setup(info: SyncInfo | null = null, defaultEmail = "pat@x.com") {
   return render(
     <App>
-      <SyncCard slug="s" contactId="c1" defaultEmail={defaultEmail} sync={info} />
+      <SyncCard contactId="c1" defaultEmail={defaultEmail} sync={info} />
     </App>
   );
 }
@@ -46,7 +46,7 @@ describe("SyncCard: requesting", () => {
     setup();
     expect(screen.getByLabelText("Email address")).toHaveValue("pat@x.com");
     await userEvent.click(screen.getByRole("button", { name: "Request sync" }));
-    await waitFor(() => expect(requestSyncAction).toHaveBeenCalledWith("s", "c1", "pat@x.com"));
+    await waitFor(() => expect(requestSyncAction).toHaveBeenCalledWith("c1", "pat@x.com"));
     expect(await screen.findByLabelText("Invite link")).toHaveValue(`${window.location.origin}/invite/abc`);
     expect(screen.getByText(/does not send email/)).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalled();
@@ -58,7 +58,7 @@ describe("SyncCard: requesting", () => {
     expect(request).toBeDisabled();
     await userEvent.type(screen.getByLabelText("Email address"), "new@x.com");
     await userEvent.click(request);
-    await waitFor(() => expect(requestSyncAction).toHaveBeenCalledWith("s", "c1", "new@x.com"));
+    await waitFor(() => expect(requestSyncAction).toHaveBeenCalledWith("c1", "new@x.com"));
   });
 
   it("shows the server's reason when the request is refused, with no link", async () => {
@@ -129,7 +129,7 @@ describe("SyncCard: existing sync", () => {
     expect(screen.getByText("pat@x.com")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request sync" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Get a new link" }));
-    await waitFor(() => expect(regenerateInviteAction).toHaveBeenCalledWith("s", "sy1"));
+    await waitFor(() => expect(regenerateInviteAction).toHaveBeenCalledWith("sy1"));
     expect(await screen.findByLabelText("Invite link")).toHaveValue(`${window.location.origin}/invite/new`);
   });
 
@@ -149,7 +149,7 @@ describe("SyncCard: existing sync", () => {
     await screen.findByLabelText("Invite link");
     router.refresh.mockClear();
     await confirmRevoke();
-    await waitFor(() => expect(revokeInviteAction).toHaveBeenCalledWith("s", "sy1"));
+    await waitFor(() => expect(revokeInviteAction).toHaveBeenCalledWith("sy1"));
     expect(await screen.findByText("Invite revoked. Its link no longer works.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Invite link")).not.toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalled();

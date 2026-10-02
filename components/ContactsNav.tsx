@@ -9,21 +9,21 @@ const LINKS = [
   { label: "Removed", segment: "removed" },
 ];
 
-export default function ContactsNav({ slug }: { slug: string }) {
+export default function ContactsNav() {
   const pathname = usePathname();
   const router = useRouter();
 
   function href(segment: string) {
-    return segment ? `/${slug}/contacts/${segment}` : `/${slug}/contacts`;
+    return segment ? `/contacts/${segment}` : "/contacts";
   }
 
   function isActive(segment: string) {
     if (segment === "") {
       return (
-        pathname === `/${slug}/contacts` ||
-        (pathname.startsWith(`/${slug}/contacts/`) &&
+        pathname === "/contacts" ||
+        (pathname.startsWith("/contacts/") &&
           !["households", "import", "removed"].some((s) =>
-            pathname.startsWith(`/${slug}/contacts/${s}`)
+            pathname.startsWith(`/contacts/${s}`)
           ))
       );
     }

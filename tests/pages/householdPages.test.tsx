@@ -10,7 +10,11 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   }),
 }));
-vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), isUnverified: (u: any) => u.emailVerifiedAt === null }));
+vi.mock("@/lib/auth", () => ({
+  getSessionUser: vi.fn(),
+  pageMember: vi.fn(),
+  isUnverified: (u: any) => u.emailVerifiedAt === null,
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findMany: vi.fn() },
@@ -19,19 +23,17 @@ vi.mock("@/lib/db", () => ({
     joinRequest: { findMany: vi.fn() },
   },
 }));
-vi.mock("@/app/[slug]/(app)/household/HouseholdClient", () => ({
+vi.mock("@/app/(app)/household/HouseholdClient", () => ({
   default: (props: any) => <pre data-testid="client">{JSON.stringify(props)}</pre>,
 }));
 vi.mock("@/app/join/[token]/AcceptInvite", () => ({ default: ({ token }: any) => <div>accept {token}</div> }));
 
-import HouseholdPage from "@/app/[slug]/(app)/household/page";
+import HouseholdPage from "@/app/(app)/household/page";
 import JoinPage from "@/app/join/[token]/page";
 import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, pageMember } from "@/lib/auth";
 import { hashInviteToken } from "@/lib/syncToken";
-
-const params = Promise.resolve({ slug: "smiths" });
-const household = { id: "h1", displayName: "The Smiths", urlSlug: "smiths", deletedAt: null };
+const household = { id: "h1", displayName: "The Smiths", deletedAt: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -46,18 +48,9 @@ beforeEach(() => {
 });
 
 describe("HouseholdPage", () => {
-  it("requires a signed-in user who belongs to this household", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue(null);
-    await expect(HouseholdPage({ params })).rejects.toThrow("REDIRECT:/login");
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", role: "OWNER", household: null } as any);
-    await expect(HouseholdPage({ params })).rejects.toThrow("NOT_FOUND");
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", role: "OWNER", household: { ...household, urlSlug: "other" } } as any);
-    await expect(HouseholdPage({ params })).rejects.toThrow("NOT_FOUND");
-  });
-
   it("gives an owner the join code, pending invites and requests", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", role: "OWNER", household } as any);
-    render(await HouseholdPage({ params }));
+    vi.mocked(pageMember).mockResolvedValue({ id: "u1", role: "OWNER", householdId: "h1", household } as any);
+    render(await HouseholdPage());
     const props = JSON.parse(screen.getByTestId("client").textContent!);
     expect(props).toMatchObject({
       householdName: "The Smiths",
@@ -70,15 +63,15 @@ describe("HouseholdPage", () => {
   });
 
   it("gives an owner a null code when join requests are off", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", role: "OWNER", household } as any);
+    vi.mocked(pageMember).mockResolvedValue({ id: "u1", role: "OWNER", householdId: "h1", household } as any);
     vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-    render(await HouseholdPage({ params }));
+    render(await HouseholdPage());
     expect(JSON.parse(screen.getByTestId("client").textContent!).joinCode).toBeNull();
   });
 
   it("shows a plain member only the member list", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u2", role: "MEMBER", household } as any);
-    render(await HouseholdPage({ params }));
+    vi.mocked(pageMember).mockResolvedValue({ id: "u2", role: "MEMBER", householdId: "h1", household } as any);
+    render(await HouseholdPage());
     const props = JSON.parse(screen.getByTestId("client").textContent!);
     expect(props).toMatchObject({ isOwner: false, joinCode: null, invites: [], requests: [] });
     expect(prisma.householdInvite.findMany).not.toHaveBeenCalled();

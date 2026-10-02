@@ -34,7 +34,7 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
 
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { household: { select: { id: true, urlSlug: true, deletedAt: true } } },
+    include: { household: { select: { id: true, deletedAt: true } } },
   });
   const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !valid) {

@@ -1,17 +1,18 @@
 // One-off: create the first user (an OWNER) for a household that existed before user accounts.
 //
 //   ADOPT_PASSWORD='choose-a-password' node --env-file=.env.local scripts/adopt-household.mjs \
-//     you@example.com <household-slug> "First" "Last"
+//     you@example.com "<household name>" "First" "Last"
 //
 // The user is linked to the household's existing Family & Friend contact with the same name when
-// there is one (and nobody else is linked to it), otherwise to a new contact. The password comes from the environment so it stays out of shell history.
+// there is one (and nobody else is linked to it), otherwise to a new contact. The password
+// comes from the environment so it stays out of shell history.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-const [email, slug, firstName, lastName] = process.argv.slice(2);
+const [email, householdName, firstName, lastName] = process.argv.slice(2);
 const password = process.env.ADOPT_PASSWORD;
-if (!email || !slug || !firstName || !lastName || !password || password.length < 8) {
-  console.error("Usage: ADOPT_PASSWORD='(8+ chars)' node --env-file=.env.local scripts/adopt-household.mjs <email> <slug> <first> <last>");
+if (!email || !householdName || !firstName || !lastName || !password || password.length < 8) {
+  console.error("Usage: ADOPT_PASSWORD='(8+ chars)' node --env-file=.env.local scripts/adopt-household.mjs <email> <household name> <first> <last>");
   process.exit(1);
 }
 
@@ -19,8 +20,8 @@ const prisma = new PrismaClient();
 try {
   const normalized = email.trim().toLowerCase();
   if (await prisma.user.findUnique({ where: { email: normalized } })) throw new Error(`A user with ${normalized} already exists.`);
-  const household = await prisma.household.findUnique({ where: { urlSlug: slug } });
-  if (!household) throw new Error(`No household with slug "${slug}".`);
+  const household = await prisma.household.findFirst({ where: { displayName: householdName, deletedAt: null } });
+  if (!household) throw new Error(`No household named "${householdName}".`);
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.$transaction(async (tx) => {

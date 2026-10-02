@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/s/contacts",
+  usePathname: () => "/contacts",
   useRouter: () => ({ push: vi.fn() }),
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -17,20 +17,18 @@ vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/aut
 vi.mock("@ant-design/nextjs-registry", () => ({
   AntdRegistry: ({ children }: any) => <>{children}</>,
 }));
-vi.mock("@/app/[slug]/(app)/contacts/import/ImportClient", () => ({
-  default: ({ slug }: any) => <div>import client for {slug}</div>,
+vi.mock("@/app/(app)/contacts/import/ImportClient", () => ({
+  default: () => <div>import client</div>,
 }));
 vi.mock("@/app/login/actions", () => ({ logoutAction: vi.fn() }));
 
 import { getSessionUser } from "@/lib/auth";
 import RootLayout, { metadata } from "@/app/layout";
 import RootPage from "@/app/page";
-import AppLayout from "@/app/[slug]/(app)/layout";
-import ContactsLayout from "@/app/[slug]/(app)/contacts/layout";
-import ListsLayout from "@/app/[slug]/(app)/lists/layout";
-import ImportPage from "@/app/[slug]/(app)/contacts/import/page";
-
-const params = Promise.resolve({ slug: "s" });
+import AppLayout from "@/app/(app)/layout";
+import ContactsLayout from "@/app/(app)/contacts/layout";
+import ListsLayout from "@/app/(app)/lists/layout";
+import ImportPage from "@/app/(app)/contacts/import/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -47,8 +45,8 @@ describe("RootLayout", () => {
 
 describe("RootPage", () => {
   it("redirects a signed-in user with a household to their contacts", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", household: { urlSlug: "smiths", deletedAt: null } } as any);
-    await expect(RootPage()).rejects.toThrow("REDIRECT:/smiths");
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u1", household: { deletedAt: null } } as any);
+    await expect(RootPage()).rejects.toThrow("REDIRECT:/home");
   });
 
   it("sends a signed-in user without a household to onboarding", async () => {
@@ -65,28 +63,23 @@ describe("RootPage", () => {
 });
 
 describe("AppLayout", () => {
-  const household = { id: "h1", displayName: "The Smiths", urlSlug: "s", deletedAt: null };
+  const household = { id: "h1", displayName: "The Smiths", deletedAt: null };
 
   it("sends a signed-out visitor to log in", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/login");
+    await expect(AppLayout({ children: null })).rejects.toThrow("REDIRECT:/login");
   });
 
   it("sends a user with no household, or a deleted one, to onboarding", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: null } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/onboarding");
+    await expect(AppLayout({ children: null })).rejects.toThrow("REDIRECT:/onboarding");
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: { ...household, deletedAt: new Date() } } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/onboarding");
-  });
-
-  it("redirects a URL for another household's slug to the user's own", async () => {
-    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: { ...household, urlSlug: "mine" } } as any);
-    await expect(AppLayout({ children: null, params })).rejects.toThrow("REDIRECT:/mine");
+    await expect(AppLayout({ children: null })).rejects.toThrow("REDIRECT:/onboarding");
   });
 
   it("renders the nav and children for a member", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household } as any);
-    render(await AppLayout({ children: <p>page body</p>, params }));
+    render(await AppLayout({ children: <p>page body</p> }));
     expect(screen.getByText("The Smiths")).toBeInTheDocument();
     expect(screen.getByText("page body")).toBeInTheDocument();
   });
@@ -94,19 +87,19 @@ describe("AppLayout", () => {
 
 describe("small layouts and pages", () => {
   it("ContactsLayout renders the contacts nav above its children", async () => {
-    render(await ContactsLayout({ children: <p>kids</p>, params }));
+    render(await ContactsLayout({ children: <p>kids</p> }));
     expect(screen.getByRole("button", { name: "People" })).toBeInTheDocument();
     expect(screen.getByText("kids")).toBeInTheDocument();
   });
 
   it("ListsLayout renders the lists nav above its children", async () => {
-    render(await ListsLayout({ children: <p>kids</p>, params }));
+    render(await ListsLayout({ children: <p>kids</p> }));
     expect(screen.getByRole("button", { name: "Archived" })).toBeInTheDocument();
     expect(screen.getByText("kids")).toBeInTheDocument();
   });
 
-  it("ImportPage passes the slug to the import client", async () => {
-    render(await ImportPage({ params }));
-    expect(screen.getByText("import client for s")).toBeInTheDocument();
+  it("ImportPage renders the import client", async () => {
+    render(await ImportPage());
+    expect(screen.getByText("import client")).toBeInTheDocument();
   });
 });

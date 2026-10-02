@@ -2,7 +2,7 @@ body {
   margin: 0;
 }
 
-/* ---- App shell (see components/AppNav.tsx and app/[slug]/(app)/layout.tsx) ---- */
+/* ---- App shell (see components/AppNav.tsx and app/(app)/layout.tsx) ---- */
 
 .app-nav {
   background: #fff;

@@ -14,12 +14,12 @@ vi.mock("@/lib/db", () => ({
   prisma: { household: { findUnique: vi.fn() }, contact: { count: vi.fn() } },
 }));
 const seen: Record<string, any> = {};
-vi.mock("@/app/[slug]/(app)/contacts/households/HouseholdForm", () => ({
+vi.mock("@/app/(app)/contacts/households/HouseholdForm", () => ({
   default: (p: any) => ((seen.form = p), <div>household form</div>),
 }));
 
-import NewHouseholdPage from "@/app/[slug]/(app)/contacts/households/new/page";
-import EditHouseholdPage from "@/app/[slug]/(app)/contacts/households/[id]/edit/page";
+import NewHouseholdPage from "@/app/(app)/contacts/households/new/page";
+import EditHouseholdPage from "@/app/(app)/contacts/households/[id]/edit/page";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 
@@ -36,14 +36,14 @@ beforeEach(() => {
 
 describe("NewHouseholdPage", () => {
   it("renders the empty form", async () => {
-    render(await NewHouseholdPage({ params: Promise.resolve({ slug: "s" }) }));
+    render(await NewHouseholdPage());
     expect(screen.getByText("household form")).toBeInTheDocument();
-    expect(seen.form).toEqual({ slug: "s" });
+    expect(seen.form).toEqual({ });
   });
 });
 
 describe("EditHouseholdPage", () => {
-  const run = () => EditHouseholdPage({ params: Promise.resolve({ slug: "s", id: "x1" }) });
+  const run = () => EditHouseholdPage({ params: Promise.resolve({ id: "x1" }) });
 
   it.each([
     ["missing", null],
@@ -70,7 +70,7 @@ describe("EditHouseholdPage", () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(
       stored({ id: "mine", ownerHouseholdId: null, mailingAddress: null, notes: null }) as any
     );
-    render(await EditHouseholdPage({ params: Promise.resolve({ slug: "s", id: "mine" }) }));
+    render(await EditHouseholdPage({ params: Promise.resolve({ id: "mine" }) }));
     expect(seen.form.household.isOurs).toBe(true);
     expect(seen.form.household.values.mailingAddress).toBeUndefined();
     expect(seen.form.household.values.notes).toBeUndefined();

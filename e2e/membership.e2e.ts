@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { confirmEmail, newOwner, newSession, signUp, uniqueEmail } from "./helpers";
+import { expect } from "@playwright/test";
+import { confirmEmail, newOwner, newSession, signUp, uniqueEmail, test } from "./helpers";
 
 async function newVerifiedUser(page: import("@playwright/test").Page, tag: string) {
   const email = uniqueEmail(tag);
@@ -12,10 +12,10 @@ async function newVerifiedUser(page: import("@playwright/test").Page, tag: strin
 test("an owner invites someone by link; they join, then the owner removes them", async ({ browser }) => {
   const owner = await newSession(browser);
   const guest = await newSession(browser);
-  const { slug } = await newOwner(owner.page, "host", "The Hosts");
+  await newOwner(owner.page, "host", "The Hosts");
 
   // Owner makes a one-time link.
-  await owner.page.goto(`/${slug}/household`);
+  await owner.page.goto(`/household`);
   await owner.page.getByRole("button", { name: "Create invite link" }).click();
   const link = await owner.page.locator('input[readonly]').inputValue();
   expect(link).toMatch(/\/join\/[A-Za-z0-9_-]+$/);
@@ -38,7 +38,7 @@ test("an owner invites someone by link; they join, then the owner removes them",
   await confirmEmail(guest.page, email);
   await guest.page.goto(path);
   await guest.page.getByRole("button", { name: "Join this household" }).click();
-  await expect(guest.page).toHaveURL(new RegExp(`/${slug}$`));
+  await expect(guest.page).toHaveURL(new RegExp(`/home$`));
 
   // The link was single-use.
   const third = await newSession(browser);
@@ -47,14 +47,14 @@ test("an owner invites someone by link; they join, then the owner removes them",
   await expect(third.page.getByText(/already used or withdrawn/)).toBeVisible();
 
   // Both are members now.
-  await owner.page.goto(`/${slug}/household`);
+  await owner.page.goto(`/household`);
   await expect(owner.page.getByText("Gus Guest")).toBeVisible();
 
   // Removing the guest cuts off their access straight away.
   await owner.page.getByRole("button", { name: "Remove" }).click();
   await owner.page.locator(".ant-popconfirm .ant-btn-primary").click();
   await expect(owner.page.getByText("Gus Guest")).toHaveCount(0);
-  await guest.page.goto(`/${slug}/contacts`);
+  await guest.page.goto(`/contacts`);
   await expect(guest.page).toHaveURL(/\/onboarding$/);
 
   for (const s of [owner, guest, third]) await s.context.close();
@@ -63,9 +63,9 @@ test("an owner invites someone by link; they join, then the owner removes them",
 test("someone with a join code asks to join and an owner approves", async ({ browser }) => {
   const owner = await newSession(browser);
   const asker = await newSession(browser);
-  const { slug } = await newOwner(owner.page, "coder", "The Coders");
+  await newOwner(owner.page, "coder", "The Coders");
 
-  await owner.page.goto(`/${slug}/household`);
+  await owner.page.goto(`/household`);
   await owner.page.getByRole("button", { name: "Turn on join requests" }).click();
   const code = await owner.page.locator(".ant-typography code").first().innerText();
   expect(code).toMatch(/^[A-Z2-9]{8}$/);
@@ -80,7 +80,7 @@ test("someone with a join code asks to join and an owner approves", async ({ bro
   await expect(owner.page.getByText("Asker")).toBeVisible();
 
   await asker.page.goto("/onboarding");
-  await expect(asker.page).toHaveURL(new RegExp(`/${slug}$`));
+  await expect(asker.page).toHaveURL(new RegExp(`/home$`));
 
   for (const s of [owner, asker]) await s.context.close();
 });

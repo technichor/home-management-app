@@ -5,13 +5,13 @@ import userEvent from "@testing-library/user-event";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("@/app/[slug]/(app)/contacts/import/actions", () => ({
+vi.mock("@/app/(app)/contacts/import/actions", () => ({
   validateImportAction: vi.fn(),
   applyImportAction: vi.fn(),
 }));
 
-import ImportClient from "@/app/[slug]/(app)/contacts/import/ImportClient";
-import { validateImportAction, applyImportAction } from "@/app/[slug]/(app)/contacts/import/actions";
+import ImportClient from "@/app/(app)/contacts/import/ImportClient";
+import { validateImportAction, applyImportAction } from "@/app/(app)/contacts/import/actions";
 
 const emptyDiff = {
   households: { added: [], updated: [], removed: [], unchanged: 0 },
@@ -66,21 +66,21 @@ const stat = (title: string) =>
 
 describe("upload step", () => {
   it("explains how importing works and links the export files", () => {
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     expect(screen.getByText("How importing works")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /households\.csv/ })).toHaveAttribute(
       "href",
-      "/s/contacts/api/export?file=households"
+      "/contacts/api/export?file=households"
     );
     expect(screen.getByRole("link", { name: /contacts\.csv/ })).toHaveAttribute(
       "href",
-      "/s/contacts/api/export?file=contacts"
+      "/contacts/api/export?file=contacts"
     );
   });
 
   it("sends both files for validation", async () => {
     vi.mocked(validateImportAction).mockResolvedValue(success(emptyDiff));
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     await waitFor(() => expect(validateImportAction).toHaveBeenCalled());
     const fd = vi.mocked(validateImportAction).mock.calls[0][0];
@@ -97,7 +97,7 @@ describe("upload step", () => {
         { row: 0, column: "file", message: "Both households.csv and contacts.csv are required." },
       ],
     });
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     expect(await screen.findByText(/2 errors found/)).toBeInTheDocument();
     expect(screen.getByText(/Row 3,/)).toBeInTheDocument();
@@ -111,7 +111,7 @@ describe("upload step", () => {
       ok: false,
       errors: [{ row: 2, column: "category", message: "bad" }],
     });
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     expect(await screen.findByText(/1 error found/)).toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe("upload step", () => {
   it("shows a validating state while waiting", async () => {
     let release: (v: any) => void = () => {};
     vi.mocked(validateImportAction).mockReturnValue(new Promise((r) => (release = r)));
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     expect(await screen.findByRole("button", { name: /Validating/ })).toBeInTheDocument();
     release(success(emptyDiff));
@@ -130,7 +130,7 @@ describe("upload step", () => {
 describe("diff step", () => {
   async function toDiff(diff: object = richDiff) {
     vi.mocked(validateImportAction).mockResolvedValue(success(diff));
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     await screen.findByText(/to apply|No changes detected/);
     // Back is disabled while the validate transition is still pending; wait so clicks aren't ignored under load.
@@ -189,7 +189,7 @@ describe("diff step", () => {
     await toDiff();
     await userEvent.click(await screen.findByRole("button", { name: /Apply 8 changes/ }));
     await waitFor(() =>
-      expect(applyImportAction).toHaveBeenCalledWith("s", { householdsCSV: "H-CSV", contactsCSV: "C-CSV" })
+      expect(applyImportAction).toHaveBeenCalledWith({ householdsCSV: "H-CSV", contactsCSV: "C-CSV" })
     );
     expect(await screen.findByText("Import applied successfully.")).toBeInTheDocument();
   });
@@ -223,7 +223,7 @@ describe("success step", () => {
   async function toSuccess() {
     vi.mocked(validateImportAction).mockResolvedValue(success());
     vi.mocked(applyImportAction).mockResolvedValue({ ok: true });
-    render(<ImportClient slug="s" />);
+    render(<ImportClient />);
     await upload();
     await userEvent.click(await screen.findByRole("button", { name: /Apply 8 changes/ }));
     await screen.findByText("Import applied successfully.");
@@ -238,6 +238,6 @@ describe("success step", () => {
   it("can go to the contacts list", async () => {
     await toSuccess();
     await userEvent.click(screen.getByRole("button", { name: "View contacts" }));
-    expect(push).toHaveBeenCalledWith("/s/contacts");
+    expect(push).toHaveBeenCalledWith("/contacts");
   });
 });

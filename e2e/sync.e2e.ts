@@ -1,15 +1,15 @@
-import { test, expect } from "@playwright/test";
-import { addServiceProvider, newOwner, newSession } from "./helpers";
+import { expect } from "@playwright/test";
+import { addServiceProvider, newOwner, newSession, gotoMissing, test } from "./helpers";
 
 test("two households sync and message each other", async ({ browser }) => {
   const a = await newSession(browser);
   const b = await newSession(browser);
-  const ownerA = await newOwner(a.page, "synca", "The Syncas");
+  await newOwner(a.page, "synca", "The Syncas");
   const ownerB = await newOwner(b.page, "syncb", "The Syncbs");
 
   // A records B's person as a contact, then asks to sync with them.
-  const contactId = await addServiceProvider(a.page, ownerA.slug, "Bea", "Syncb");
-  await a.page.goto(`/${ownerA.slug}/contacts/${contactId}`);
+  const contactId = await addServiceProvider(a.page, "Bea", "Syncb");
+  await a.page.goto(`/contacts/${contactId}`);
   await a.page.getByLabel("Email address").fill(ownerB.email);
   await a.page.getByRole("button", { name: "Request sync" }).click();
   const link = await a.page.getByLabel("Invite link").inputValue();
@@ -26,15 +26,15 @@ test("two households sync and message each other", async ({ browser }) => {
   await expect(b.page.getByText(/You are synced with The Syncas|Open messages/).first()).toBeVisible();
 
   // Both now see a shared conversation.
-  await b.page.goto(`/${ownerB.slug}/messages`);
+  await b.page.goto(`/messages`);
   await b.page.getByText("The Syncas & The Syncbs").click();
-  await expect(b.page).toHaveURL(new RegExp(`/${ownerB.slug}/messages/[a-z0-9]+`));
+  await expect(b.page).toHaveURL(new RegExp(`/messages/[a-z0-9]+`));
   await b.page.getByPlaceholder(/Write a message/).fill("Hello from the Syncbs");
   await b.page.getByRole("button", { name: "Send" }).click();
   await expect(b.page.getByText("Hello from the Syncbs")).toBeVisible();
 
   // It arrives for A (the page polls, so a reload is enough here), labelled with B's household.
-  await a.page.goto(`/${ownerA.slug}/messages`);
+  await a.page.goto(`/messages`);
   await a.page.getByText("The Syncas & The Syncbs").click();
   await expect(a.page.getByText("Hello from the Syncbs")).toBeVisible();
   await expect(a.page.getByText("The Syncbs").first()).toBeVisible();
@@ -44,10 +44,10 @@ test("two households sync and message each other", async ({ browser }) => {
   await expect(b.page.getByText(/You are synced with The Syncas/)).toBeVisible();
 
   // An outsider can't open the shared conversation by guessing its URL.
-  const conversationPath = new URL(a.page.url()).pathname.split("/").slice(2).join("/");
+  const conversationPath = new URL(a.page.url()).pathname;
   const outsider = await newSession(browser);
-  const ownerC = await newOwner(outsider.page, "syncc", "The Syncc Outsiders");
-  await outsider.page.goto(`/${ownerC.slug}/${conversationPath}`);
+  await newOwner(outsider.page, "syncc", "The Syncc Outsiders");
+  await gotoMissing(outsider.page, conversationPath);
   await expect(outsider.page.getByText(/could not be found/i)).toBeVisible();
   await expect(outsider.page.getByText("Hello from the Syncbs")).toHaveCount(0);
 
@@ -57,11 +57,11 @@ test("two households sync and message each other", async ({ browser }) => {
 test("a pending sync invite can be revoked, and the contact invited again", async ({ browser }) => {
   const a = await newSession(browser);
   const b = await newSession(browser);
-  const ownerA = await newOwner(a.page, "revoka", "The Revokas");
+  await newOwner(a.page, "revoka", "The Revokas");
   const ownerB = await newOwner(b.page, "revokb", "The Revokbs");
 
-  const contactId = await addServiceProvider(a.page, ownerA.slug, "Rae", "Revokb");
-  await a.page.goto(`/${ownerA.slug}/contacts/${contactId}`);
+  const contactId = await addServiceProvider(a.page, "Rae", "Revokb");
+  await a.page.goto(`/contacts/${contactId}`);
   await a.page.getByLabel("Email address").fill(ownerB.email);
   await a.page.getByRole("button", { name: "Request sync" }).click();
   const firstLink = new URL(await a.page.getByLabel("Invite link").inputValue()).pathname;

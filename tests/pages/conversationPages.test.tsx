@@ -21,20 +21,18 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 const seen: Record<string, any> = {};
-vi.mock("@/app/[slug]/(app)/messages/MessagesClient", () => ({
+vi.mock("@/app/(app)/messages/MessagesClient", () => ({
   default: (p: any) => ((seen.list = p), <div>messages client</div>),
 }));
-vi.mock("@/app/[slug]/(app)/messages/[id]/ConversationClient", () => ({
+vi.mock("@/app/(app)/messages/[id]/ConversationClient", () => ({
   default: (p: any) => ((seen.convo = p), <div>conversation client</div>),
 }));
 
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import { conversationsVisibleTo } from "@/lib/messaging";
-import MessagesPage from "@/app/[slug]/(app)/messages/page";
-import ConversationPage from "@/app/[slug]/(app)/messages/[id]/page";
-
-const params = Promise.resolve({ slug: "s" });
+import MessagesPage from "@/app/(app)/messages/page";
+import ConversationPage from "@/app/(app)/messages/[id]/page";
 const dbConvo = (over: object = {}) => ({
   id: "cv1", name: "Trip", scope: "HOUSEHOLD", relatedContactId: null,
   createdAt: new Date("2026-01-01T00:00:00Z"), archivedAt: null, messages: [], ...over,
@@ -53,7 +51,7 @@ beforeEach(() => {
 
 describe("MessagesPage", () => {
   const run = async (searchParams: object = {}) =>
-    render(await MessagesPage({ params, searchParams: Promise.resolve(searchParams) }));
+    render(await MessagesPage({ searchParams: Promise.resolve(searchParams) }));
   const whereOf = () => vi.mocked(prisma.conversation.findMany).mock.calls[0]?.[0]?.where as any;
 
   it("only queries conversations the household may see, excluding archived ones", async () => {
@@ -118,7 +116,7 @@ describe("ConversationPage", () => {
     sender: { firstName: "Sam", lastName: "Smith", householdId: "me", household: { displayName: "Smiths" } },
     ...over,
   });
-  const run = async () => render(await ConversationPage({ params: Promise.resolve({ slug: "s", id: "cv1" }) }));
+  const run = async () => render(await ConversationPage({ params: Promise.resolve({ id: "cv1" }) }));
 
   beforeEach(() => {
     vi.mocked(getIronSession).mockResolvedValue({ householdId: "me", contactId: "me1" } as any);
@@ -135,7 +133,7 @@ describe("ConversationPage", () => {
 
   it("404s for a conversation the household cannot see", async () => {
     vi.mocked(prisma.conversation.findFirst).mockResolvedValue(null);
-    await expect(ConversationPage({ params: Promise.resolve({ slug: "s", id: "cv1" }) })).rejects.toThrow(
+    await expect(ConversationPage({ params: Promise.resolve({ id: "cv1" }) })).rejects.toThrow(
       "NOT_FOUND"
     );
   });

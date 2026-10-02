@@ -4,10 +4,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "antd";
 
-vi.mock("@/app/[slug]/(app)/lists/actions", () => ({ recordComparisonAction: vi.fn() }));
+vi.mock("@/app/(app)/lists/actions", () => ({ recordComparisonAction: vi.fn() }));
 
-import CompareClient from "@/app/[slug]/(app)/lists/[id]/compare/CompareClient";
-import { recordComparisonAction } from "@/app/[slug]/(app)/lists/actions";
+import CompareClient from "@/app/(app)/lists/[id]/compare/CompareClient";
+import { recordComparisonAction } from "@/app/(app)/lists/actions";
 
 const two = [
   { id: "a", text: "Fix roof", quantity: "this spring", rating: 1500, comparisonCount: 0 },
@@ -18,7 +18,7 @@ const three = [...two, { id: "c", text: "New gutters", quantity: null, rating: 1
 function setup(items = two) {
   return render(
     <App>
-      <CompareClient slug="s" listId="l1" items={items} />
+      <CompareClient listId="l1" items={items} />
     </App>
   );
 }
@@ -35,7 +35,7 @@ describe("CompareClient", () => {
   it("asks for at least two items when there are fewer", () => {
     setup([two[0]]);
     expect(screen.getByText("Prioritizing needs at least two unchecked items.")).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/s/lists/l1");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/lists/l1");
   });
 
   it("shows two items to choose between", () => {
@@ -50,14 +50,14 @@ describe("CompareClient", () => {
   it("records the first item as more important", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: /Fix roof/ }));
-    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "s", "a", "b", "A"));
+    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "a", "b", "A"));
     expect(await screen.findByText(/1 comparison made/)).toBeInTheDocument();
   });
 
   it("records the second item as more important", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Paint fence" }));
-    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "s", "a", "b", "B"));
+    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "a", "b", "B"));
   });
 
   it("records 'about equal' and counts several comparisons", async () => {
@@ -66,7 +66,7 @@ describe("CompareClient", () => {
     await screen.findByText(/1 comparison made/);
     await userEvent.click(screen.getByRole("button", { name: "About equal" }));
     expect(await screen.findByText(/2 comparisons made/)).toBeInTheDocument();
-    expect(recordComparisonAction).toHaveBeenLastCalledWith("l1", "s", "a", "b", "EQUAL");
+    expect(recordComparisonAction).toHaveBeenLastCalledWith("l1", "a", "b", "EQUAL");
   });
 
   it("moves on to a different pair after an answer when the list is longer", async () => {
@@ -101,6 +101,6 @@ describe("CompareClient", () => {
 
   it("links Done back to the list", () => {
     setup();
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/s/lists/l1");
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/lists/l1");
   });
 });

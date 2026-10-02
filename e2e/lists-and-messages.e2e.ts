@@ -1,13 +1,13 @@
-import { test, expect } from "@playwright/test";
-import { newOwner } from "./helpers";
+import { expect } from "@playwright/test";
+import { newOwner, newSession, gotoMissing, test } from "./helpers";
 
 test("lists: create, add items, check one off, delete one", async ({ page }) => {
-  const { slug } = await newOwner(page, "lists", "The Listers");
-  await page.goto(`/${slug}/lists`);
+  await newOwner(page, "lists", "The Listers");
+  await page.goto(`/lists`);
   await page.getByRole("button", { name: "New list" }).click();
   await page.getByPlaceholder("e.g. Costco run").fill("Costco run");
   await page.getByRole("button", { name: "Create" }).click();
-  await expect(page).toHaveURL(new RegExp(`/${slug}/lists/[a-z0-9]+`));
+  await expect(page).toHaveURL(new RegExp(`/lists/[a-z0-9]+`));
 
   const add = page.getByPlaceholder(/Add an item and press Enter/);
   for (const item of ["Milk", "Eggs", "Bread"]) {
@@ -27,35 +27,34 @@ test("lists: create, add items, check one off, delete one", async ({ page }) => 
   await expect(page.getByText("This can not be undone.")).toHaveCount(0);
 
   // The list shows on the index with its progress.
-  await page.goto(`/${slug}/lists`);
+  await page.goto(`/lists`);
   await expect(page.getByText("Costco run")).toBeVisible();
 });
 
 test("another household can't open your list", async ({ page, browser }) => {
-  const { slug } = await newOwner(page, "listown", "The Listowners");
-  await page.goto(`/${slug}/lists`);
+  await newOwner(page, "listown", "The Listowners");
+  await page.goto(`/lists`);
   await page.getByRole("button", { name: "New list" }).click();
   await page.getByPlaceholder("e.g. Costco run").fill("Private list");
   await page.getByRole("button", { name: "Create" }).click();
-  await expect(page).toHaveURL(new RegExp(`/${slug}/lists/[a-z0-9]+`));
-  const listPath = new URL(page.url()).pathname.split("/").slice(2).join("/");
+  await expect(page).toHaveURL(new RegExp(`/lists/[a-z0-9]+`));
+  const listPath = new URL(page.url()).pathname;
 
-  const other = await browser.newContext({ baseURL: `http://localhost:${process.env.E2E_APP_PORT ?? 3100}` });
-  const otherPage = await other.newPage();
-  const { slug: otherSlug } = await newOwner(otherPage, "listother", "The Others");
-  await otherPage.goto(`/${otherSlug}/${listPath}`);
+  const { context: other, page: otherPage } = await newSession(browser);
+  await newOwner(otherPage, "listother", "The Others");
+  await gotoMissing(otherPage, listPath);
   await expect(otherPage.getByText(/could not be found/i)).toBeVisible();
   await expect(otherPage.getByText("Private list")).toHaveCount(0);
   await other.close();
 });
 
 test("messages: start a group chat and send a message", async ({ page }) => {
-  const { slug } = await newOwner(page, "chat", "The Chatters");
-  await page.goto(`/${slug}/messages`);
+  await newOwner(page, "chat", "The Chatters");
+  await page.goto(`/messages`);
   await page.getByRole("button", { name: "New group chat" }).click();
   await page.getByPlaceholder("Name, e.g. Weekend plans").fill("Weekend plans");
   await page.getByRole("button", { name: "Create" }).click();
-  await expect(page).toHaveURL(new RegExp(`/${slug}/messages/[a-z0-9]+`));
+  await expect(page).toHaveURL(new RegExp(`/messages/[a-z0-9]+`));
 
   const box = page.getByPlaceholder(/Write a message/);
   await box.fill("Who is bringing snacks?");
@@ -66,6 +65,6 @@ test("messages: start a group chat and send a message", async ({ page }) => {
   await page.reload();
   await expect(page.getByText("Who is bringing snacks?")).toBeVisible();
 
-  await page.goto(`/${slug}/messages`);
+  await page.goto(`/messages`);
   await expect(page.getByText("Weekend plans")).toBeVisible();
 });

@@ -9,7 +9,7 @@ export async function getSessionUser() {
   if (!session.userId) return null;
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    include: { household: { select: { id: true, displayName: true, urlSlug: true, deletedAt: true } } },
+    include: { household: { select: { id: true, displayName: true, deletedAt: true } } },
   });
   // A password change or reset signs out every session that started before it.
   if (user?.passwordChangedAt && (session.issuedAt ?? 0) < user.passwordChangedAt.getTime()) return null;
@@ -19,7 +19,7 @@ export async function getSessionUser() {
 type SignedInUser = {
   id: string;
   emailVerifiedAt?: Date | null;
-  household: { urlSlug: string | null; deletedAt: Date | null } | null;
+  household: { deletedAt: Date | null } | null;
 };
 
 /** Has not confirmed their email yet. (Only a null from the database counts, never an absent field.) */
@@ -30,7 +30,7 @@ export const isUnverified = (user: { emailVerifiedAt?: Date | null }) => user.em
 export function homePathFor(user: SignedInUser): string {
   if (isUnverified(user)) return "/verify-email";
   const household = user.household;
-  return household && !household.deletedAt && household.urlSlug ? `/${household.urlSlug}` : "/onboarding";
+  return household && !household.deletedAt ? "/home" : "/onboarding";
 }
 
 export async function startSession(user: { id: string }): Promise<void> {

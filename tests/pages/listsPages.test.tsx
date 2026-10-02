@@ -23,27 +23,25 @@ vi.mock("@/lib/db", () => ({
 }));
 // Client components are tested on their own; here we only check what the pages hand them.
 const seen: Record<string, any> = {};
-vi.mock("@/app/[slug]/(app)/lists/ListsClient", () => ({
+vi.mock("@/app/(app)/lists/ListsClient", () => ({
   default: (p: any) => ((seen.lists = p), <div>lists client</div>),
 }));
-vi.mock("@/app/[slug]/(app)/lists/archived/ArchivedListsClient", () => ({
+vi.mock("@/app/(app)/lists/archived/ArchivedListsClient", () => ({
   default: (p: any) => ((seen.archived = p), <div>archived client</div>),
 }));
-vi.mock("@/app/[slug]/(app)/lists/[id]/ListDetailClient", () => ({
+vi.mock("@/app/(app)/lists/[id]/ListDetailClient", () => ({
   default: (p: any) => ((seen.detail = p), <div>detail client</div>),
 }));
-vi.mock("@/app/[slug]/(app)/lists/[id]/compare/CompareClient", () => ({
+vi.mock("@/app/(app)/lists/[id]/compare/CompareClient", () => ({
   default: (p: any) => ((seen.compare = p), <div>compare client</div>),
 }));
 
 import { prisma } from "@/lib/db";
-import ListsPage from "@/app/[slug]/(app)/lists/page";
-import ArchivedListsPage from "@/app/[slug]/(app)/lists/archived/page";
-import ListDetailPage from "@/app/[slug]/(app)/lists/[id]/page";
-import ComparePage from "@/app/[slug]/(app)/lists/[id]/compare/page";
-
-const params = Promise.resolve({ slug: "s" });
-const idParams = Promise.resolve({ slug: "s", id: "l1" });
+import ListsPage from "@/app/(app)/lists/page";
+import ArchivedListsPage from "@/app/(app)/lists/archived/page";
+import ListDetailPage from "@/app/(app)/lists/[id]/page";
+import ComparePage from "@/app/(app)/lists/[id]/compare/page";
+const idParams = Promise.resolve({ id: "l1" });
 
 const item = (over: object = {}) => ({
   id: "i1",
@@ -77,12 +75,11 @@ describe("ListsPage", () => {
     vi.mocked(prisma.list.findMany).mockResolvedValue([
       dbList({ items: [{ id: "1", checked: true }, { id: "2", checked: false }] }),
     ] as any);
-    render(await ListsPage({ params }));
+    render(await ListsPage());
     expect(prisma.list.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { householdId: "h1", archivedAt: null } })
     );
     expect(seen.lists).toEqual({
-      slug: "s",
       lists: [{ id: "l1", name: "Groceries", tags: ["a"], totalItems: 2, checkedItems: 1 }],
     });
   });
@@ -94,7 +91,7 @@ describe("ArchivedListsPage", () => {
       dbList({ archivedAt: new Date("2026-03-04T12:00:00Z"), items: [] }),
       dbList({ id: "l2", archivedAt: new Date("2026-03-05T12:00:00Z"), items: [{ id: "1", checked: true }, { id: "2", checked: false }] }),
     ] as any);
-    render(await ArchivedListsPage({ params }));
+    render(await ArchivedListsPage());
     expect(prisma.list.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { householdId: "h1", archivedAt: { not: null } } })
     );
@@ -119,7 +116,6 @@ describe("ListDetailPage", () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ sortMode: "PAIRWISE" }) as any);
     render(await ListDetailPage({ params: idParams, searchParams: Promise.resolve({}) }));
     expect(seen.detail).toMatchObject({
-      slug: "s",
       listId: "l1",
       listName: "Groceries",
       sortMode: "PAIRWISE",
@@ -163,7 +159,6 @@ describe("ComparePage", () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ sortMode: "PAIRWISE" }) as any);
     render(await ComparePage({ params: idParams }));
     expect(seen.compare).toEqual({
-      slug: "s",
       listId: "l1",
       items: [{ id: "i1", text: "milk", quantity: "2", rating: 1500, comparisonCount: 0 }],
     });
@@ -172,7 +167,7 @@ describe("ComparePage", () => {
 
   it("sends manually sorted lists back to the list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ sortMode: "MANUAL" }) as any);
-    await expect(ComparePage({ params: idParams })).rejects.toThrow("REDIRECT:/s/lists/l1");
+    await expect(ComparePage({ params: idParams })).rejects.toThrow("REDIRECT:/lists/l1");
   });
 
   it("404s for a missing list or another household's list", async () => {

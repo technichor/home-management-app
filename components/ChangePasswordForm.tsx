@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Alert, Button, Card, Input, Space, Typography } from "antd";
-import { changePasswordAction, type ChangePasswordState } from "@/app/[slug]/(app)/account/actions";
+import { changePasswordAction, type ChangePasswordState } from "@/app/(app)/account/actions";
 
 export default function ChangePasswordForm() {
   const [state, formAction, isPending] = useActionState<ChangePasswordState, FormData>(changePasswordAction, null);

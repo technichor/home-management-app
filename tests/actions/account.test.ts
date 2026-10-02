@@ -17,7 +17,7 @@ vi.mock("@/lib/db", () => {
 import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { linkAccountContactAction, createAccountContactAction } from "@/app/[slug]/(app)/account/actions";
+import { linkAccountContactAction, createAccountContactAction } from "@/app/(app)/account/actions";
 
 const member = (over: object = {}) => ({
   id: "m1", householdId: "h1", ownerHouseholdId: "h1", category: "FAMILY_FRIEND", deletedAt: null, ...over,
@@ -34,21 +34,21 @@ beforeEach(() => {
 
 describe("linkAccountContactAction", () => {
   it("links the user to a member of their own household", async () => {
-    await linkAccountContactAction("s", "m1");
+    await linkAccountContactAction("m1");
     expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: { contactId: "m1" } });
-    expect(revalidatePath).toHaveBeenCalledWith("/s/account");
+    expect(revalidatePath).toHaveBeenCalledWith("/account");
   });
 
   it("says so when another user already acts as that contact, and rethrows other errors", async () => {
     vi.mocked(prisma.user.update).mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "P2002" }));
-    await expect(linkAccountContactAction("s", "m1")).rejects.toThrow("Someone else already acts as that contact");
+    await expect(linkAccountContactAction("m1")).rejects.toThrow("Someone else already acts as that contact");
     vi.mocked(prisma.user.update).mockRejectedValueOnce(new Error("db down"));
-    await expect(linkAccountContactAction("s", "m1")).rejects.toThrow("db down");
+    await expect(linkAccountContactAction("m1")).rejects.toThrow("db down");
   });
 
   it("requires a session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(linkAccountContactAction("s", "m1")).rejects.toThrow("Not authenticated");
+    await expect(linkAccountContactAction("m1")).rejects.toThrow("Not authenticated");
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
@@ -60,14 +60,14 @@ describe("linkAccountContactAction", () => {
     ["a contact that is not Family & Friend", member({ category: "SERVICE_PROVIDER" })],
   ])("rejects %s", async (_name, contact) => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(contact as any);
-    await expect(linkAccountContactAction("s", "m1")).rejects.toThrow("Choose a Family & Friend contact");
+    await expect(linkAccountContactAction("m1")).rejects.toThrow("Choose a Family & Friend contact");
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
 
 describe("createAccountContactAction", () => {
   it("creates a household member, links the user to it, and logs it", async () => {
-    await createAccountContactAction("s", "  Sam ", "Smith");
+    await createAccountContactAction("  Sam ", "Smith");
     expect(prisma.contact.create).toHaveBeenCalledWith({
       data: { householdId: "h1", ownerHouseholdId: "h1", firstName: "Sam", lastName: "Smith", category: "FAMILY_FRIEND" },
     });
@@ -75,19 +75,19 @@ describe("createAccountContactAction", () => {
     expect(prisma.activityLogEntry.create).toHaveBeenCalledWith({
       data: { entityType: "CONTACT", entityId: "new1", action: "CREATED", source: "MANUAL" },
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/s/account");
-    expect(revalidatePath).toHaveBeenCalledWith("/s/contacts");
+    expect(revalidatePath).toHaveBeenCalledWith("/account");
+    expect(revalidatePath).toHaveBeenCalledWith("/contacts");
   });
 
   it("requires a session", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(createAccountContactAction("s", "A", "B")).rejects.toThrow("Not authenticated");
+    await expect(createAccountContactAction("A", "B")).rejects.toThrow("Not authenticated");
     expect(prisma.contact.create).not.toHaveBeenCalled();
   });
 
   it("rejects a blank name without writing", async () => {
-    await expect(createAccountContactAction("s", " ", "B")).rejects.toThrow("First name is required");
-    await expect(createAccountContactAction("s", "A", "")).rejects.toThrow("Last name is required");
+    await expect(createAccountContactAction(" ", "B")).rejects.toThrow("First name is required");
+    await expect(createAccountContactAction("A", "")).rejects.toThrow("Last name is required");
     expect(prisma.contact.create).not.toHaveBeenCalled();
   });
 });

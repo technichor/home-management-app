@@ -1,0 +1,61 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { conversationsVisibleTo } from "@/lib/messaging";
+import ConversationClient from "./ConversationClient";
+import { pageMember } from "@/lib/auth";
+
+// How many of the most recent messages to show.
+const MESSAGE_WINDOW = 200;
+
+export default async function ConversationPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { householdId, contactId } = await pageMember();
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { id, ...conversationsVisibleTo(householdId) },
+    include: {
+      messages: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: MESSAGE_WINDOW,
+        include: {
+          sender: {
+            select: {
+              firstName: true,
+              lastName: true,
+              householdId: true,
+              household: { select: { displayName: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!conversation) notFound();
+
+  const messages = [...conversation.messages].reverse().map((m) => ({
+    id: m.id,
+    text: m.text,
+    createdAt: m.createdAt.toISOString(),
+    senderName: `${m.sender.firstName} ${m.sender.lastName}`,
+    householdName: m.sender.household?.displayName ?? null,
+    mine: m.sender.householdId === householdId,
+  }));
+
+  return (
+    <ConversationClient
+      conversation={{
+        id: conversation.id,
+        name: conversation.name,
+        synced: conversation.scope === "SYNCED",
+        archived: !!conversation.archivedAt,
+      }}
+      messages={messages}
+      canSend={!!contactId}
+    />
+  );
+}

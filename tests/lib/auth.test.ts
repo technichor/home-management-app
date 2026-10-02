@@ -52,20 +52,19 @@ describe("isUnverified / homePathFor for unverified users", () => {
     expect(isUnverified({})).toBe(false);
   });
   it("sends an unverified user to confirm their email, even if they have a household", () => {
-    expect(homePathFor({ id: "u", emailVerifiedAt: null, household: { urlSlug: "smiths", deletedAt: null } })).toBe("/verify-email");
+    expect(homePathFor({ id: "u", emailVerifiedAt: null, household: { deletedAt: null } })).toBe("/verify-email");
   });
 });
 
 describe("homePathFor", () => {
-  it("goes to the household's contacts when the user has an active household", () => {
-    expect(homePathFor({ id: "u", household: { urlSlug: "smiths", deletedAt: null } })).toBe("/smiths");
+  it("goes to the home page when the user has an active household", () => {
+    expect(homePathFor({ id: "u", household: { deletedAt: null } })).toBe("/home");
   });
   it("goes to onboarding with no household", () => {
     expect(homePathFor({ id: "u", household: null })).toBe("/onboarding");
   });
-  it("goes to onboarding when the household is deleted or has no slug", () => {
-    expect(homePathFor({ id: "u", household: { urlSlug: "s", deletedAt: new Date() } })).toBe("/onboarding");
-    expect(homePathFor({ id: "u", household: { urlSlug: null, deletedAt: null } })).toBe("/onboarding");
+  it("goes to onboarding when the household was deleted", () => {
+    expect(homePathFor({ id: "u", household: { deletedAt: new Date() } })).toBe("/onboarding");
   });
 });
 
@@ -125,7 +124,7 @@ describe("requireMember / requireOwner", () => {
   async function load() {
     return import("@/lib/auth");
   }
-  const member = (role: string, household: any = { id: "h", displayName: "H", urlSlug: "h", deletedAt: null }) => ({
+  const member = (role: string, household: any = { id: "h", displayName: "H", deletedAt: null }) => ({
     id: "u1",
     role,
     householdId: household ? "h" : null,

@@ -16,7 +16,7 @@ export async function acceptHouseholdInviteAction(token: string): Promise<AuthSt
 
   const invite = await prisma.householdInvite.findUnique({
     where: { tokenHash: hashInviteToken(token) },
-    include: { household: { select: { id: true, urlSlug: true, deletedAt: true } } },
+    include: { household: { select: { id: true, deletedAt: true } } },
   });
   if (!invite || invite.household.deletedAt) return { error: "This invite link is not valid." };
   if (invite.status !== "PENDING") return { error: "This invite was already used or withdrawn." };
@@ -42,5 +42,5 @@ export async function acceptHouseholdInviteAction(token: string): Promise<AuthSt
   }
 
   await startSession(user);
-  redirect(invite.household.urlSlug ? `/${invite.household.urlSlug}` : "/onboarding");
+  redirect("/home");
 }

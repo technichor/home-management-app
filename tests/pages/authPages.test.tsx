@@ -81,9 +81,9 @@ describe("OnboardingPage", () => {
   it("sends a user who already has a household to it", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({
       id: "u",
-      household: { id: "h", urlSlug: "smiths", deletedAt: null },
+      household: { id: "h", deletedAt: null },
     } as any);
-    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/smiths");
+    await expect(OnboardingPage()).rejects.toThrow("REDIRECT:/home");
   });
 
   it("greets a user with no household and offers logout", async () => {

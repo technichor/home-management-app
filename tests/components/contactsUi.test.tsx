@@ -21,8 +21,8 @@ Object.defineProperty(window, "matchMedia", {
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-import ContactsFilter from "@/app/[slug]/(app)/contacts/ContactsFilter";
-import ContactsTable from "@/app/[slug]/(app)/contacts/ContactsTable";
+import ContactsFilter from "@/app/(app)/contacts/ContactsFilter";
+import ContactsTable from "@/app/(app)/contacts/ContactsTable";
 
 beforeEach(() => push.mockClear());
 
@@ -32,12 +32,12 @@ const clearButton = () =>
 
 describe("ContactsFilter", () => {
   const setup = (defaults = {}, allTags: string[] = ["kid", "vet"]) =>
-    render(<ContactsFilter slug="s" allTags={allTags} defaults={defaults} />);
+    render(<ContactsFilter allTags={allTags} defaults={defaults} />);
 
   it("submits with no filters to the plain contacts URL", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Filter" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/s/contacts"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/contacts"));
   });
 
   it("builds a query string from every filter", async () => {
@@ -50,7 +50,7 @@ describe("ContactsFilter", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "Favorites only" }));
     await userEvent.click(screen.getByRole("button", { name: "Filter" }));
     await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/s/contacts?q=ann&category=SERVICE_PROVIDER&tag=vet&favorites=1")
+      expect(push).toHaveBeenCalledWith("/contacts?q=ann&category=SERVICE_PROVIDER&tag=vet&favorites=1")
     );
   });
 
@@ -60,7 +60,7 @@ describe("ContactsFilter", () => {
     expect(screen.getByRole("checkbox", { name: "Favorites only" })).toBeChecked();
     expect(screen.getByText("Family & Friend")).toBeInTheDocument();
     await userEvent.click(clearButton() as HTMLElement);
-    expect(push).toHaveBeenCalledWith("/s/contacts");
+    expect(push).toHaveBeenCalledWith("/contacts");
     await waitFor(() => expect(screen.getByPlaceholderText("Search by name…")).toHaveValue(""));
   });
 
@@ -91,14 +91,13 @@ describe("ContactsTable", () => {
   });
 
   it("shows an empty message", () => {
-    render(<ContactsTable contacts={[]} slug="s" />);
+    render(<ContactsTable contacts={[]} />);
     expect(screen.getByText("No contacts match those filters.")).toBeInTheDocument();
   });
 
   it("shows a full row", () => {
     render(
       <ContactsTable
-        slug="s"
         contacts={[
           row({
             favorite: true, nickname: "JJ", tags: ["vet", "kid"], category: "FAMILY_FRIEND",
@@ -107,7 +106,7 @@ describe("ContactsTable", () => {
         ]}
       />
     );
-    expect(screen.getByRole("link", { name: /Jane Smith/ })).toHaveAttribute("href", "/s/contacts/c1");
+    expect(screen.getByRole("link", { name: /Jane Smith/ })).toHaveAttribute("href", "/contacts/c1");
     expect(screen.getByText("(JJ)")).toBeInTheDocument();
     expect(screen.getByLabelText("star")).toBeInTheDocument();
     expect(screen.getByText("vet")).toBeInTheDocument();
@@ -118,7 +117,7 @@ describe("ContactsTable", () => {
   });
 
   it("uses dashes for missing values and plain styling for a minimal row", () => {
-    render(<ContactsTable slug="s" contacts={[row()]} />);
+    render(<ContactsTable contacts={[row()]} />);
     expect(screen.queryByLabelText("star")).not.toBeInTheDocument();
     expect(screen.queryByText(/^\(/)).not.toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(3); // household, phone, email
@@ -128,7 +127,6 @@ describe("ContactsTable", () => {
   it("adds a one-line summary under the name for phones, where only that column shows", () => {
     render(
       <ContactsTable
-        slug="s"
         contacts={[row({ category: "FAMILY_FRIEND", household: { displayName: "The Smiths" }, phoneHome: "222" })]}
       />
     );
@@ -139,7 +137,6 @@ describe("ContactsTable", () => {
   it("picks the first available phone number: mobile, then home, then work", () => {
     render(
       <ContactsTable
-        slug="s"
         contacts={[
           row({ id: "a", firstName: "A", phoneMobile: "m", phoneHome: "h", phoneWork: "w" }),
           row({ id: "b", firstName: "B", phoneHome: "h2", phoneWork: "w2" }),

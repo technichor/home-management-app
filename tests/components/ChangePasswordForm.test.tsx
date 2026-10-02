@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/app/[slug]/(app)/account/actions", () => ({ changePasswordAction: vi.fn() }));
+vi.mock("@/app/(app)/account/actions", () => ({ changePasswordAction: vi.fn() }));
 
 import ChangePasswordForm from "@/components/ChangePasswordForm";
-import { changePasswordAction } from "@/app/[slug]/(app)/account/actions";
+import { changePasswordAction } from "@/app/(app)/account/actions";
 
 beforeEach(() => vi.clearAllMocks());
 
