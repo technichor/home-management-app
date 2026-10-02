@@ -75,18 +75,18 @@ describe("verifyEmailAction", () => {
 
   it("rejects an invalid or expired link", async () => {
     vi.mocked(findValidVerificationToken).mockResolvedValue(null);
-    expect((await verifyEmailAction("tok", null))?.error).toContain("not valid or has expired");
+    expect((await verifyEmailAction("tok"))?.error).toContain("not valid or has expired");
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("loses a race for the same link gracefully", async () => {
     vi.mocked(prisma.emailVerificationToken.updateMany).mockResolvedValue({ count: 0 });
-    expect((await verifyEmailAction("tok", null))?.error).toContain("not valid or has expired");
+    expect((await verifyEmailAction("tok"))?.error).toContain("not valid or has expired");
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it("marks the link used and the email verified, then returns a signed-in user to onboarding", async () => {
-    await expect(verifyEmailAction("tok", null)).rejects.toThrow("REDIRECT:/onboarding");
+    await expect(verifyEmailAction("tok")).rejects.toThrow("REDIRECT:/onboarding");
     expect(prisma.emailVerificationToken.updateMany).toHaveBeenCalledWith({
       where: { tokenHash: hashInviteToken("tok"), usedAt: null },
       data: { usedAt: expect.any(Date) },
@@ -96,6 +96,6 @@ describe("verifyEmailAction", () => {
 
   it("sends someone who isn't logged in to the login page", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
-    await expect(verifyEmailAction("tok", null)).rejects.toThrow("REDIRECT:/login?verified=1");
+    await expect(verifyEmailAction("tok")).rejects.toThrow("REDIRECT:/login?verified=1");
   });
 });

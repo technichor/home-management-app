@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/app/forgot-password/actions", () => ({ requestPasswordResetAction: vi.fn() }));
 vi.mock("@/app/reset-password/[token]/actions", () => ({ resetPasswordAction: vi.fn() }));
 vi.mock("@/lib/passwordReset", () => ({ findValidResetToken: vi.fn() }));
-vi.mock("@/components/ResetPasswordForm", async (orig) => ({ default: ({ token }: any) => <div>reset form {token}</div> }));
+vi.mock("@/components/ResetPasswordForm", async () => ({ default: ({ token }: any) => <div>reset form {token}</div> }));
 
 import ForgotPasswordForm from "@/components/ForgotPasswordForm";
 import { requestPasswordResetAction } from "@/app/forgot-password/actions";

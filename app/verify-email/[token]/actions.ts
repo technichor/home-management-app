@@ -10,7 +10,7 @@ import type { AuthState } from "@/app/signup/actions";
 const INVALID = "This confirmation link is not valid or has expired. Log in to request a new one.";
 
 /** Confirm the address the link was sent to. The link is proof of access to the mailbox, so no login is needed. */
-export async function verifyEmailAction(token: string, _prev: AuthState): Promise<AuthState> {
+export async function verifyEmailAction(token: string): Promise<AuthState> {
   const row = await findValidVerificationToken(token);
   if (!row) return { error: INVALID };
 

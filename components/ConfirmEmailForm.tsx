@@ -7,7 +7,7 @@ import type { AuthState } from "@/app/signup/actions";
 
 export default function ConfirmEmailForm({ token }: { token: string }) {
   const [state, formAction, isPending] = useActionState<AuthState, FormData>(
-    (prev) => verifyEmailAction(token, prev),
+    () => verifyEmailAction(token),
     null
   );
   return (
