@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_MESSAGE_LENGTH } from "./messaging";
 
 export const ContactCategoryEnum = z.enum([
   "FAMILY_FRIEND",
@@ -82,4 +83,12 @@ export const loginSchema = z.object({
 export const requestSyncSchema = z.object({
   contactId: z.string().min(1, "Choose a contact"),
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+export const conversationNameSchema = z.object({
+  name: z.string().trim().min(1, "Give the conversation a name").max(100, "Names can be at most 100 characters"),
+});
+
+export const messageSchema = z.object({
+  text: z.string().trim().min(1, "Write a message first").max(MAX_MESSAGE_LENGTH, `Messages can be at most ${MAX_MESSAGE_LENGTH} characters`),
 });

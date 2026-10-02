@@ -94,6 +94,21 @@ describe("InvitePage", () => {
   });
 });
 
+describe("InvitePage: after accepting", () => {
+  it("links the accepting household to its messages", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ householdId: "me", householdSlug: "smiths" } as any);
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync({ status: "ACTIVE", counterpartHouseholdId: "me" }) as any);
+    render(await run());
+    expect(screen.getByRole("link", { name: "Open messages" })).toHaveAttribute("href", "/smiths/messages");
+  });
+
+  it("does not offer messages to someone who is not part of the sync", async () => {
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync({ status: "ACTIVE", counterpartHouseholdId: "other" }) as any);
+    render(await run());
+    expect(screen.queryByRole("link", { name: "Open messages" })).not.toBeInTheDocument();
+  });
+});
+
 describe("AccountPage", () => {
   const params = Promise.resolve({ slug: "s" });
 

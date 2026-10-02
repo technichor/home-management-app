@@ -41,6 +41,13 @@ describe("AppNav", () => {
     expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
   });
 
+  it("highlights Messages on a messages path", () => {
+    pathname = "/s/messages/abc";
+    setup();
+    expect(selected(screen.getByRole("button", { name: "Messages" }))).toBe(true);
+    expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(false);
+  });
+
   it("highlights nothing for an unknown path", () => {
     pathname = "/s/other";
     setup();
@@ -52,8 +59,10 @@ describe("AppNav", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Contacts" }));
     await userEvent.click(screen.getByRole("button", { name: "Lists" }));
+    await userEvent.click(screen.getByRole("button", { name: "Messages" }));
     expect(push).toHaveBeenNthCalledWith(1, "/s/contacts");
     expect(push).toHaveBeenNthCalledWith(2, "/s/lists");
+    expect(push).toHaveBeenNthCalledWith(3, "/s/messages");
   });
 
   it("does nothing when a coming-soon module is clicked", async () => {

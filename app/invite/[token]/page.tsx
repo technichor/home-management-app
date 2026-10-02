@@ -92,10 +92,10 @@ export default async function InvitePage({
   }
 
   if (sync.status !== "PENDING") {
-    const answered =
-      sync.status === "ACTIVE" && sync.counterpartHouseholdId === session.householdId
-        ? `You are synced with ${inviter}.`
-        : sync.status === "ACTIVE"
+    const syncedWithUs = sync.status === "ACTIVE" && sync.counterpartHouseholdId === session.householdId;
+    const answered = syncedWithUs
+      ? `You are synced with ${inviter}.`
+      : sync.status === "ACTIVE"
           ? "This invite was already accepted."
           : sync.status === "DECLINED"
             ? "This invite was declined."
@@ -106,6 +106,11 @@ export default async function InvitePage({
           {inviter}
         </Typography.Title>
         <Alert type={sync.status === "ACTIVE" ? "success" : "info"} showIcon title={answered} />
+        {syncedWithUs && (
+          <Link href={`/${session.householdSlug}/messages`} style={{ display: "block", marginTop: 16 }}>
+            <Button type="primary">Open messages</Button>
+          </Link>
+        )}
       </Shell>
     );
   }
