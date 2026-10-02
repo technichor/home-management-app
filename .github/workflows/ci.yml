@@ -4,14 +4,18 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets you run the checks by hand on any branch (Actions tab, or `gh workflow run ci.yml --ref <branch>`).
+  workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Pinned: `ubuntu-latest` moves to a newer image on 2026-10-19, and Playwright's system
+    # dependencies are installed per-image. Bump this deliberately.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -23,7 +27,7 @@ jobs:
       # Browser tests against a throwaway Postgres (see scripts/e2e.mjs). Never touches a real database.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-failures
