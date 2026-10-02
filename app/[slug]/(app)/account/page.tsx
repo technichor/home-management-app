@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import AccountClient from "./AccountClient";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import { pageMember } from "@/lib/auth";
 
 export default async function AccountPage({
@@ -25,10 +26,13 @@ export default async function AccountPage({
   const current = me?.contact;
 
   return (
-    <AccountClient
-      slug={slug}
-      current={current ? { id: current.id, name: `${current.firstName} ${current.lastName}` } : null}
-      members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}` }))}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <AccountClient
+        slug={slug}
+        current={current ? { id: current.id, name: `${current.firstName} ${current.lastName}` } : null}
+        members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}` }))}
+      />
+      <ChangePasswordForm />
+    </div>
   );
 }

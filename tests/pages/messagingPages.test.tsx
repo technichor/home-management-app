@@ -16,6 +16,7 @@ const seen: Record<string, any> = {};
 vi.mock("@/app/invite/[token]/InviteResponse", () => ({
   default: (p: any) => ((seen.response = p), <div>invite response</div>),
 }));
+vi.mock("@/components/ChangePasswordForm", () => ({ default: () => <div>change password form</div> }));
 vi.mock("@/app/[slug]/(app)/account/AccountClient", () => ({
   default: (p: any) => ((seen.account = p), <div>account client</div>),
 }));
@@ -122,6 +123,7 @@ describe("AccountPage", () => {
       { id: "m2", firstName: "Pat", lastName: "Smith" },
     ] as any);
     render(await AccountPage({ params }));
+    expect(screen.getByText("change password form")).toBeInTheDocument();
     expect(seen.account).toEqual({
       slug: "s",
       current: { id: "m1", name: "Sam Smith" },

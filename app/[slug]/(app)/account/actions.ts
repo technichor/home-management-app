@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { personNameSchema } from "@/lib/validations";
+import { changePasswordSchema, personNameSchema } from "@/lib/validations";
+import { getClientIp, loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";
 import { requireMember } from "@/lib/auth";
 import { contactIsIn } from "@/lib/scope";
 
@@ -48,4 +50,31 @@ export async function createAccountContactAction(slug: string, firstName: string
   });
   revalidatePath(`/${slug}/account`);
   revalidatePath(`/${slug}/contacts`);
+}
+
+export type ChangePasswordState = { error: string } | { ok: true } | null;
+
+/** Change the signed-in user's own password; it needs the current one, and wrong guesses count against the login limiter. */
+export async function changePasswordAction(_prev: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
+  const user = await requireMember();
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join(", ") };
+  const { currentPassword, newPassword } = parsed.data;
+
+  const ip = await getClientIp();
+  const retryAfter = await loginRetryAfterMinutes(user.email, ip);
+  if (retryAfter > 0) {
+    return { error: `Too many failed attempts. Try again in ${retryAfter} minute${retryAfter === 1 ? "" : "s"}.` };
+  }
+  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    await recordFailedLogin(user.email, ip);
+    return { error: "Your current password is incorrect." };
+  }
+
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(newPassword, 12) } });
+  return { ok: true };
 }

@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 48 test files, 611 tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 50 test files, 621 tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -75,7 +75,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 1. **Verify by hand** (see below). Accounts, Lists and Messaging have only had automated tests.
 2. **First owner for the existing household:** run `scripts/adopt-household.mjs` once (usage in the file) to create your user in the pre-accounts household; after that, everyone else signs up and is invited.
-3. **Login rate limiting** is in (`lib/rateLimit.ts`, `AuthAttempt` table, migration 0009): 5 failed logins per email or 30 per IP in a sliding 15 minutes locks that key out; a success clears the email's count. Not covered: signup and join-code guessing. Also missing: email verification and password reset (no email delivery exists; invites are copyable links), so a lost password needs a manual fix. Note a lockout can be triggered against someone else's email by an attacker (15 minutes at most).
+3. **Login rate limiting** is in (`lib/rateLimit.ts`, `AuthAttempt` table, migration 0009): 5 failed logins per email or 30 per IP in a sliding 15 minutes locks that key out; a success clears the email's count. Not covered: signup and join-code guessing. Signed-in users can change their password on `/[slug]/account` (needs the current one; wrong guesses count against the login limiter; other sessions are NOT signed out, since sessions are stateless cookies). Also missing: email verification and password *reset* (forgotten password) (no email delivery exists; invites are copyable links), so a lost password needs a manual fix. Note a lockout can be triggered against someone else's email by an attacker (15 minutes at most).
 4. **Attachments**: add storage (Vercel Blob is the natural fit) then wire `attachmentIds`.
 5. **Cleanup**: drop the unused legacy columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) in a migration after deploying; optionally drop `[slug]` from URLs.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.

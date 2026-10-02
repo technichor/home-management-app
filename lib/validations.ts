@@ -70,6 +70,21 @@ export const signupSchema = personNameSchema.extend({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.confirmPassword !== d.newPassword) {
+      ctx.addIssue({ code: "custom", path: ["confirmPassword"], message: "The new passwords don't match" });
+    }
+    if (d.newPassword && d.newPassword === d.currentPassword) {
+      ctx.addIssue({ code: "custom", path: ["newPassword"], message: "Choose a password different from your current one" });
+    }
+  });
+
 export const userLoginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
