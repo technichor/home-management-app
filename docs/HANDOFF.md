@@ -1,6 +1,6 @@
 # Handoff: current state of the Home Management App
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0008 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0009 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
 
 ## One-paragraph summary
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 47 test files, 601 tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 48 test files, 611 tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -56,7 +56,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /[slug]/messages               conversation list (?archived=1); /[id] conversation view
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0008 in prisma/migrations)
+### Data model (prisma/schema.prisma; migrations 0001–0009 in prisma/migrations)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
@@ -75,7 +75,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 1. **Verify by hand** (see below). Accounts, Lists and Messaging have only had automated tests.
 2. **First owner for the existing household:** run `scripts/adopt-household.mjs` once (usage in the file) to create your user in the pre-accounts household; after that, everyone else signs up and is invited.
-3. **Login rate limiting**: none yet; per-user passwords make this worth doing next (DB-backed attempt counter, since serverless has no shared memory). Also missing: email verification and password reset (no email delivery exists; invites are copyable links), so a lost password needs a manual fix.
+3. **Login rate limiting** is in (`lib/rateLimit.ts`, `AuthAttempt` table, migration 0009): 5 failed logins per email or 30 per IP in a sliding 15 minutes locks that key out; a success clears the email's count. Not covered: signup and join-code guessing. Also missing: email verification and password reset (no email delivery exists; invites are copyable links), so a lost password needs a manual fix. Note a lockout can be triggered against someone else's email by an attacker (15 minutes at most).
 4. **Attachments**: add storage (Vercel Blob is the natural fit) then wire `attachmentIds`.
 5. **Cleanup**: drop the unused legacy columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) in a migration after deploying; optionally drop `[slug]` from URLs.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.

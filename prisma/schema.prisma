@@ -320,3 +320,14 @@ model JoinRequest {
   @@index([householdId, status])
   @@index([userId, status])
 }
+
+// One row per failed login, kept for the rate limiter's sliding window (lib/rateLimit.ts).
+// kind is "email" or "ip"; key is the lowercased email or the client IP.
+model AuthAttempt {
+  id        String   @id @default(cuid())
+  kind      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([kind, key, createdAt])
+}

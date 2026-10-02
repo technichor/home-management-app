@@ -11,12 +11,19 @@ vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
 vi.mock("@/lib/db", () => ({
   prisma: { user: { findUnique: vi.fn(), create: vi.fn() } },
 }));
+vi.mock("@/lib/rateLimit", () => ({
+  getClientIp: vi.fn().mockResolvedValue("1.2.3.4"),
+  loginRetryAfterMinutes: vi.fn(),
+  recordFailedLogin: vi.fn(),
+  clearFailedLogins: vi.fn(),
+}));
 
 import { signupAction } from "@/app/signup/actions";
 import { loginAction, logoutAction } from "@/app/login/actions";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import bcrypt from "bcryptjs";
+import { loginRetryAfterMinutes, recordFailedLogin, clearFailedLogins } from "@/lib/rateLimit";
 
 function fd(fields: Record<string, string>) {
   const f = new FormData();
@@ -29,6 +36,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   session = { save: vi.fn(), destroy: vi.fn() };
   vi.mocked(getIronSession).mockResolvedValue(session);
+  vi.mocked(loginRetryAfterMinutes).mockResolvedValue(0);
 });
 
 describe("signupAction", () => {
@@ -107,12 +115,32 @@ describe("loginAction", () => {
     expect(bcrypt.compare).toHaveBeenCalled();
   });
 
-  it("looks the user up by lowercased email, signs in and goes to their household", async () => {
+  it("records each failure against the email and IP", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
+    vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+    await loginAction(null, fd(creds));
+    expect(recordFailedLogin).toHaveBeenCalledWith("sam@example.com", "1.2.3.4");
+    expect(clearFailedLogins).not.toHaveBeenCalled();
+  });
+
+  it("refuses while locked out, without checking the password or recording more failures", async () => {
+    vi.mocked(loginRetryAfterMinutes).mockResolvedValue(12);
+    expect(await loginAction(null, fd(creds))).toEqual({ error: "Too many failed attempts. Try again in 12 minutes." });
+    vi.mocked(loginRetryAfterMinutes).mockResolvedValue(1);
+    expect(await loginAction(null, fd(creds))).toEqual({ error: "Too many failed attempts. Try again in 1 minute." });
+    expect(loginRetryAfterMinutes).toHaveBeenCalledWith("sam@example.com", "1.2.3.4");
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(bcrypt.compare).not.toHaveBeenCalled();
+    expect(recordFailedLogin).not.toHaveBeenCalled();
+  });
+
+  it("looks the user up by lowercased email, signs in, clears that email's failures and goes to their household", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
     await expect(loginAction(null, fd(creds))).rejects.toThrow("REDIRECT:/smiths/contacts");
     expect(vi.mocked(prisma.user.findUnique).mock.calls[0][0].where).toEqual({ email: "sam@example.com" });
     expect(session.userId).toBe("u1");
+    expect(clearFailedLogins).toHaveBeenCalledWith("sam@example.com");
   });
 
   it("sends a user with no household to onboarding", async () => {
