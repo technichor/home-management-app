@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
 import { sessionOptions, SessionData } from "@/lib/session";
+import { getSessionUser } from "@/lib/auth";
 import AppNav from "@/components/AppNav";
-import { logoutAction } from "../actions";
+import { logoutAction } from "@/app/login/actions";
 
 export default async function AppLayout({
   children,
@@ -34,7 +35,13 @@ export default async function AppLayout({
     sessionOptions
   );
 
-  if (session.householdId !== household.id) {
+  // A signed-in user must belong to this household (checked in the database, so removal takes
+  // effect at once); only the old shared household login is judged by the session alone.
+  const user = session.userId ? await getSessionUser() : null;
+  if (user) {
+    if (user.householdId !== household.id) redirect(`/${slug}`);
+    if (session.householdId !== household.id) redirect("/enter");
+  } else if (session.householdId !== household.id) {
     redirect(`/${slug}`);
   }
 

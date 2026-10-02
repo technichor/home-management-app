@@ -77,6 +77,12 @@ describe("AppNav", () => {
     expect(push).toHaveBeenCalledWith("/s/account");
   });
 
+  it("opens the household page", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Household" }));
+    expect(push).toHaveBeenCalledWith("/s/household");
+  });
+
   it("logs out via the form action", async () => {
     const { logoutAction } = setup();
     await userEvent.click(screen.getByRole("button", { name: "Log out" }));

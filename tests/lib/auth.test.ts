@@ -55,3 +55,36 @@ describe("startSession", () => {
     expect(session.householdId).toBeUndefined();
   });
 });
+
+describe("requireMember / requireOwner", () => {
+  async function load() {
+    return import("@/lib/auth");
+  }
+  const member = (role: string, household: any = { id: "h", displayName: "H", urlSlug: "h", deletedAt: null }) => ({
+    id: "u1",
+    role,
+    householdId: household ? "h" : null,
+    household,
+  });
+
+  it("rejects a signed-out user, a household-less user and a deleted household", async () => {
+    const { requireMember } = await load();
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(requireMember()).rejects.toThrow("Not authenticated");
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(member("MEMBER", null) as any);
+    await expect(requireMember()).rejects.toThrow("Not authenticated");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(member("OWNER", { id: "h", deletedAt: new Date() }) as any);
+    await expect(requireMember()).rejects.toThrow("Not authenticated");
+  });
+
+  it("returns a member, and only lets owners through requireOwner", async () => {
+    const { requireMember, requireOwner } = await load();
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(member("MEMBER") as any);
+    expect((await requireMember()).householdId).toBe("h");
+    await expect(requireOwner()).rejects.toThrow("Only a household owner");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(member("OWNER") as any);
+    expect((await requireOwner()).role).toBe("OWNER");
+  });
+});

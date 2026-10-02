@@ -34,3 +34,21 @@ export async function startSession(user: SignedInUser): Promise<void> {
   }
   await session.save();
 }
+
+/**
+ * The signed-in user, who must belong to an active household. Server actions are public
+ * endpoints, so each one calls this (or requireOwner) itself.
+ */
+export async function requireMember() {
+  const user = await getSessionUser();
+  if (!user || !user.householdId || !user.household || user.household.deletedAt) {
+    throw new Error("Not authenticated");
+  }
+  return { ...user, householdId: user.householdId, household: user.household };
+}
+
+export async function requireOwner() {
+  const user = await requireMember();
+  if (user.role !== "OWNER") throw new Error("Only a household owner can do that.");
+  return user;
+}

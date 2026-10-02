@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { homePathFor, startSession } from "@/lib/auth";
+import { safeNext } from "@/lib/redirect";
 import { sessionOptions, SessionData } from "@/lib/session";
 import { userLoginSchema } from "@/lib/validations";
 import type { AuthState } from "@/app/signup/actions";
@@ -33,7 +34,7 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   }
 
   await startSession(user);
-  redirect(homePathFor(user));
+  redirect(safeNext(formData.get("next")) ?? homePathFor(user));
 }
 
 export async function logoutAction() {

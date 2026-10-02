@@ -54,3 +54,11 @@ describe("AuthForm signup", () => {
     expect([data.get("firstName"), data.get("lastName"), data.get("email")]).toEqual(["Sam", "Smith", "a@b.co"]);
   });
 });
+
+describe("AuthForm next", () => {
+  it("carries the next path in a hidden field and on the other mode's link", () => {
+    render(<AuthForm mode="login" action={action} next="/join/abc" />);
+    expect((document.querySelector("input[name=next]") as HTMLInputElement).value).toBe("/join/abc");
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup?next=%2Fjoin%2Fabc");
+  });
+});

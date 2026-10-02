@@ -5,13 +5,16 @@ import Link from "next/link";
 import { Card, Input, Button, Space, Typography, Alert } from "antd";
 import type { AuthState } from "@/app/signup/actions";
 
+const withNext = (path: string, next?: string) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 const required = <span style={{ color: "#ff4d4f" }}>*</span>;
 
 export default function AuthForm({
   mode,
   action,
+  next,
 }: {
   mode: "login" | "signup";
+  next?: string;
   action: (prev: AuthState, formData: FormData) => Promise<AuthState>;
 }) {
   const [state, formAction, isPending] = useActionState<AuthState, FormData>(action, null);
@@ -44,6 +47,7 @@ export default function AuthForm({
           <Card>
             {state?.error && <Alert type="error" title={state.error} showIcon style={{ marginBottom: 16 }} />}
             <form action={formAction}>
+              {next && <input type="hidden" name="next" value={next} />}
               <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 {signup && (
                   <div style={{ display: "flex", gap: 8 }}>
@@ -93,11 +97,11 @@ export default function AuthForm({
           <Typography.Text type="secondary">
             {signup ? (
               <>
-                Already have an account? <Link href="/login">Log in</Link>
+                Already have an account? <Link href={withNext("/login", next)}>Log in</Link>
               </>
             ) : (
               <>
-                New here? <Link href="/signup">Create an account</Link>
+                New here? <Link href={withNext("/signup", next)}>Create an account</Link>
               </>
             )}
           </Typography.Text>

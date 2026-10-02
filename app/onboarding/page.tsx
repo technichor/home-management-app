@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import { Card, Button, Space } from "antd";
 import { getSessionUser, homePathFor } from "@/lib/auth";
 import { logoutAction } from "@/app/login/actions";
+import { prisma } from "@/lib/db";
+import { cancelJoinRequestAction } from "./actions";
 import CreateHouseholdForm from "@/components/CreateHouseholdForm";
+import JoinRequestForm from "@/components/JoinRequestForm";
 
 // Where a signed-in user with no household lands: create one here, or be added to an existing one.
 export default async function OnboardingPage() {
@@ -10,6 +13,12 @@ export default async function OnboardingPage() {
   if (!user) redirect("/login");
   const home = homePathFor(user);
   if (home !== "/onboarding") redirect(home);
+
+  const requests = await prisma.joinRequest.findMany({
+    where: { userId: user.id, status: "PENDING" },
+    select: { id: true, household: { select: { displayName: true } } },
+    orderBy: { createdAt: "asc" },
+  });
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "#f5f5f5" }}>
@@ -31,9 +40,18 @@ export default async function OnboardingPage() {
             </div>
             <div>
               <strong style={{ display: "block", marginBottom: 4 }}>Join an existing household</strong>
-              <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
-                Ask a member of that household to send you an invite link.
+              <span style={{ display: "block", color: "rgba(0,0,0,.45)", fontSize: 14, marginBottom: 8 }}>
+                Open an invite link a member sent you, or enter the household&apos;s code to ask to join.
               </span>
+              <JoinRequestForm />
+              {requests.map((r) => (
+                <form key={r.id} action={cancelJoinRequestAction.bind(null, r.id)} style={{ marginTop: 8 }}>
+                  <span style={{ marginRight: 8 }}>Waiting for approval from {r.household.displayName}</span>
+                  <Button htmlType="submit" size="small">
+                    Cancel request
+                  </Button>
+                </form>
+              ))}
             </div>
             <form action={logoutAction}>
               <Button htmlType="submit">Log out</Button>

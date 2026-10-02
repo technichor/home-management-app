@@ -8,11 +8,15 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/auth")>()), getSessionUser: vi.fn() }));
-vi.mock("@/components/AuthForm", () => ({ default: ({ mode }: any) => <div>form:{mode}</div> }));
+vi.mock("@/components/AuthForm", () => ({ default: ({ mode, next }: any) => <div>form:{mode}:{next ?? "-"}</div> }));
+vi.mock("@/lib/db", () => ({ prisma: { joinRequest: { findMany: vi.fn() } } }));
+vi.mock("@/components/JoinRequestForm", () => ({ default: () => <div>join form</div> }));
+vi.mock("@/app/onboarding/actions", () => ({ cancelJoinRequestAction: vi.fn() }));
 vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn(), logoutAction: vi.fn() }));
 vi.mock("@/components/CreateHouseholdForm", () => ({ default: () => <div>create form</div> }));
 vi.mock("@/app/signup/actions", () => ({ signupAction: vi.fn() }));
 
+import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import AuthPage from "@/components/AuthPage";
 import LoginPage from "@/app/login/page";
@@ -23,23 +27,34 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("AuthPage", () => {
   const action = vi.fn();
+  const sp = (next?: string) => Promise.resolve({ next });
 
   it("shows the form to a visitor", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
-    render(await AuthPage({ mode: "login", action }));
-    expect(screen.getByText("form:login")).toBeInTheDocument();
+    render(await AuthPage({ mode: "login", action, searchParams: sp() }));
+    expect(screen.getByText("form:login:-")).toBeInTheDocument();
   });
 
-  it("sends a signed-in user where they belong", async () => {
+  it("passes a safe next path to the form and drops an unsafe one", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    render(await AuthPage({ mode: "login", action, searchParams: sp("/join/abc") }));
+    expect(screen.getByText("form:login:/join/abc")).toBeInTheDocument();
+    render(await AuthPage({ mode: "signup", action, searchParams: sp("//evil.example") }));
+    expect(screen.getByText("form:signup:-")).toBeInTheDocument();
+  });
+
+  it("sends a signed-in user where they belong, or to next", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: null } as any);
-    await expect(AuthPage({ mode: "signup", action })).rejects.toThrow("REDIRECT:/onboarding");
+    await expect(AuthPage({ mode: "signup", action, searchParams: sp() })).rejects.toThrow("REDIRECT:/onboarding");
+    await expect(AuthPage({ mode: "signup", action, searchParams: sp("/join/abc") })).rejects.toThrow("REDIRECT:/join/abc");
   });
 });
 
 describe("login and signup pages", () => {
   it("render the shared page in their own mode", () => {
-    expect(LoginPage().props).toMatchObject({ mode: "login" });
-    expect(SignupPage().props).toMatchObject({ mode: "signup" });
+    const searchParams = Promise.resolve({});
+    expect(LoginPage({ searchParams }).props).toMatchObject({ mode: "login" });
+    expect(SignupPage({ searchParams }).props).toMatchObject({ mode: "signup" });
   });
 });
 
@@ -58,12 +73,22 @@ describe("OnboardingPage", () => {
   });
 
   it("greets a user with no household and offers logout", async () => {
+    vi.mocked(prisma.joinRequest.findMany).mockResolvedValue([]);
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", firstName: "Sam", email: "s@x.co", household: null } as any);
     render(await OnboardingPage());
     expect(screen.getByText("Welcome, Sam")).toBeInTheDocument();
     expect(screen.getByText(/s@x\.co/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
     expect(screen.getByText("create form")).toBeInTheDocument();
-    expect(screen.getByText(/Ask a member of that household/)).toBeInTheDocument();
+    expect(screen.getByText("join form")).toBeInTheDocument();
+    expect(screen.queryByText(/Waiting for approval/)).toBeNull();
+  });
+
+  it("lists pending join requests with a cancel button", async () => {
+    vi.mocked(prisma.joinRequest.findMany).mockResolvedValue([{ id: "r1", household: { displayName: "The Joneses" } }] as any);
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", firstName: "Sam", email: "s@x.co", household: null } as any);
+    render(await OnboardingPage());
+    expect(screen.getByText("Waiting for approval from The Joneses")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel request" })).toBeInTheDocument();
   });
 });

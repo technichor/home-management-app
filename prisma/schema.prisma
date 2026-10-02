@@ -69,10 +69,14 @@ model Household {
   importVersions ImportVersion[]
   lists          List[]
 
-  syncsInitiated Sync[]         @relation("SyncInitiator")
-  syncsReceived  Sync[]         @relation("SyncCounterpart")
+  syncsInitiated Sync[]            @relation("SyncInitiator")
+  syncsReceived  Sync[]            @relation("SyncCounterpart")
   conversations  Conversation[]
   members        User[]
+  // Optional code that lets a signed-in user without a household ask to join; owners approve.
+  joinCode       String?           @unique
+  invites        HouseholdInvite[]
+  joinRequests   JoinRequest[]
 }
 
 model Contact {
@@ -251,5 +255,55 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  invitesCreated  HouseholdInvite[] @relation("InvitesCreated")
+  invitesAccepted HouseholdInvite[] @relation("InvitesAccepted")
+  joinRequests    JoinRequest[]
+
   @@index([householdId])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+// A single-use link an owner sends to bring one person into the household. Only the token's
+// SHA-256 is stored; the link is shown once.
+model HouseholdInvite {
+  id           String       @id @default(cuid())
+  householdId  String
+  household    Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdById  String?
+  createdBy    User?        @relation("InvitesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  tokenHash    String       @unique
+  status       InviteStatus @default(PENDING)
+  acceptedById String?
+  acceptedBy   User?        @relation("InvitesAccepted", fields: [acceptedById], references: [id], onDelete: SetNull)
+  expiresAt    DateTime
+  createdAt    DateTime     @default(now())
+  respondedAt  DateTime?
+
+  @@index([householdId, status])
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CANCELLED
+}
+
+model JoinRequest {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId String
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  status      JoinRequestStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  respondedAt DateTime?
+
+  @@index([householdId, status])
+  @@index([userId, status])
 }

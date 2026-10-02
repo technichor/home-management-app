@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { homePathFor, startSession } from "@/lib/auth";
+import { safeNext } from "@/lib/redirect";
 import { signupSchema } from "@/lib/validations";
 
 export type AuthState = { error: string } | null;
@@ -40,5 +41,5 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   }
 
   await startSession(user);
-  redirect(homePathFor(user));
+  redirect(safeNext(formData.get("next")) ?? homePathFor(user));
 }

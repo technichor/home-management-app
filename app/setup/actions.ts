@@ -85,6 +85,8 @@ export async function createHouseholdAction(
     await cookies(),
     sessionOptions
   );
+  // A shared household login is not a user login; don't leave a different user signed in alongside it.
+  session.userId = undefined;
   session.householdId = household.id;
   session.householdSlug = urlSlug;
   await session.save();

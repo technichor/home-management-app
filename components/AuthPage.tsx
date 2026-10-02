@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser, homePathFor } from "@/lib/auth";
+import { safeNext } from "@/lib/redirect";
 import AuthForm from "@/components/AuthForm";
 import type { AuthState } from "@/app/signup/actions";
 
@@ -7,11 +8,14 @@ import type { AuthState } from "@/app/signup/actions";
 export default async function AuthPage({
   mode,
   action,
+  searchParams,
 }: {
+  searchParams: Promise<{ next?: string }>;
   mode: "login" | "signup";
   action: (prev: AuthState, formData: FormData) => Promise<AuthState>;
 }) {
+  const next = safeNext((await searchParams).next);
   const user = await getSessionUser();
-  if (user) redirect(homePathFor(user));
-  return <AuthForm mode={mode} action={action} />;
+  if (user) redirect(next ?? homePathFor(user));
+  return <AuthForm mode={mode} action={action} next={next} />;
 }
