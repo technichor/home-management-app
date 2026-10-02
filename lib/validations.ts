@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_MESSAGE_LENGTH } from "./messaging";
+import { RESERVED_SLUGS } from "./slug";
 
 export const ContactCategoryEnum = z.enum([
   "FAMILY_FRIEND",
@@ -72,7 +73,8 @@ export const createHouseholdSchema = personNameSchema.extend({
     .regex(
       /^[a-z0-9-]+$/,
       "Slug may only contain lowercase letters, numbers, and hyphens"
-    ),
+    )
+    .refine((v) => !RESERVED_SLUGS.includes(v), "That slug is reserved. Choose a different one."),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
@@ -86,6 +88,15 @@ export const signupSchema = personNameSchema.extend({
 export const userLoginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
+});
+
+export const newHouseholdSchema = z.object({
+  displayName: z.string().trim().min(1, "Household name is required").max(100, "Household names can be at most 100 characters"),
+  mailingAddress: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined),
 });
 
 export const loginSchema = z.object({

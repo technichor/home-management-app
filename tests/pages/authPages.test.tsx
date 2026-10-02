@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/auth")>()), getSessionUser: vi.fn() }));
 vi.mock("@/components/AuthForm", () => ({ default: ({ mode }: any) => <div>form:{mode}</div> }));
 vi.mock("@/app/login/actions", () => ({ loginAction: vi.fn(), logoutAction: vi.fn() }));
+vi.mock("@/components/CreateHouseholdForm", () => ({ default: () => <div>create form</div> }));
 vi.mock("@/app/signup/actions", () => ({ signupAction: vi.fn() }));
 
 import { getSessionUser } from "@/lib/auth";
@@ -62,5 +63,7 @@ describe("OnboardingPage", () => {
     expect(screen.getByText("Welcome, Sam")).toBeInTheDocument();
     expect(screen.getByText(/s@x\.co/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    expect(screen.getByText("create form")).toBeInTheDocument();
+    expect(screen.getByText(/Ask a member of that household/)).toBeInTheDocument();
   });
 });
