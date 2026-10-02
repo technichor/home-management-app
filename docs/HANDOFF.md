@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 60 test files, 690 tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 63 test files, 737 tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -52,7 +52,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /invite/[token]                accept/decline a sync invite (needs a user in a household)
 /[slug]/household              members, invite links, join code + requests, leave
 /[slug]/account                choose/create the Contact the signed-in user acts as
-/[slug]/contacts               people list, filters; /[id] detail (+ sync card); /households, /households/[id];
+/[slug]/contacts               people list, filters; /new add form; /[id] detail (+ sync card), /[id]/edit; /households, /households/[id];
                                /import (two-file CSV, diff + confirm); /removed (soft-deleted + restore);
                                /api/export?file=households|contacts
 /[slug]/lists                  active lists; /archived; /[id] items; /[id]/compare (pairwise ranking)
@@ -68,7 +68,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 ## What is built, and what is not
 
-**Contacts & Households**: complete per `CLAUDE.md` (in-app add/edit forms were optional and are not built; CSV is the edit path).
+**Contacts & Households**: complete per `CLAUDE.md` (in-app add/edit/remove forms: `/[slug]/contacts/new` and `/[id]/edit`, validated by `contactFormSchema`, scoped to the household's directory, logged to the activity log as MANUAL; households are still added/edited only via CSV, so a Family & Friend contact can only be placed in an existing household; CSV import also still works).
 
 **Lists**: complete per `docs/domains/lists.md`, including the pairwise Elo mode (a list is either manually sorted or pairwise, set per list; switching to pairwise keeps the order and resets all ratings to 1500). Not built: single-list CSV export (nice-to-have).
 
@@ -90,6 +90,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 1. Run the adopt script, then log in at `/login`. Check Contacts/Lists/Messages show your existing data.
 2. **Second user:** in a private window sign up at `/signup`; you should land on `/onboarding` and be blocked from everything else. Create a household there (separate directory: it must NOT see the first household's contacts), or join the first one via an invite link (`/[slug]/household` → Create invite link) or via its join code + owner approval.
 3. **Lists**: create a list, add items, drag to reorder, check items off, import a CSV, flip **Sort: Pairwise** and use **Prioritize**, search/filter.
+3b. **Contacts**: Add contact (Family & Friend needs a household; others show an Address field), edit it, check the activity log shows the change, remove it and restore it from Removed; a household member's own profile can't be removed.
 4. **Messages**: group chat, send a message (shows your own name), archive/unarchive, a "Note about a contact".
 5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Both see a shared conversation; messages arrive within ~5s labelled with their household.
 

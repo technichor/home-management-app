@@ -5,6 +5,7 @@ import SyncCard from "./SyncCard";
 import Link from "next/link";
 import { ContactCategory, ActivityAction } from "@prisma/client";
 import {
+  Button,
   Descriptions,
   Tag,
   Space,
@@ -224,6 +225,13 @@ export default async function ContactDetailPage({
           </h3>
           {isDeleted && <Tag color="error">Removed</Tag>}
         </Space>
+        {!isDeleted && (
+          <div style={{ marginTop: 8 }}>
+            <Link href={`/${slug}/contacts/${contact.id}/edit`}>
+              <Button size="small">Edit</Button>
+            </Link>
+          </div>
+        )}
       </div>
 
       <Descriptions

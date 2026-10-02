@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import { contactsOf } from "@/lib/scope";
 import { pageHouseholdId } from "@/lib/auth";
 import { ContactCategory } from "@prisma/client";
-import { Space } from "antd";
+import Link from "next/link";
+import { Button, Space } from "antd";
 import ContactsFilter from "./ContactsFilter";
 import ContactsTable from "./ContactsTable";
 
@@ -60,9 +61,14 @@ export default async function ContactsPage({
 
   return (
     <Space orientation="vertical" style={{ width: "100%" }} size="middle">
-      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-        Contacts{contacts.length > 0 ? ` (${contacts.length})` : ""}
-      </h4>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+          Contacts{contacts.length > 0 ? ` (${contacts.length})` : ""}
+        </h4>
+        <Link href={`/${slug}/contacts/new`}>
+          <Button type="primary">Add contact</Button>
+        </Link>
+      </div>
 
       <ContactsFilter slug={slug} allTags={allTags} defaults={filters} />
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  contactFormSchema,
   contactSchema,
   householdSchema,
   personNameSchema,
@@ -125,5 +126,54 @@ describe("requestSyncSchema", () => {
       "Enter a valid email address"
     );
     expect(requestSyncSchema.safeParse({ contactId: "", email: "a@b.co" }).error?.issues[0].message).toBe("Choose a contact");
+  });
+});
+
+describe("contactFormSchema", () => {
+  const ok = { firstName: "Jane", lastName: "Smith", category: "SERVICE_PROVIDER" };
+
+  it("accepts the minimum and applies defaults", () => {
+    const r = contactFormSchema.parse(ok);
+    expect(r).toMatchObject({ tags: [], favorite: false });
+  });
+
+  it("requires a name, with friendly messages", () => {
+    const r = contactFormSchema.safeParse({ ...ok, firstName: "  ", lastName: "" });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      const messages = r.error.issues.map((i) => i.message);
+      expect(messages).toContain("First name is required");
+      expect(messages).toContain("Last name is required");
+    }
+  });
+
+  it("trims text and turns blanks into undefined", () => {
+    const r = contactFormSchema.parse({ ...ok, firstName: " Jane ", nickname: "  ", notes: " hi " });
+    expect(r.firstName).toBe("Jane");
+    expect(r.nickname).toBeUndefined();
+    expect(r.notes).toBe("hi");
+  });
+
+  it("requires a household only for Family & Friend", () => {
+    const ff = contactFormSchema.safeParse({ ...ok, category: "FAMILY_FRIEND" });
+    expect(ff.success).toBe(false);
+    if (!ff.success) expect(ff.error.issues[0]).toMatchObject({ path: ["householdId"], message: "Choose the household this person belongs to" });
+    expect(contactFormSchema.safeParse({ ...ok, category: "FAMILY_FRIEND", householdId: "h1" }).success).toBe(true);
+    expect(contactFormSchema.safeParse(ok).success).toBe(true);
+  });
+
+  it("checks email format only when an email is given", () => {
+    expect(contactFormSchema.safeParse({ ...ok, emailPrimary: "", emailSecondary: undefined }).success).toBe(true);
+    expect(contactFormSchema.safeParse({ ...ok, emailPrimary: "a@b.co" }).success).toBe(true);
+    const bad = contactFormSchema.safeParse({ ...ok, emailSecondary: "nope" });
+    expect(bad.success).toBe(false);
+    if (!bad.success) expect(bad.error.issues[0]).toMatchObject({ path: ["emailSecondary"], message: "Enter a valid email address" });
+  });
+
+  it("accepts only real YYYY-MM-DD dates", () => {
+    expect(contactFormSchema.safeParse({ ...ok, importantDate1: "2026-02-28", importantDate2: "" }).success).toBe(true);
+    for (const bad of ["28/02/2026", "2026-13-40", "tomorrow"]) {
+      expect(contactFormSchema.safeParse({ ...ok, importantDate1: bad }).success).toBe(false);
+    }
   });
 });

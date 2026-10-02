@@ -47,6 +47,61 @@ export const contactSchema = z
 
 export type ContactInput = z.infer<typeof contactSchema>;
 
+// The in-app add/edit form. Friendlier messages than the CSV schema, plus checks the CSV path
+// doesn't make (email format, real dates). Blank optional fields become undefined.
+const blankToUndefined = (v: string | undefined) => v || undefined;
+const optionalText = z.string().trim().optional().transform(blankToUndefined);
+const optionalEmail = z
+  .string()
+  .trim()
+  .optional()
+  .transform(blankToUndefined)
+  .refine((v) => !v || z.string().email().safeParse(v).success, "Enter a valid email address");
+const optionalDate = z
+  .string()
+  .trim()
+  .optional()
+  .transform(blankToUndefined)
+  .refine(
+    (v) => !v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))),
+    "Enter a valid date"
+  );
+
+export const contactFormSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "First name is required"),
+    lastName: z.string().trim().min(1, "Last name is required"),
+    nickname: optionalText,
+    category: ContactCategoryEnum,
+    householdId: optionalText,
+    address: optionalText,
+    phoneMobile: optionalText,
+    phoneHome: optionalText,
+    phoneWork: optionalText,
+    emailPrimary: optionalEmail,
+    emailSecondary: optionalEmail,
+    tags: z.array(z.string().trim().min(1)).default([]),
+    favorite: z.boolean().default(false),
+    relationshipNotes: optionalText,
+    linkedFamilyMember: optionalText,
+    importantDate1: optionalDate,
+    importantDate1Label: optionalText,
+    importantDate2: optionalDate,
+    importantDate2Label: optionalText,
+    notes: optionalText,
+  })
+  .superRefine((data, ctx) => {
+    if (data.category === "FAMILY_FRIEND" && !data.householdId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose the household this person belongs to",
+        path: ["householdId"],
+      });
+    }
+  });
+
+export type ContactFormInput = z.input<typeof contactFormSchema>;
+
 export const householdSchema = z.object({
   id: z.string().optional(),
   displayName: z.string().min(1, "display_name is required"),

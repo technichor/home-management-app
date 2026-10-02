@@ -101,6 +101,12 @@ describe("ContactsPage", () => {
     expect(seen.table.contacts).toHaveLength(2);
   });
 
+  it("links to the add-contact form", async () => {
+    setup();
+    await run();
+    expect(screen.getByRole("link", { name: "Add contact" })).toHaveAttribute("href", "/s/contacts/new");
+  });
+
   it("shows no count when there are no contacts", async () => {
     setup();
     await run();
@@ -141,6 +147,16 @@ describe("ContactDetailPage", () => {
   it("404s for a contact in another account's directory", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(contact({ ownerHouseholdId: "other" }) as any);
     await expect(ContactDetailPage({ params: idParams("c1") })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("offers Edit for a live contact but not a removed one", async () => {
+    await run(contact());
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/s/contacts/c1/edit");
+  });
+
+  it("does not offer Edit for a removed contact", async () => {
+    await run(contact({ deletedAt: new Date() }));
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
   });
 
   it("404s for an unknown contact", async () => {
