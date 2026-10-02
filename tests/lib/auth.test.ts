@@ -22,6 +22,21 @@ describe("getSessionUser", () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
+  it("signs out sessions that started before the last password change", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", issuedAt: 1000 } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", passwordChangedAt: new Date(2000) } as any);
+    expect(await getSessionUser()).toBeNull();
+    // a cookie from before sessions carried issuedAt counts as oldest
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    expect(await getSessionUser()).toBeNull();
+  });
+
+  it("keeps sessions that started after the last password change", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1", issuedAt: 3000 } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", passwordChangedAt: new Date(2000) } as any);
+    expect(await getSessionUser()).toMatchObject({ id: "u1" });
+  });
+
   it("loads the signed-in user with their household", async () => {
     vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1" } as any);
@@ -44,11 +59,13 @@ describe("homePathFor", () => {
 });
 
 describe("startSession", () => {
-  it("stores only the user id", async () => {
+  it("stores the user id and when the session started", async () => {
     const session: any = { save: vi.fn() };
     vi.mocked(getIronSession).mockResolvedValue(session);
+    const before = Date.now();
     await startSession({ id: "u1" });
     expect(session.userId).toBe("u1");
+    expect(session.issuedAt).toBeGreaterThanOrEqual(before);
     expect(session.save).toHaveBeenCalled();
   });
 });

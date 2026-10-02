@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { changePasswordSchema, personNameSchema } from "@/lib/validations";
 import { getClientIp, loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";
-import { requireMember } from "@/lib/auth";
+import { requireMember, startSession } from "@/lib/auth";
 import { contactIsIn } from "@/lib/scope";
 
 const TAKEN = "Someone else already acts as that contact";
@@ -75,6 +75,11 @@ export async function changePasswordAction(_prev: ChangePasswordState, formData:
     return { error: "Your current password is incorrect." };
   }
 
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(newPassword, 12) } });
+  // Signs out every other session; this one is re-issued so the user stays signed in.
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await bcrypt.hash(newPassword, 12), passwordChangedAt: new Date() },
+  });
+  await startSession(user);
   return { ok: true };
 }

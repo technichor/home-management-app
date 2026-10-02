@@ -62,3 +62,24 @@ describe("AuthForm next", () => {
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup?next=%2Fjoin%2Fabc");
   });
 });
+
+describe("AuthForm extras", () => {
+  it("login links to password reset; signup does not", () => {
+    const { unmount } = render(<AuthForm mode="login" action={action} />);
+    expect(screen.getByRole("link", { name: "Forgot your password?" })).toHaveAttribute("href", "/forgot-password");
+    unmount();
+    render(<AuthForm mode="signup" action={action} />);
+    expect(screen.queryByRole("link", { name: "Forgot your password?" })).toBeNull();
+  });
+
+  it("shows a notice, but not alongside an error", async () => {
+    action.mockResolvedValue({ error: "Incorrect email or password." });
+    render(<AuthForm mode="login" action={action} notice="Password changed." />);
+    expect(screen.getByText("Password changed.")).toBeInTheDocument();
+    await userEvent.type(document.querySelector("input[name=email]") as HTMLInputElement, "a@b.co");
+    await userEvent.type(document.querySelector("input[name=password]") as HTMLInputElement, "pw");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    expect(await screen.findByText("Incorrect email or password.")).toBeInTheDocument();
+    expect(screen.queryByText("Password changed.")).toBeNull();
+  });
+});

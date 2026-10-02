@@ -7,10 +7,13 @@ import { sessionOptions, SessionData } from "@/lib/session";
 export async function getSessionUser() {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   if (!session.userId) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     include: { household: { select: { id: true, displayName: true, urlSlug: true, deletedAt: true } } },
   });
+  // A password change or reset signs out every session that started before it.
+  if (user?.passwordChangedAt && (session.issuedAt ?? 0) < user.passwordChangedAt.getTime()) return null;
+  return user;
 }
 
 type SignedInUser = {
@@ -28,6 +31,7 @@ export function homePathFor(user: SignedInUser): string {
 export async function startSession(user: { id: string }): Promise<void> {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   session.userId = user.id;
+  session.issuedAt = Date.now();
   await session.save();
 }
 

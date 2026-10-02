@@ -268,9 +268,12 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  invitesCreated  HouseholdInvite[] @relation("InvitesCreated")
-  invitesAccepted HouseholdInvite[] @relation("InvitesAccepted")
-  joinRequests    JoinRequest[]
+  invitesCreated    HouseholdInvite[]    @relation("InvitesCreated")
+  invitesAccepted   HouseholdInvite[]    @relation("InvitesAccepted")
+  joinRequests      JoinRequest[]
+  // Sessions started before this are signed out (set on password change/reset).
+  passwordChangedAt DateTime?
+  resetTokens       PasswordResetToken[]
 
   @@index([householdId])
 }
@@ -330,4 +333,17 @@ model AuthAttempt {
   createdAt DateTime @default(now())
 
   @@index([kind, key, createdAt])
+}
+
+// A single-use link emailed for a forgotten password. Only the token's SHA-256 is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

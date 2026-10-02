@@ -70,6 +70,18 @@ export const signupSchema = personNameSchema.extend({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.confirmPassword === d.newPassword, {
+    path: ["confirmPassword"],
+    message: "The new passwords don't match",
+  });
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Enter your current password"),

@@ -12,9 +12,11 @@ export default function AuthForm({
   mode,
   action,
   next,
+  notice,
 }: {
   mode: "login" | "signup";
   next?: string;
+  notice?: string;
   action: (prev: AuthState, formData: FormData) => Promise<AuthState>;
 }) {
   const [state, formAction, isPending] = useActionState<AuthState, FormData>(action, null);
@@ -45,6 +47,7 @@ export default function AuthForm({
           </div>
 
           <Card>
+            {notice && !state?.error && <Alert type="success" title={notice} showIcon style={{ marginBottom: 16 }} />}
             {state?.error && <Alert type="error" title={state.error} showIcon style={{ marginBottom: 16 }} />}
             <form action={formAction}>
               {next && <input type="hidden" name="next" value={next} />}
@@ -81,10 +84,14 @@ export default function AuthForm({
                     minLength={signup ? 8 : undefined}
                     autoComplete={signup ? "new-password" : "current-password"}
                   />
-                  {signup && (
+                  {signup ? (
                     <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
                       At least 8 characters.
                     </Typography.Text>
+                  ) : (
+                    <Link href="/forgot-password" style={{ fontSize: 12, marginTop: 4, display: "block" }}>
+                      Forgot your password?
+                    </Link>
                   )}
                 </div>
                 <Button type="primary" htmlType="submit" loading={isPending} block>

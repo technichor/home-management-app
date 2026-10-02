@@ -8,7 +8,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/auth")>()), getSessionUser: vi.fn() }));
-vi.mock("@/components/AuthForm", () => ({ default: ({ mode, next }: any) => <div>form:{mode}:{next ?? "-"}</div> }));
+vi.mock("@/components/AuthForm", () => ({ default: ({ mode, next, notice }: any) => <div>form:{mode}:{next ?? "-"}{notice ? `:${notice}` : ""}</div> }));
 vi.mock("@/lib/db", () => ({ prisma: { joinRequest: { findMany: vi.fn() } } }));
 vi.mock("@/components/JoinRequestForm", () => ({ default: () => <div>join form</div> }));
 vi.mock("@/app/onboarding/actions", () => ({ cancelJoinRequestAction: vi.fn() }));
@@ -40,6 +40,14 @@ describe("AuthPage", () => {
     render(await AuthPage({ mode: "login", action, searchParams: sp("/join/abc") }));
     expect(screen.getByText("form:login:/join/abc")).toBeInTheDocument();
     render(await AuthPage({ mode: "signup", action, searchParams: sp("//evil.example") }));
+    expect(screen.getByText("form:signup:-")).toBeInTheDocument();
+  });
+
+  it("shows the password-changed notice only on the login form", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    render(await AuthPage({ mode: "login", action, searchParams: Promise.resolve({ reset: "1" }) }));
+    expect(screen.getByText("form:login:-:Password changed. Log in with your new password.")).toBeInTheDocument();
+    render(await AuthPage({ mode: "signup", action, searchParams: Promise.resolve({ reset: "1" }) }));
     expect(screen.getByText("form:signup:-")).toBeInTheDocument();
   });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
-vi.mock("@/lib/auth", () => ({ requireMember: vi.fn(), requireHouseholdId: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ requireMember: vi.fn(), requireHouseholdId: vi.fn(), startSession: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { user: { update: vi.fn() } } }));
 vi.mock("@/lib/rateLimit", () => ({
   getClientIp: vi.fn().mockResolvedValue("1.2.3.4"),
@@ -12,7 +12,7 @@ vi.mock("@/lib/rateLimit", () => ({
 
 import { changePasswordAction } from "@/app/[slug]/(app)/account/actions";
 import { prisma } from "@/lib/db";
-import { requireMember } from "@/lib/auth";
+import { requireMember, startSession } from "@/lib/auth";
 import { loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 
@@ -66,9 +66,13 @@ describe("changePasswordAction", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("stores a hash of the new password", async () => {
+  it("stores a hash of the new password, signs out other sessions and keeps this one", async () => {
     expect(await changePasswordAction(null, fd(valid))).toEqual({ ok: true });
     expect(bcrypt.hash).toHaveBeenCalledWith("new-password-1", 12);
-    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: { passwordHash: "NEWHASH" } });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: { passwordHash: "NEWHASH", passwordChangedAt: expect.any(Date) },
+    });
+    expect(startSession).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
   });
 });

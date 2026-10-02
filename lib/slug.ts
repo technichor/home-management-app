@@ -1,6 +1,6 @@
 // Slugs name a household's routes until the /[slug] routes are replaced; these collide with
 // top-level pages, so a household can't use them.
-export const RESERVED_SLUGS = ["login", "signup", "onboarding", "setup", "invite", "api"];
+export const RESERVED_SLUGS = ["login", "signup", "onboarding", "forgot-password", "reset-password", "setup", "invite", "api"];
 
 export function slugify(name: string): string {
   const base = name

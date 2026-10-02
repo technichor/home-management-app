@@ -1,6 +1,6 @@
 # Handoff: current state of the Home Management App
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0009 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0010 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
 
 ## One-paragraph summary
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 50 test files, 621 tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 55 test files, 655 tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -28,6 +28,9 @@ Set in Vercel (Production unless noted); locally in `.env` and `.env.local` (bot
 |---|---|
 | `DATABASE_URL` | Neon Postgres. **The same database is used for local dev and production.** Anything run against it from a dev machine (e.g. a migration) is a production change. |
 | `SESSION_SECRET` | Signs the iron-session cookie. |
+| `RESEND_API_KEY` | Sends password-reset email via Resend. Unset = the email is only printed to the server log (local dev). |
+| `EMAIL_FROM` | Sender. Defaults to Resend's shared test sender `onboarding@resend.dev`, which **only delivers to the Resend account's own address**. Set to an address on a verified domain once the app has one. |
+| `APP_URL` | Public site URL used in emailed links (never taken from the request's Host header). Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost. |
 
 Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! npx vercel login` in the Claude prompt (interactive). The repo's `.vercel/project.json` links it to the project.
 
@@ -56,7 +59,7 @@ Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! n
 /[slug]/messages               conversation list (?archived=1); /[id] conversation view
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0009 in prisma/migrations)
+### Data model (prisma/schema.prisma; migrations 0001–0010 in prisma/migrations)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
@@ -75,7 +78,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 1. **Verify by hand** (see below). Accounts, Lists and Messaging have only had automated tests.
 2. **First owner for the existing household:** run `scripts/adopt-household.mjs` once (usage in the file) to create your user in the pre-accounts household; after that, everyone else signs up and is invited.
-3. **Login rate limiting** is in (`lib/rateLimit.ts`, `AuthAttempt` table, migration 0009): 5 failed logins per email or 30 per IP in a sliding 15 minutes locks that key out; a success clears the email's count. Not covered: signup and join-code guessing. Signed-in users can change their password on `/[slug]/account` (needs the current one; wrong guesses count against the login limiter; other sessions are NOT signed out, since sessions are stateless cookies). Also missing: email verification and password *reset* (forgotten password) (no email delivery exists; invites are copyable links), so a lost password needs a manual fix. Note a lockout can be triggered against someone else's email by an attacker (15 minutes at most).
+3. **Login rate limiting** is in (`lib/rateLimit.ts`, `AuthAttempt` table, migration 0009): 5 failed logins per email or 30 per IP in a sliding 15 minutes locks that key out; a success clears the email's count. Not covered: signup and join-code guessing. Signed-in users can change their password on `/[slug]/account` (needs the current one; wrong guesses count against the login limiter; ). A change also signs out every other session (`User.passwordChangedAt` vs the session's `issuedAt`). **Forgotten password:** `/forgot-password` emails a single-use link (`/reset-password/[token]`, 1 hour, hash stored; newest link only; same answer for unknown emails; 3 requests/hour per email and 10 per IP); a reset also signs out other sessions and clears lockouts. Email goes through `lib/email.ts` (Resend REST API). Still missing: email verification at signup (no email delivery exists; invites are copyable links), so a lost password needs a manual fix. Note a lockout can be triggered against someone else's email by an attacker (15 minutes at most).
 4. **Attachments**: add storage (Vercel Blob is the natural fit) then wire `attachmentIds`.
 5. **Cleanup**: drop the unused legacy columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) in a migration after deploying; optionally drop `[slug]` from URLs.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.

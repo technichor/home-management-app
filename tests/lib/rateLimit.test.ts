@@ -12,8 +12,12 @@ import {
   loginRetryAfterMinutes,
   recordFailedLogin,
   clearFailedLogins,
+  resetRetryAfterMinutes,
+  recordResetRequest,
   WINDOW_MS,
   MAX_FAILURES,
+  RESET_WINDOW_MS,
+  MAX_RESET_REQUESTS,
 } from "@/lib/rateLimit";
 
 const NOW = new Date("2026-10-01T12:00:00Z").getTime();
@@ -67,6 +71,31 @@ describe("loginRetryAfterMinutes", () => {
     vi.mocked(prisma.authAttempt.findMany).mockImplementation((async (q: any) =>
       q.where.kind === "ip" ? rows(MAX_FAILURES.ip, 60_000) : rows(MAX_FAILURES.email, 10 * 60_000)) as any);
     expect(await loginRetryAfterMinutes("a@b.co", "1.1.1.1")).toBe(14);
+  });
+});
+
+describe("password reset requests", () => {
+  it("allows a few requests an hour per email, counting inside the hour window", async () => {
+    vi.mocked(prisma.authAttempt.findMany).mockResolvedValue(rows(MAX_RESET_REQUESTS.email - 1) as any);
+    expect(await resetRetryAfterMinutes("a@b.co", "1.1.1.1")).toBe(0);
+    const [emailQ] = vi.mocked(prisma.authAttempt.findMany).mock.calls.map((c) => c[0]!);
+    expect(emailQ.where).toEqual({ kind: "reset-email", key: "a@b.co", createdAt: { gte: new Date(NOW - RESET_WINDOW_MS) } });
+  });
+
+  it("blocks an email at its limit until the oldest request leaves the hour", async () => {
+    vi.mocked(prisma.authAttempt.findMany).mockImplementation((async (q: any) =>
+      q.where.kind === "reset-email" ? rows(MAX_RESET_REQUESTS.email, 20 * 60_000) : []) as any);
+    expect(await resetRetryAfterMinutes("a@b.co", "1.1.1.1")).toBe(40);
+  });
+
+  it("records the email and IP", async () => {
+    await recordResetRequest("a@b.co", "1.1.1.1");
+    expect(prisma.authAttempt.createMany).toHaveBeenCalledWith({
+      data: [
+        { kind: "reset-email", key: "a@b.co" },
+        { kind: "reset-ip", key: "1.1.1.1" },
+      ],
+    });
   });
 });
 
