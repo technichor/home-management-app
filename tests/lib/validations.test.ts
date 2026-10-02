@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   contactFormSchema,
   contactSchema,
+  householdFormSchema,
   householdSchema,
   personNameSchema,
   requestSyncSchema,
@@ -175,5 +176,21 @@ describe("contactFormSchema", () => {
     for (const bad of ["28/02/2026", "2026-13-40", "tomorrow"]) {
       expect(contactFormSchema.safeParse({ ...ok, importantDate1: bad }).success).toBe(false);
     }
+  });
+});
+
+describe("householdFormSchema", () => {
+  it("requires a name and applies defaults", () => {
+    const bad = householdFormSchema.safeParse({ displayName: "  " });
+    expect(bad.success).toBe(false);
+    if (!bad.success) expect(bad.error.issues[0].message).toBe("Household name is required");
+    expect(householdFormSchema.parse({ displayName: "The Smiths" })).toMatchObject({ tags: [] });
+  });
+
+  it("trims, drops blank optionals, and caps the name length", () => {
+    const r = householdFormSchema.parse({ displayName: " The Smiths ", mailingAddress: "  ", notes: " gate " });
+    expect(r).toMatchObject({ displayName: "The Smiths", notes: "gate" });
+    expect(r.mailingAddress).toBeUndefined();
+    expect(householdFormSchema.safeParse({ displayName: "x".repeat(101) }).success).toBe(false);
   });
 });

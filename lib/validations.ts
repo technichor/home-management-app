@@ -102,6 +102,15 @@ export const contactFormSchema = z
 
 export type ContactFormInput = z.input<typeof contactFormSchema>;
 
+export const householdFormSchema = z.object({
+  displayName: z.string().trim().min(1, "Household name is required").max(100, "Household names can be at most 100 characters"),
+  mailingAddress: optionalText,
+  tags: z.array(z.string().trim().min(1)).default([]),
+  notes: optionalText,
+});
+
+export type HouseholdFormInput = z.input<typeof householdFormSchema>;
+
 export const householdSchema = z.object({
   id: z.string().optional(),
   displayName: z.string().min(1, "display_name is required"),

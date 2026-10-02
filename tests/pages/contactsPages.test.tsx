@@ -296,6 +296,12 @@ describe("HouseholdsPage", () => {
     expect(screen.getByText("Households (0)")).toBeInTheDocument();
   });
 
+  it("links to the add-household form", async () => {
+    vi.mocked(prisma.household.findMany).mockResolvedValue([]);
+    render(await HouseholdsPage({ params }));
+    expect(screen.getByRole("link", { name: "Add household" })).toHaveAttribute("href", "/s/contacts/households/new");
+  });
+
   it("shows cards, marks our own household, and lists members, address and tags", async () => {
     vi.mocked(prisma.household.findMany).mockResolvedValue([
       household({
@@ -327,6 +333,16 @@ describe("HouseholdDetailPage", () => {
   it("404s for a household in another account's directory", async () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(household({ id: "theirs", ownerHouseholdId: "other" }) as any);
     await expect(HouseholdDetailPage({ params: idParams("theirs") })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("offers Edit for a live household but not a removed one", async () => {
+    await run(household());
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/s/contacts/households/h1/edit");
+  });
+
+  it("does not offer Edit for a removed household", async () => {
+    await run(household({ deletedAt: new Date() }));
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
   });
 
   it("404s for an unknown household", async () => {

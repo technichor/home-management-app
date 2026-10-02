@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { householdsOf } from "@/lib/scope";
 import Link from "next/link";
-import { Card, Tag, Space, Empty } from "antd";
+import { Button, Card, Tag, Space, Empty } from "antd";
 import { pageHouseholdId } from "@/lib/auth";
 
 export default async function HouseholdsPage({
@@ -28,12 +28,17 @@ export default async function HouseholdsPage({
 
   return (
     <Space orientation="vertical" style={{ width: "100%" }} size="middle">
-      <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-        Households ({households.length})
-      </h4>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+          Households ({households.length})
+        </h4>
+        <Link href={`/${slug}/contacts/households/new`}>
+          <Button type="primary">Add household</Button>
+        </Link>
+      </div>
 
       {households.length === 0 ? (
-        <Empty description="No households yet. Use Import CSV to add households." />
+        <Empty description="No households yet. Add one with the button above, or use Import CSV." />
       ) : (
         <div
           style={{

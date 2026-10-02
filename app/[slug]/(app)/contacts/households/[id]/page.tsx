@@ -3,6 +3,7 @@ import { householdIsIn } from "@/lib/scope";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import {
+  Button,
   Descriptions,
   Tag,
   Space,
@@ -135,6 +136,14 @@ export default async function HouseholdDetailPage({
         {isOurs && <Tag color="blue">Our household</Tag>}
         {isDeleted && <Tag color="error">Removed</Tag>}
       </Space>
+
+      {!isDeleted && (
+        <div>
+          <Link href={`/${slug}/contacts/households/${household.id}/edit`}>
+            <Button size="small">Edit</Button>
+          </Link>
+        </div>
+      )}
 
       {descItems.length > 0 && (
         <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }} items={descItems} />
