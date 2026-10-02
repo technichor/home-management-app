@@ -52,6 +52,7 @@ beforeEach(() => {
 });
 
 async function upload() {
+  await waitFor(() => expect(document.querySelector("input[name=householdsFile]")).not.toBeNull());
   const h = document.querySelector("input[name=householdsFile]") as HTMLInputElement;
   const c = document.querySelector("input[name=contactsFile]") as HTMLInputElement;
   await userEvent.upload(h, new File(["h"], "households.csv", { type: "text/csv" }));
@@ -132,6 +133,8 @@ describe("diff step", () => {
     render(<ImportClient slug="s" />);
     await upload();
     await screen.findByText(/to apply|No changes detected/);
+    // Back is disabled while the validate transition is still pending; wait so clicks aren't ignored under load.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Back" })).toBeEnabled());
   }
 
   it("summarizes the counts and lists each change", async () => {
@@ -201,6 +204,7 @@ describe("diff step", () => {
     await toDiff();
     await userEvent.click(await screen.findByRole("button", { name: /Apply 8 changes/ }));
     expect(await screen.findByText("Not authenticated.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Back" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     await upload();
     await screen.findByText(/to apply/);

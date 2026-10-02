@@ -72,6 +72,7 @@ model Household {
   syncsInitiated Sync[]         @relation("SyncInitiator")
   syncsReceived  Sync[]         @relation("SyncCounterpart")
   conversations  Conversation[]
+  members        User[]
 }
 
 model Contact {
@@ -107,6 +108,7 @@ model Contact {
   conversations        Conversation[]
   sentMessages         Message[]
   accountForHouseholds Household[]    @relation("AccountContact")
+  user                 User?
 }
 
 // Polymorphic log — entityId can reference either a Contact or Household id.
@@ -226,4 +228,28 @@ model Message {
   createdAt       DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
+// An individual login (email + own password). A user belongs to at most one household and is
+// not usable for any household feature until they do; contactId is the Contact they act as.
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole   @default(MEMBER)
+  householdId  String?
+  household    Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  contactId    String?    @unique
+  contact      Contact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([householdId])
 }

@@ -1,19 +1,11 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { getSessionUser, homePathFor } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Space } from "antd";
 
 export default async function RootPage() {
-  const session = await getIronSession<SessionData>(
-    await cookies(),
-    sessionOptions
-  );
-
-  if (session.householdId && session.householdSlug) {
-    redirect(`/${session.householdSlug}/contacts`);
-  }
+  const user = await getSessionUser();
+  if (user) redirect(homePathFor(user));
 
   return (
     <div
@@ -33,21 +25,20 @@ export default async function RootPage() {
               Home Management
             </h2>
             <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
-              Visit your household&apos;s URL to log in, or set up a new household account below.
+              Log in with your email address, or create an account.
             </span>
           </div>
 
           <Card>
             <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-              <Link href="/setup" style={{ display: "block" }}>
+              <Link href="/login" style={{ display: "block" }}>
                 <Button type="primary" block>
-                  Set up a new household account
+                  Log in
                 </Button>
               </Link>
-              <span style={{ fontSize: 13, color: "rgba(0,0,0,.45)" }}>
-                Already have an account? Go to{" "}
-                <code>/your-household-slug</code>
-              </span>
+              <Link href="/signup" style={{ display: "block" }}>
+                <Button block>Create an account</Button>
+              </Link>
             </Space>
           </Card>
         </Space>

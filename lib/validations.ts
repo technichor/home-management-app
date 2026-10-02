@@ -76,6 +76,18 @@ export const createHouseholdSchema = personNameSchema.extend({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+const emailSchema = z.string().trim().toLowerCase().email("Enter a valid email address");
+
+export const signupSchema = personNameSchema.extend({
+  email: emailSchema,
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const userLoginSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "Password is required"),
+});
+
 export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });

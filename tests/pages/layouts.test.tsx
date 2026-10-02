@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { household: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({ prisma: { household: { findUnique: vi.fn() }, user: { findUnique: vi.fn() } } }));
 vi.mock("@ant-design/nextjs-registry", () => ({
   AntdRegistry: ({ children }: any) => <>{children}</>,
 }));
@@ -50,21 +50,26 @@ describe("RootLayout", () => {
 });
 
 describe("RootPage", () => {
-  it("redirects a logged-in visitor to their contacts", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1", householdSlug: "smiths" } as any);
+  it("redirects a signed-in user with a household to their contacts", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "u1",
+      household: { id: "h1", urlSlug: "smiths", deletedAt: null },
+    } as any);
     await expect(RootPage()).rejects.toThrow("REDIRECT:/smiths/contacts");
   });
 
-  it("shows the setup link to a visitor with no session", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({} as any);
-    render(await RootPage());
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/setup");
+  it("sends a signed-in user without a household to onboarding", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({ userId: "u1" } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1", household: null } as any);
+    await expect(RootPage()).rejects.toThrow("REDIRECT:/onboarding");
   });
 
-  it("does not redirect on a session missing its slug", async () => {
-    vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
+  it("offers login and signup to a visitor with no session", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
     render(await RootPage());
-    expect(screen.getByText("Home Management")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
   });
 });
 
