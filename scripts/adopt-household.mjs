@@ -3,8 +3,8 @@
 //   ADOPT_PASSWORD='choose-a-password' node --env-file=.env.local scripts/adopt-household.mjs \
 //     you@example.com <household-slug> "First" "Last"
 //
-// The user is linked to the household's existing account contact when it has one, otherwise to a
-// new contact. The password comes from the environment so it stays out of shell history.
+// The user is linked to the household's existing Family & Friend contact with the same name when
+// there is one (and nobody else is linked to it), otherwise to a new contact. The password comes from the environment so it stays out of shell history.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -24,8 +24,10 @@ try {
 
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.$transaction(async (tx) => {
-    let contactId = household.accountContactId;
-    if (contactId && (await tx.user.findUnique({ where: { contactId } }))) contactId = null;
+    const match = await tx.contact.findFirst({
+      where: { householdId: household.id, category: "FAMILY_FRIEND", deletedAt: null, firstName, lastName, user: null },
+    });
+    let contactId = match?.id;
     if (!contactId) {
       const contact = await tx.contact.create({
         data: { householdId: household.id, ownerHouseholdId: household.id, firstName, lastName, category: "FAMILY_FRIEND" },

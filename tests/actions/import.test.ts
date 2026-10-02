@@ -72,7 +72,7 @@ beforeEach(() => {
 const dbHousehold = (over: object = {}) =>
   ({
     id: "h1", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
-    urlSlug: null, passwordHash: null, headOfHousehold: null, ownerHouseholdId: "my-hh",
+    urlSlug: null, ownerHouseholdId: "my-hh",
     createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
   }) as any;
 

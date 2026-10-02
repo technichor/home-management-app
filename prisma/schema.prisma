@@ -49,21 +49,15 @@ enum ActivitySource {
 }
 
 model Household {
-  id               String    @id @default(cuid())
-  displayName      String
-  mailingAddress   String?
-  tags             String[]
-  notes            String?
-  urlSlug          String?   @unique
-  passwordHash     String?
-  headOfHousehold  String?
-  // The one Contact this account acts as: the sender of its messages, and the "head" who
-  // answers sync invites. Everyone sharing the household password acts as this contact.
-  accountContactId String?
-  accountContact   Contact?  @relation("AccountContact", fields: [accountContactId], references: [id], onDelete: SetNull)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
+  id             String    @id @default(cuid())
+  displayName    String
+  mailingAddress String?
+  tags           String[]
+  notes          String?
+  urlSlug        String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   contacts       Contact[]       @relation("HouseholdContacts")
   importVersions ImportVersion[]
@@ -116,14 +110,13 @@ model Contact {
 
   assignedListItems ListItem[]
 
-  syncs                Sync[]
-  conversations        Conversation[]
-  sentMessages         Message[]
-  accountForHouseholds Household[]    @relation("AccountContact")
-  user                 User?
+  syncs            Sync[]
+  conversations    Conversation[]
+  sentMessages     Message[]
+  user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
-  ownerHouseholdId     String?
-  ownerHousehold       Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+  ownerHouseholdId String?
+  ownerHousehold   Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
 
   @@index([ownerHouseholdId])
 }

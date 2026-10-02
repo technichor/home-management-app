@@ -20,8 +20,6 @@ function makeHousehold(overrides: Record<string, unknown> = {}) {
     tags: [] as string[],
     notes: null,
     urlSlug: null,
-    passwordHash: null,
-    headOfHousehold: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
