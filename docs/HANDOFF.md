@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 797 unit tests plus 23 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 806 unit tests plus 24 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -73,7 +73,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Lists**: complete per `docs/domains/lists.md`, including the pairwise Elo mode (a list is either manually sorted or pairwise, set per list; switching to pairwise keeps the order and resets all ratings to 1500). Not built: single-list CSV export (nice-to-have).
 
-**Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), revoke UI (the REVOKED status exists only in the schema), any REVOKED history behavior.
+**Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), ending an **active** sync (only a *pending* invite can be revoked, from the Messaging sync card on the contact page: `revokeInviteAction`; the link then stops working and the sender can invite again) and any decision about what happens to conversation history if an active sync is ended.
 
 ## Known gaps and suggestions for next work
 

@@ -19,7 +19,7 @@ import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { hashInviteToken } from "@/lib/syncToken";
-import { requestSyncAction, regenerateInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
+import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
 import { respondToInviteAction } from "@/app/invite/[token]/actions";
 
 const outsider = (over: object = {}) => ({ id: "c1", ownerHouseholdId: "h1", householdId: "other", deletedAt: null, ...over });
@@ -100,6 +100,43 @@ describe("requestSyncAction", () => {
     expect(vi.mocked(prisma.sync.findFirst).mock.calls[0]?.[0]).toMatchObject({
       where: { status: { in: ["PENDING", "ACTIVE"] } },
     });
+  });
+});
+
+describe("revokeInviteAction", () => {
+  const mine = { id: "sy1", initiatingHouseholdId: "h1", relatedContactId: "c1" };
+
+  it("revokes our own pending invite and stamps when", async () => {
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
+    vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 1 } as any);
+    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: true });
+    expect(prisma.sync.updateMany).toHaveBeenCalledWith({
+      where: { id: "sy1", status: "PENDING" },
+      data: { status: "REVOKED", respondedAt: expect.any(Date) },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/s/contacts/c1");
+  });
+
+  it("requires a session", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(revokeInviteAction("s", "sy1")).rejects.toThrow("Not authenticated");
+    expect(prisma.sync.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a missing sync", null],
+    ["another household's sync", { ...mine, initiatingHouseholdId: "other" }],
+  ])("won't revoke %s", async (_name, sync) => {
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync as any);
+    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: false, error: "Invite not found." });
+    expect(prisma.sync.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("won't revoke an invite that was answered in the meantime", async () => {
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue(mine as any);
+    vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 0 } as any);
+    expect(await revokeInviteAction("s", "sy1")).toEqual({ ok: false, error: "Only a pending invite can be revoked." });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 
@@ -206,7 +243,16 @@ describe("respondToInviteAction", () => {
     expect(prisma.sync.updateMany).not.toHaveBeenCalled();
   });
 
-  it.each(["ACTIVE", "DECLINED", "REVOKED"])("rejects an invite that is already %s", async (status) => {
+  it("tells the answerer when the sender revoked the invite", async () => {
+    vi.mocked(prisma.sync.findUnique).mockResolvedValue({ ...pending, status: "REVOKED" } as any);
+    expect(await respondToInviteAction("tok", "accept")).toEqual({
+      ok: false,
+      error: "This invite was revoked by the sender.",
+    });
+    expect(prisma.sync.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["ACTIVE", "DECLINED"])("rejects an invite that is already %s", async (status) => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue({ ...pending, status } as any);
     expect(await respondToInviteAction("tok", "accept")).toEqual({
       ok: false,

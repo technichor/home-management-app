@@ -81,3 +81,28 @@ export async function regenerateInviteAction(slug: string, syncId: string): Prom
   revalidatePath(`/${slug}/contacts/${sync.relatedContactId}`);
   return { ok: true, invitePath: `/invite/${token}` };
 }
+
+export type RevokeResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Withdraw a pending invite. Its link stops working at once (the invite page then says it was
+ * revoked), and the contact can be invited again afterwards with a fresh link.
+ */
+export async function revokeInviteAction(slug: string, syncId: string): Promise<RevokeResult> {
+  const householdId = await requireHouseholdId();
+
+  const sync = await prisma.sync.findUnique({ where: { id: syncId } });
+  if (!sync || sync.initiatingHouseholdId !== householdId) {
+    return { ok: false, error: "Invite not found." };
+  }
+
+  // The status check in the WHERE means an invite answered a moment ago can't be revoked underneath them.
+  const revoked = await prisma.sync.updateMany({
+    where: { id: sync.id, status: "PENDING" },
+    data: { status: "REVOKED", respondedAt: new Date() },
+  });
+  if (revoked.count === 0) return { ok: false, error: "Only a pending invite can be revoked." };
+
+  revalidatePath(`/${slug}/contacts/${sync.relatedContactId}`);
+  return { ok: true };
+}

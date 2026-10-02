@@ -9,12 +9,13 @@ vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/app/[slug]/(app)/contacts/[id]/syncActions", () => ({
   requestSyncAction: vi.fn(),
   regenerateInviteAction: vi.fn(),
+  revokeInviteAction: vi.fn(),
 }));
 vi.mock("@/app/invite/[token]/actions", () => ({ respondToInviteAction: vi.fn() }));
 
 import SyncCard, { SyncInfo } from "@/app/[slug]/(app)/contacts/[id]/SyncCard";
 import InviteResponse from "@/app/invite/[token]/InviteResponse";
-import { requestSyncAction, regenerateInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
+import { requestSyncAction, regenerateInviteAction, revokeInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
 import { respondToInviteAction } from "@/app/invite/[token]/actions";
 
 const sync = (over: Partial<SyncInfo> = {}): SyncInfo => ({
@@ -37,6 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requestSyncAction).mockResolvedValue({ ok: true, invitePath: "/invite/abc" });
   vi.mocked(regenerateInviteAction).mockResolvedValue({ ok: true, invitePath: "/invite/new" });
+  vi.mocked(revokeInviteAction).mockResolvedValue({ ok: true });
 });
 
 describe("SyncCard: requesting", () => {
@@ -129,6 +131,51 @@ describe("SyncCard: existing sync", () => {
     await userEvent.click(screen.getByRole("button", { name: "Get a new link" }));
     await waitFor(() => expect(regenerateInviteAction).toHaveBeenCalledWith("s", "sy1"));
     expect(await screen.findByLabelText("Invite link")).toHaveValue(`${window.location.origin}/invite/new`);
+  });
+
+  async function confirmRevoke() {
+    await userEvent.click(screen.getByRole("button", { name: "Revoke invite" }));
+    const ok = await waitFor(() => {
+      const el = document.querySelector(".ant-popconfirm .ant-btn-primary");
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    await userEvent.click(ok);
+  }
+
+  it("revokes a pending invite after confirming, drops the shown link, and refreshes", async () => {
+    setup(sync());
+    await userEvent.click(screen.getByRole("button", { name: "Get a new link" }));
+    await screen.findByLabelText("Invite link");
+    router.refresh.mockClear();
+    await confirmRevoke();
+    await waitFor(() => expect(revokeInviteAction).toHaveBeenCalledWith("s", "sy1"));
+    expect(await screen.findByText("Invite revoked. Its link no longer works.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Invite link")).not.toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("only offers Revoke for a pending invite", () => {
+    setup(sync({ status: "ACTIVE" }));
+    expect(screen.queryByRole("button", { name: "Revoke invite" })).not.toBeInTheDocument();
+  });
+
+  it("shows why a revoke failed", async () => {
+    vi.mocked(revokeInviteAction).mockResolvedValue({ ok: false, error: "Only a pending invite can be revoked." });
+    setup(sync());
+    await confirmRevoke();
+    expect(await screen.findByText("Only a pending invite can be revoked.")).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("copes with the revoke call throwing", async () => {
+    vi.mocked(revokeInviteAction).mockRejectedValueOnce(new Error("offline"));
+    setup(sync());
+    await confirmRevoke();
+    expect(await screen.findByText("offline")).toBeInTheDocument();
+    vi.mocked(revokeInviteAction).mockRejectedValueOnce("boom");
+    await confirmRevoke();
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 
   it("lets you ask again after a decline", () => {

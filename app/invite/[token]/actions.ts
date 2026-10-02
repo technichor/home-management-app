@@ -30,6 +30,7 @@ export async function respondToInviteAction(
   if (sync.initiatingHouseholdId === householdId) {
     return { ok: false, error: "You cannot answer your own invite." };
   }
+  if (sync.status === "REVOKED") return { ok: false, error: "This invite was revoked by the sender." };
   if (sync.status !== "PENDING") return { ok: false, error: "This invite was already answered." };
 
   const me = await prisma.household.findUnique({

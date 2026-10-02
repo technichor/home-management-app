@@ -42,7 +42,7 @@ A contact's "synced" status is derived from an ACTIVE Sync row pointing at it. N
 
 - Per-contact or per-message-category privacy controls on sync (it is all-or-nothing)
 - Actual email/SMS delivery of messages to non-users
-- Any behavior for what happens to conversation history on REVOKED (the status exists in the schema, nothing more)
+- Ending an **active** sync, and what happens to conversation history when it ends. (Revoking a *pending* invite is built: status goes PENDING to REVOKED, its link stops working, and the sender can invite again.)
 - Message editing, read receipts, typing indicators, reactions, @mentions, threading/replies, search
 - Push notifications
 - Per-household archiving of a shared synced conversation

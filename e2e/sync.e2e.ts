@@ -53,3 +53,45 @@ test("two households sync and message each other", async ({ browser }) => {
 
   for (const s of [a, b, outsider]) await s.context.close();
 });
+
+test("a pending sync invite can be revoked, and the contact invited again", async ({ browser }) => {
+  const a = await newSession(browser);
+  const b = await newSession(browser);
+  const ownerA = await newOwner(a.page, "revoka", "The Revokas");
+  const ownerB = await newOwner(b.page, "revokb", "The Revokbs");
+
+  const contactId = await addServiceProvider(a.page, ownerA.slug, "Rae", "Revokb");
+  await a.page.goto(`/${ownerA.slug}/contacts/${contactId}`);
+  await a.page.getByLabel("Email address").fill(ownerB.email);
+  await a.page.getByRole("button", { name: "Request sync" }).click();
+  const firstLink = new URL(await a.page.getByLabel("Invite link").inputValue()).pathname;
+
+  // The sender sees it's pending and revokes it (after confirming).
+  await expect(a.page.getByText("is waiting for their household to accept")).toBeVisible();
+  await a.page.getByRole("button", { name: "Revoke invite" }).click();
+  await a.page.locator(".ant-popconfirm .ant-btn-primary").click();
+  await expect(a.page.getByText("The last sync was revoked.")).toBeVisible();
+  await expect(a.page.getByLabel("Invite link")).toHaveCount(0);
+
+  // The recipient's link is dead: they're told so and can't accept.
+  await b.page.goto(firstLink);
+  await expect(b.page.getByText("This invite was revoked.")).toBeVisible();
+  await expect(b.page.getByRole("button", { name: "Accept" })).toHaveCount(0);
+
+  // The sender can invite them again; the new link works, the old one still doesn't.
+  await a.page.getByRole("button", { name: "Request sync" }).click();
+  const secondLink = new URL(await a.page.getByLabel("Invite link").inputValue()).pathname;
+  expect(secondLink).not.toBe(firstLink);
+  await b.page.goto(firstLink);
+  await expect(b.page.getByText("This invite was revoked.")).toBeVisible();
+  await b.page.goto(secondLink);
+  await b.page.getByRole("button", { name: "Accept" }).click();
+  await expect(b.page.getByText(/You are synced with The Revokas|Open messages/).first()).toBeVisible();
+
+  // Once accepted there is nothing left to revoke.
+  await a.page.reload();
+  await expect(a.page.getByText(/Synced with The Revokbs/)).toBeVisible();
+  await expect(a.page.getByRole("button", { name: "Revoke invite" })).toHaveCount(0);
+
+  for (const s of [a, b]) await s.context.close();
+});

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, App, Button, Card, Input, Space, Tag, Typography } from "antd";
-import { requestSyncAction, regenerateInviteAction, SyncActionResult } from "./syncActions";
+import { Alert, App, Button, Card, Input, Popconfirm, Space, Tag, Typography } from "antd";
+import { requestSyncAction, regenerateInviteAction, revokeInviteAction, SyncActionResult } from "./syncActions";
 
 export type SyncInfo = {
   id: string;
@@ -35,6 +35,24 @@ export default function SyncCard({
       const result = await fn();
       if (result.ok) {
         setLink(`${window.location.origin}${result.invitePath}`);
+        router.refresh();
+      } else {
+        message.error(result.error);
+      }
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke(syncId: string) {
+    setBusy(true);
+    try {
+      const result = await revokeInviteAction(slug, syncId);
+      if (result.ok) {
+        setLink(null);
+        message.success("Invite revoked. Its link no longer works.");
         router.refresh();
       } else {
         message.error(result.error);
@@ -93,9 +111,21 @@ export default function SyncCard({
         )}
 
         {sync?.status === "PENDING" && (
-          <Button loading={busy} onClick={() => run(() => regenerateInviteAction(slug, sync.id))}>
-            Get a new link
-          </Button>
+          <Space wrap>
+            <Button loading={busy} onClick={() => run(() => regenerateInviteAction(slug, sync.id))}>
+              Get a new link
+            </Button>
+            <Popconfirm
+              title="Revoke this invite?"
+              description="Its link stops working. You can invite them again later."
+              okText="Revoke"
+              onConfirm={() => revoke(sync.id)}
+            >
+              <Button danger disabled={busy}>
+                Revoke invite
+              </Button>
+            </Popconfirm>
+          </Space>
         )}
 
         {link && (
