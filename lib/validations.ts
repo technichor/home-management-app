@@ -146,6 +146,11 @@ export const resetPasswordSchema = z
     message: "The new passwords don't match",
   });
 
+export const changeEmailSchema = z.object({
+  newEmail: emailSchema,
+  password: z.string().min(1, "Enter your password"),
+});
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Enter your current password"),

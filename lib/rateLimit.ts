@@ -86,3 +86,17 @@ export const recordVerifyRequest = (email: string, ip: string) =>
     { kind: "verify-email", key: email },
     { kind: "verify-ip", key: ip },
   ]);
+
+// ---- Email-change requests (each one sends mail to an address of the user's choosing) ----
+
+export const changeEmailRetryAfterMinutes = (email: string, ip: string) =>
+  retryAfterMinutes([
+    { kind: "change-email", key: email, max: MAX_RESET_REQUESTS.email, windowMs: RESET_WINDOW_MS },
+    { kind: "change-ip", key: ip, max: MAX_RESET_REQUESTS.ip, windowMs: RESET_WINDOW_MS },
+  ]);
+
+export const recordChangeEmailRequest = (email: string, ip: string) =>
+  record([
+    { kind: "change-email", key: email },
+    { kind: "change-ip", key: ip },
+  ]);

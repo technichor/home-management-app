@@ -10,7 +10,7 @@ export default async function AuthPage({
   action,
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; reset?: string; verified?: string }>;
+  searchParams: Promise<{ next?: string; reset?: string; verified?: string; changed?: string }>;
   mode: "login" | "signup";
   action: (prev: AuthState, formData: FormData) => Promise<AuthState>;
 }) {
@@ -23,7 +23,9 @@ export default async function AuthPage({
         ? "Password changed. Log in with your new password."
         : params.verified === "1"
           ? "Email confirmed. Log in to continue."
-          : undefined;
+          : params.changed === "1"
+            ? "Email address changed. Log in with your new address."
+            : undefined;
   const user = await getSessionUser();
   if (user) redirect(next ?? homePathFor(user));
   return <AuthForm mode={mode} action={action} next={next} notice={notice} />;

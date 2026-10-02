@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db";
 import AccountClient from "./AccountClient";
+import ChangeEmailForm from "@/components/ChangeEmailForm";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import { pageMember } from "@/lib/auth";
 
 export default async function AccountPage() {
-  const { id: userId, householdId } = await pageMember();
+  const { id: userId, householdId, email } = await pageMember();
 
   const [me, members] = await Promise.all([
     prisma.user.findUnique({
@@ -26,6 +27,7 @@ export default async function AccountPage() {
         current={current ? { id: current.id, name: `${current.firstName} ${current.lastName}` } : null}
         members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}` }))}
       />
+      <ChangeEmailForm currentEmail={email} />
       <ChangePasswordForm />
     </div>
   );

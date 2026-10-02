@@ -57,6 +57,12 @@ describe("AuthPage", () => {
     expect(screen.getByText("form:login:-:Email confirmed. Log in to continue.")).toBeInTheDocument();
   });
 
+  it("shows the email-changed notice on the login form", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue(null);
+    render(await AuthPage({ mode: "login", action, searchParams: Promise.resolve({ changed: "1" }) }));
+    expect(screen.getByText("form:login:-:Email address changed. Log in with your new address.")).toBeInTheDocument();
+  });
+
   it("sends a signed-in user where they belong, or to next", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household: null } as any);
     await expect(AuthPage({ mode: "signup", action, searchParams: sp() })).rejects.toThrow("REDIRECT:/onboarding");

@@ -269,6 +269,7 @@ model User {
   // Null until the user confirms the address by clicking the emailed link.
   emailVerifiedAt    DateTime?
   verificationTokens EmailVerificationToken[]
+  emailChangeTokens  EmailChangeToken[]
 
   @@index([householdId])
 }
@@ -348,6 +349,21 @@ model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// A single-use link emailed to a NEW address to prove it is the user's before their login email
+// changes to it. Only the token's SHA-256 is stored.
+model EmailChangeToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail  String
   tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?

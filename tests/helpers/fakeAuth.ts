@@ -27,7 +27,7 @@ async function sessionUser() {
 async function member() {
   const session: any = await getIronSession(undefined as any, {} as any);
   if (!session?.householdId) throw new Error("Not authenticated");
-  return { id: "u1", role: "OWNER", householdId: session.householdId, contactId: session.contactId ?? null };
+  return { id: "u1", email: "me@x.co", role: "OWNER", householdId: session.householdId, contactId: session.contactId ?? null };
 }
 
 export const fakeAuth = {

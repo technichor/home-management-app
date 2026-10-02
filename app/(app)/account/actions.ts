@@ -3,8 +3,15 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { changePasswordSchema, personNameSchema } from "@/lib/validations";
-import { getClientIp, loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";
+import { changeEmailSchema, changePasswordSchema, personNameSchema } from "@/lib/validations";
+import { sendChangeEmailLink } from "@/lib/emailChange";
+import {
+  changeEmailRetryAfterMinutes,
+  getClientIp,
+  loginRetryAfterMinutes,
+  recordChangeEmailRequest,
+  recordFailedLogin,
+} from "@/lib/rateLimit";
 import { requireMember, startSession } from "@/lib/auth";
 import { contactIsIn } from "@/lib/scope";
 
@@ -82,4 +89,46 @@ export async function changePasswordAction(_prev: ChangePasswordState, formData:
   });
   await startSession(user);
   return { ok: true };
+}
+
+export type ChangeEmailState = { error: string } | { sentTo: string } | null;
+
+/**
+ * Start changing the login email. Needs the current password (wrong guesses count against the login
+ * limiter). A link goes to the NEW address; nothing changes until it is opened.
+ */
+export async function requestEmailChangeAction(_prev: ChangeEmailState, formData: FormData): Promise<ChangeEmailState> {
+  const user = await requireMember();
+  const parsed = changeEmailSchema.safeParse({
+    newEmail: formData.get("newEmail"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join(", ") };
+  const { newEmail, password } = parsed.data;
+  if (newEmail === user.email) return { error: "That is already your email address." };
+
+  const ip = await getClientIp();
+  const loginWait = await loginRetryAfterMinutes(user.email, ip);
+  if (loginWait > 0) {
+    return { error: `Too many failed attempts. Try again in ${loginWait} minute${loginWait === 1 ? "" : "s"}.` };
+  }
+  if (!(await bcrypt.compare(password, user.passwordHash))) {
+    await recordFailedLogin(user.email, ip);
+    return { error: "Your password is incorrect." };
+  }
+
+  const wait = await changeEmailRetryAfterMinutes(user.email, ip);
+  if (wait > 0) return { error: `Too many requests. Try again in ${wait} minute${wait === 1 ? "" : "s"}.` };
+  if (await prisma.user.findUnique({ where: { email: newEmail }, select: { id: true } })) {
+    return { error: "An account already uses that email address." };
+  }
+
+  await recordChangeEmailRequest(user.email, ip);
+  try {
+    await sendChangeEmailLink(user, newEmail);
+  } catch (e) {
+    console.error("Email change link failed to send", e);
+    return { error: "We couldn't send the email. Try again in a few minutes." };
+  }
+  return { sentTo: newEmail };
 }
