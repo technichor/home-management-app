@@ -72,7 +72,7 @@ beforeEach(() => {
 const dbHousehold = (over: object = {}) =>
   ({
     id: "h1", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
-    urlSlug: null, passwordHash: null, headOfHousehold: null,
+    urlSlug: null, passwordHash: null, headOfHousehold: null, ownerHouseholdId: "my-hh",
     createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
   }) as any;
 
@@ -123,7 +123,6 @@ describe("validateImportAction", () => {
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.contactsCSV).toBe(badContacts);
     }
-    expect(prisma.contact.findMany).not.toHaveBeenCalled();
   });
 
   it("combines household and contact errors", async () => {
@@ -163,10 +162,30 @@ describe("validateImportAction", () => {
   });
 
   it("lets contacts reference households that are in households.csv", async () => {
+    vi.mocked(prisma.household.findMany).mockResolvedValue([dbHousehold({ id: "h1" })]);
     const households = `id,*display_name\nh1,The Smiths\n`;
     const contacts = `id,household_id,first_name,last_name,*category\n,h1,Sam,Smith,FAMILY_FRIEND\n`;
     const result = await validateImportAction(makeFormData(households, contacts));
     expect(result.ok).toBe(true);
+  });
+
+  it("does not let contacts point at a household outside the caller's directory", async () => {
+    // h-other is in the file but not among the caller's own households.
+    const households = `id,*display_name\nh-other,Someone Else\n`;
+    const contacts = `id,household_id,first_name,last_name,*category\n,h-other,Sam,Smith,FAMILY_FRIEND\n`;
+    const result = await validateImportAction(makeFormData(households, contacts));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toMatchObject({ column: "household_id" });
+  });
+
+  it("compares only against the caller's own directory", async () => {
+    await validateImportAction(makeFormData(EMPTY_HOUSEHOLDS_CSV, EMPTY_CONTACTS_CSV));
+    expect(vi.mocked(prisma.household.findMany).mock.calls[0][0]).toEqual({
+      where: { OR: [{ id: "hh1" }, { ownerHouseholdId: "hh1" }], deletedAt: null },
+    });
+    expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]).toEqual({
+      where: { ownerHouseholdId: "hh1", deletedAt: null },
+    });
   });
 });
 
@@ -255,7 +274,7 @@ describe("applyImportAction", () => {
 
     // households
     expect(prisma.household.create).toHaveBeenCalledWith({
-      data: { displayName: "Newbies", mailingAddress: undefined, tags: [], notes: undefined },
+      data: { ownerHouseholdId: "my-hh", displayName: "Newbies", mailingAddress: undefined, tags: [], notes: undefined },
     });
     expect(prisma.household.update).toHaveBeenCalledWith({
       where: { id: "h-edit" },
@@ -274,7 +293,7 @@ describe("applyImportAction", () => {
     // contacts
     expect(prisma.contact.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        householdId: "h-edit", firstName: "Sam", lastName: "Smith",
+        ownerHouseholdId: "my-hh", householdId: "h-edit", firstName: "Sam", lastName: "Smith",
         category: "FAMILY_FRIEND", favorite: true, tags: ["pal"],
       }),
     });

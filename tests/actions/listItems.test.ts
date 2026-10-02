@@ -48,7 +48,7 @@ beforeEach(() => {
   vi.mocked(prisma.listItem.createMany).mockResolvedValue({ count: 0 } as any);
   vi.mocked(prisma.listItem.update).mockResolvedValue({} as any);
   vi.mocked(prisma.listItem.delete).mockResolvedValue({} as any);
-  vi.mocked(prisma.contact.findUnique).mockResolvedValue({ id: "c1", deletedAt: null } as any);
+  vi.mocked(prisma.contact.findUnique).mockResolvedValue({ id: "c1", ownerHouseholdId: "h1", deletedAt: null } as any);
 });
 
 describe("createListAction", () => {

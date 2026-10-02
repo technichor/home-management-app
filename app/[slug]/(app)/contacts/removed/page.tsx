@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { contactsOf, householdsOf } from "@/lib/scope";
+import { pageHouseholdId } from "@/lib/auth";
 import Link from "next/link";
 import { restoreContactAction, restoreHouseholdAction } from "./actions";
 import { Table, Space, Button } from "antd";
@@ -11,13 +13,15 @@ export default async function RemovedPage({
 }) {
   const { slug } = await params;
 
+  const householdId = await pageHouseholdId();
+
   const [deletedContacts, deletedHouseholds] = await Promise.all([
     prisma.contact.findMany({
-      where: { deletedAt: { not: null } },
+      where: { ...contactsOf(householdId), deletedAt: { not: null } },
       orderBy: { deletedAt: "desc" },
     }),
     prisma.household.findMany({
-      where: { deletedAt: { not: null } },
+      where: { ...householdsOf(householdId), deletedAt: { not: null } },
       orderBy: { deletedAt: "desc" },
     }),
   ]);

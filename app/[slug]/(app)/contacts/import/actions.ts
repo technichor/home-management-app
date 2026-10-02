@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getHouseholdId } from "@/lib/auth";
+import { contactsOf, householdsOf } from "@/lib/scope";
 import {
   parseHouseholdsCSV,
   parseContactsCSV,
@@ -30,12 +31,14 @@ export interface ValidateSuccess {
 export type ValidateImportResult = ValidateResult | ValidateSuccess;
 
 // Parse both files together; contacts are checked against the household ids in households.csv.
-function parseImportFiles(householdsCSV: string, contactsCSV: string) {
+// Only ids of households in the caller's own directory count: an id from anywhere else is
+// treated as unknown, so a file can never point a contact at another household's records.
+function parseImportFiles(householdsCSV: string, contactsCSV: string, ownHouseholdIds: Set<string>) {
   const { households: parsedHouseholds, errors: householdErrors } =
     parseHouseholdsCSV(householdsCSV);
 
   const knownHouseholdIds = new Set(
-    parsedHouseholds.filter((h) => h.id).map((h) => h.id!)
+    parsedHouseholds.filter((h) => h.id && ownHouseholdIds.has(h.id)).map((h) => h.id!)
   );
 
   const { contacts: parsedContacts, errors: contactErrors } =
@@ -51,7 +54,8 @@ function parseImportFiles(householdsCSV: string, contactsCSV: string) {
 export async function validateImportAction(
   formData: FormData
 ): Promise<ValidateImportResult> {
-  if (!(await getHouseholdId())) {
+  const householdId = await getHouseholdId();
+  if (!householdId) {
     return {
       ok: false,
       errors: [{ row: 0, column: "session", message: "Not authenticated." }],
@@ -79,19 +83,20 @@ export async function validateImportAction(
     contactsFile.text(),
   ]);
 
+  // Load current state from DB: only this household's own directory is ever compared or changed.
+  const [existingHouseholds, existingContacts] = await Promise.all([
+    prisma.household.findMany({ where: { ...householdsOf(householdId), deletedAt: null } }),
+    prisma.contact.findMany({ where: { ...contactsOf(householdId), deletedAt: null } }),
+  ]);
+
   const { parsedHouseholds, parsedContacts, errors } = parseImportFiles(
     householdsCSV,
-    contactsCSV
+    contactsCSV,
+    new Set(existingHouseholds.map((h) => h.id))
   );
   if (errors.length > 0) {
     return { ok: false, errors, householdsCSV, contactsCSV };
   }
-
-  // Load current state from DB
-  const [existingHouseholds, existingContacts] = await Promise.all([
-    prisma.household.findMany({ where: { deletedAt: null } }),
-    prisma.contact.findMany({ where: { deletedAt: null } }),
-  ]);
 
   const householdDiff = computeHouseholdDiff(
     parsedHouseholds,
@@ -124,9 +129,16 @@ export async function applyImportAction(
     return { ok: false, error: "Not authenticated." };
   }
 
+  // Reload current state so the apply is based on reality at commit time.
+  const [existingHouseholds, existingContacts] = await Promise.all([
+    prisma.household.findMany({ where: { ...householdsOf(myHouseholdId), deletedAt: null } }),
+    prisma.contact.findMany({ where: { ...contactsOf(myHouseholdId), deletedAt: null } }),
+  ]);
+
   const { parsedHouseholds, parsedContacts, errors } = parseImportFiles(
     input.householdsCSV,
-    input.contactsCSV
+    input.contactsCSV,
+    new Set(existingHouseholds.map((h) => h.id))
   );
   if (errors.length > 0) {
     return {
@@ -134,12 +146,6 @@ export async function applyImportAction(
       error: `The files have ${errors.length} error${errors.length > 1 ? "s" : ""}. Upload them again to see the details.`,
     };
   }
-
-  // Reload current state so the apply is based on reality at commit time.
-  const [existingHouseholds, existingContacts] = await Promise.all([
-    prisma.household.findMany({ where: { deletedAt: null } }),
-    prisma.contact.findMany({ where: { deletedAt: null } }),
-  ]);
 
   const householdDiff = computeHouseholdDiff(
     parsedHouseholds,
@@ -156,6 +162,7 @@ export async function applyImportAction(
     for (const h of householdDiff.added) {
       const created = await tx.household.create({
         data: {
+          ownerHouseholdId: myHouseholdId,
           displayName: h.displayName,
           mailingAddress: h.mailingAddress,
           tags: h.tags,
@@ -211,6 +218,7 @@ export async function applyImportAction(
     for (const c of contactDiff.added) {
       const created = await tx.contact.create({
         data: {
+          ownerHouseholdId: myHouseholdId,
           householdId: c.householdId,
           firstName: c.firstName,
           lastName: c.lastName,

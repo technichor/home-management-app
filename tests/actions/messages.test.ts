@@ -30,7 +30,7 @@ import {
 
 const convo = (over: object = {}) => ({ id: "cv1", archivedAt: null, ...over });
 const outsider = (over: object = {}) => ({
-  id: "c1", firstName: "Pat", lastName: "Jones", householdId: "other", deletedAt: null, ...over,
+  id: "c1", ownerHouseholdId: "h1", firstName: "Pat", lastName: "Jones", householdId: "other", deletedAt: null, ...over,
 });
 
 beforeEach(() => {

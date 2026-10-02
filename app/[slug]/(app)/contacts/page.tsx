@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { contactsOf } from "@/lib/scope";
+import { pageHouseholdId } from "@/lib/auth";
 import { ContactCategory } from "@prisma/client";
 import { Space } from "antd";
 import ContactsFilter from "./ContactsFilter";
@@ -23,7 +25,10 @@ export default async function ContactsPage({
 }) {
   const [{ slug }, filters] = await Promise.all([params, searchParams]);
 
+  const householdId = await pageHouseholdId();
+
   const where = {
+    ...contactsOf(householdId),
     deletedAt: null,
     ...(filters.q
       ? {
@@ -46,7 +51,7 @@ export default async function ContactsPage({
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.contact.findMany({
-      where: { deletedAt: null },
+      where: { ...contactsOf(householdId), deletedAt: null },
       select: { tags: true },
     }),
   ]);

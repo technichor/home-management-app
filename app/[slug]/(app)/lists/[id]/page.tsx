@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { contactsOf } from "@/lib/scope";
 import Link from "next/link";
 import { Breadcrumb } from "antd";
 import { prisma } from "@/lib/db";
@@ -23,7 +24,7 @@ export default async function ListDetailPage({
   if (!list || list.householdId !== sessionHouseholdId) notFound();
 
   const contacts = await prisma.contact.findMany({
-    where: { deletedAt: null },
+    where: { ...contactsOf(sessionHouseholdId), deletedAt: null },
     select: { id: true, firstName: true, lastName: true },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });

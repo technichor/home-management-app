@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { contactIsIn } from "@/lib/scope";
 import { prisma } from "@/lib/db";
 import SyncCard from "./SyncCard";
 import Link from "next/link";
@@ -41,6 +42,8 @@ export default async function ContactDetailPage({
 }) {
   const { slug, id } = await params;
 
+  const sessionHouseholdId = await pageHouseholdId();
+
   const contact = await prisma.contact.findUnique({
     where: { id },
     include: {
@@ -55,9 +58,8 @@ export default async function ContactDetailPage({
     },
   });
 
-  if (!contact) notFound();
+  if (!contact || !contactIsIn(contact, sessionHouseholdId)) notFound();
 
-  const sessionHouseholdId = await pageHouseholdId();
   // People in our own household can already message each other; sync is for everyone else.
   const canSync = contact.householdId !== sessionHouseholdId;
   const latestSync = canSync

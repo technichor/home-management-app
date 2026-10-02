@@ -74,6 +74,7 @@ describe("createHouseholdForUserAction", () => {
     });
     expect(vi.mocked(prisma.contact.create).mock.calls[0][0].data).toEqual({
       householdId: "h1",
+      ownerHouseholdId: "h1",
       firstName: "Sam",
       lastName: "Smith",
       category: "FAMILY_FRIEND",

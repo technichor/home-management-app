@@ -1,5 +1,6 @@
 "use server";
 
+import { contactIsIn } from "@/lib/scope";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { parseListItemsCSV } from "@/lib/listCsv";
@@ -97,7 +98,9 @@ export async function updateItemAction(
   if (data.text !== undefined && !data.text.trim()) throw new Error("Item text is required");
   if (data.assignedToContactId) {
     const contact = await prisma.contact.findUnique({ where: { id: data.assignedToContactId } });
-    if (!contact || contact.deletedAt) throw new Error("Contact not found");
+    if (!contact || contact.deletedAt || !contactIsIn(contact, await requireHouseholdId())) {
+      throw new Error("Contact not found");
+    }
   }
   await prisma.listItem.update({
     where: { id: itemId },

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getHouseholdId } from "@/lib/auth";
+import { contactsOf, householdsOf } from "@/lib/scope";
 import { householdsToCSV, contactsToCSV } from "@/lib/csv";
 
 export async function GET(request: NextRequest) {
-  if (!(await getHouseholdId())) {
+  const householdId = await getHouseholdId();
+  if (!householdId) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   if (which === "households") {
     const households = await prisma.household.findMany({
-      where: { deletedAt: null },
+      where: { ...householdsOf(householdId), deletedAt: null },
       // Never include urlSlug or passwordHash — those are account fields.
       select: {
         id: true,
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   if (which === "contacts") {
     const contacts = await prisma.contact.findMany({
-      where: { deletedAt: null },
+      where: { ...contactsOf(householdId), deletedAt: null },
       select: {
         id: true,
         householdId: true,

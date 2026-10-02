@@ -69,14 +69,22 @@ model Household {
   importVersions ImportVersion[]
   lists          List[]
 
-  syncsInitiated Sync[]            @relation("SyncInitiator")
-  syncsReceived  Sync[]            @relation("SyncCounterpart")
-  conversations  Conversation[]
-  members        User[]
+  syncsInitiated      Sync[]            @relation("SyncInitiator")
+  syncsReceived       Sync[]            @relation("SyncCounterpart")
+  conversations       Conversation[]
+  members             User[]
+  // Whose directory this record sits in. Null for a household that is itself an account (its
+  // directory is the one it owns); set for the passive households an account recorded.
+  ownerHouseholdId    String?
+  ownerHousehold      Household?        @relation("Directory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+  directoryHouseholds Household[]       @relation("Directory")
+  directoryContacts   Contact[]         @relation("ContactDirectory")
   // Optional code that lets a signed-in user without a household ask to join; owners approve.
-  joinCode       String?           @unique
-  invites        HouseholdInvite[]
-  joinRequests   JoinRequest[]
+  joinCode            String?           @unique
+  invites             HouseholdInvite[]
+  joinRequests        JoinRequest[]
+
+  @@index([ownerHouseholdId])
 }
 
 model Contact {
@@ -113,6 +121,11 @@ model Contact {
   sentMessages         Message[]
   accountForHouseholds Household[]    @relation("AccountContact")
   user                 User?
+  // The account household whose directory this contact is in (everything is scoped by it).
+  ownerHouseholdId     String?
+  ownerHousehold       Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+
+  @@index([ownerHouseholdId])
 }
 
 // Polymorphic log — entityId can reference either a Contact or Household id.

@@ -1,5 +1,6 @@
 "use server";
 
+import { contactIsIn } from "@/lib/scope";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { conversationsVisibleTo } from "@/lib/messaging";
@@ -42,7 +43,7 @@ export async function startContactThreadAction(slug: string, contactId: string) 
   const householdId = await requireHouseholdId();
 
   const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-  if (!contact || contact.deletedAt) throw new Error("Contact not found");
+  if (!contact || contact.deletedAt || !contactIsIn(contact, householdId)) throw new Error("Contact not found");
   if (contact.householdId === householdId) {
     throw new Error("People in your own household are already part of your household conversations");
   }

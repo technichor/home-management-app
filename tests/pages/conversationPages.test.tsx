@@ -100,6 +100,7 @@ describe("MessagesPage", () => {
     await run();
     expect(seen.list.contacts).toEqual([{ id: "c1", name: "Pat Jones" }]);
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0]?.[0]?.where).toEqual({
+      ownerHouseholdId: "me",
       deletedAt: null,
       OR: [{ householdId: null }, { householdId: { not: "me" } }],
     });

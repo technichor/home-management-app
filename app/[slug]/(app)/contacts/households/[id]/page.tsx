@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { householdIsIn } from "@/lib/scope";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import {
@@ -31,7 +32,7 @@ export default async function HouseholdDetailPage({
     },
   });
 
-  if (!household) notFound();
+  if (!household || !householdIsIn(household, myHouseholdId)) notFound();
 
   const isOurs = household.id === myHouseholdId;
   const isDeleted = !!household.deletedAt;

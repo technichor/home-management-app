@@ -1,5 +1,6 @@
 "use server";
 
+import { contactIsIn } from "@/lib/scope";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requestSyncSchema } from "@/lib/validations";
@@ -23,7 +24,9 @@ export async function requestSyncAction(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
 
   const contact = await prisma.contact.findUnique({ where: { id: parsed.data.contactId } });
-  if (!contact || contact.deletedAt) return { ok: false, error: "Contact not found." };
+  if (!contact || contact.deletedAt || !contactIsIn(contact, householdId)) {
+    return { ok: false, error: "Contact not found." };
+  }
   if (contact.householdId === householdId) {
     return { ok: false, error: "People in your own household can already message each other." };
   }

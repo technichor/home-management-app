@@ -22,7 +22,7 @@ import { hashInviteToken } from "@/lib/syncToken";
 import { requestSyncAction, regenerateInviteAction } from "@/app/[slug]/(app)/contacts/[id]/syncActions";
 import { respondToInviteAction } from "@/app/invite/[token]/actions";
 
-const outsider = (over: object = {}) => ({ id: "c1", householdId: "other", deletedAt: null, ...over });
+const outsider = (over: object = {}) => ({ id: "c1", ownerHouseholdId: "h1", householdId: "other", deletedAt: null, ...over });
 
 beforeEach(() => {
   vi.clearAllMocks();

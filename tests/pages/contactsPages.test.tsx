@@ -64,7 +64,7 @@ const params = Promise.resolve({ slug: "s" });
 const idParams = (id: string) => Promise.resolve({ slug: "s", id });
 
 const contact = (over: object = {}) => ({
-  id: "c1", householdId: null, firstName: "Jane", lastName: "Smith", nickname: null,
+  id: "c1", ownerHouseholdId: "mine", householdId: null, firstName: "Jane", lastName: "Smith", nickname: null,
   category: "SERVICE_PROVIDER", address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
   emailPrimary: null, emailSecondary: null, tags: [], favorite: false, relationshipNotes: null,
   linkedFamilyMember: null, importantDate1: null, importantDate1Label: null,
@@ -72,7 +72,7 @@ const contact = (over: object = {}) => ({
   household: null, ...over,
 });
 const household = (over: object = {}) => ({
-  id: "h1", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
+  id: "h1", ownerHouseholdId: "mine", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
   urlSlug: null, deletedAt: null, contacts: [], ...over,
 });
 
@@ -95,7 +95,7 @@ describe("ContactsPage", () => {
   it("lists active contacts with no filters and the unique sorted tags", async () => {
     setup([contact(), contact({ id: "c2" })], [{ tags: ["b", "a"] }, { tags: ["a"] }]);
     await run();
-    expect(whereOf()).toEqual({ deletedAt: null });
+    expect(whereOf()).toEqual({ ownerHouseholdId: "mine", deletedAt: null });
     expect(screen.getByText("Contacts (2)")).toBeInTheDocument();
     expect(seen.filter).toMatchObject({ slug: "s", allTags: ["a", "b"], defaults: {} });
     expect(seen.table.contacts).toHaveLength(2);
@@ -137,6 +137,11 @@ describe("ContactDetailPage", () => {
     vi.mocked(prisma.activityLogEntry.findMany).mockResolvedValue(log);
     return render(await ContactDetailPage({ params: idParams("c1") }));
   };
+
+  it("404s for a contact in another account's directory", async () => {
+    vi.mocked(prisma.contact.findUnique).mockResolvedValue(contact({ ownerHouseholdId: "other" }) as any);
+    await expect(ContactDetailPage({ params: idParams("c1") })).rejects.toThrow("NOT_FOUND");
+  });
 
   it("404s for an unknown contact", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(null);
@@ -302,6 +307,11 @@ describe("HouseholdDetailPage", () => {
     vi.mocked(prisma.activityLogEntry.findMany).mockResolvedValue(log);
     return render(await HouseholdDetailPage({ params: idParams(id) }));
   };
+
+  it("404s for a household in another account's directory", async () => {
+    vi.mocked(prisma.household.findUnique).mockResolvedValue(household({ id: "theirs", ownerHouseholdId: "other" }) as any);
+    await expect(HouseholdDetailPage({ params: idParams("theirs") })).rejects.toThrow("NOT_FOUND");
+  });
 
   it("404s for an unknown household", async () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(null);

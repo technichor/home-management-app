@@ -40,7 +40,7 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
         data: { displayName, mailingAddress, urlSlug },
       });
       const contact = await tx.contact.create({
-        data: { householdId: created.id, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
+        data: { householdId: created.id, ownerHouseholdId: created.id, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
       });
       await tx.household.update({ where: { id: created.id }, data: { accountContactId: contact.id } });
       await tx.user.update({

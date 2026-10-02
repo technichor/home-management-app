@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { contactsOf } from "@/lib/scope";
 import { conversationsVisibleTo, previewText } from "@/lib/messaging";
 import MessagesClient from "./MessagesClient";
 import { pageHouseholdId } from "@/lib/auth";
@@ -31,7 +32,7 @@ export default async function MessagesPage({
     }),
     // Contacts outside our household: the people a private note thread can be about.
     prisma.contact.findMany({
-      where: { deletedAt: null, OR: [{ householdId: null }, { householdId: { not: householdId } }] },
+      where: { ...contactsOf(householdId), deletedAt: null, OR: [{ householdId: null }, { householdId: { not: householdId } }] },
       select: { id: true, firstName: true, lastName: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),

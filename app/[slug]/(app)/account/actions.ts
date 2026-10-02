@@ -29,7 +29,7 @@ export async function createAccountContactAction(slug: string, firstName: string
 
   await prisma.$transaction(async (tx) => {
     const created = await tx.contact.create({
-      data: { householdId, ...parsed.data, category: "FAMILY_FRIEND" },
+      data: { householdId, ownerHouseholdId: householdId, ...parsed.data, category: "FAMILY_FRIEND" },
     });
     await tx.household.update({ where: { id: householdId }, data: { accountContactId: created.id } });
     await tx.activityLogEntry.create({

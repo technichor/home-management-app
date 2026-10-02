@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { householdsOf } from "@/lib/scope";
 import Link from "next/link";
 import { Card, Tag, Space, Empty } from "antd";
 import { pageHouseholdId } from "@/lib/auth";
@@ -14,7 +15,7 @@ export default async function HouseholdsPage({
   const myHouseholdId = sessionHouseholdId;
 
   const households = await prisma.household.findMany({
-    where: { deletedAt: null },
+    where: { ...householdsOf(myHouseholdId), deletedAt: null },
     include: {
       contacts: {
         where: { deletedAt: null, category: "FAMILY_FRIEND" },

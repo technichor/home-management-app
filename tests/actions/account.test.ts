@@ -64,7 +64,7 @@ describe("createAccountContactAction", () => {
   it("creates a household member, links the account to it, and logs it", async () => {
     await createAccountContactAction("s", "  Sam ", "Smith");
     expect(prisma.contact.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", firstName: "Sam", lastName: "Smith", category: "FAMILY_FRIEND" },
+      data: { householdId: "h1", ownerHouseholdId: "h1", firstName: "Sam", lastName: "Smith", category: "FAMILY_FRIEND" },
     });
     expect(prisma.household.update).toHaveBeenCalledWith({
       where: { id: "h1" },

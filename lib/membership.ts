@@ -24,7 +24,7 @@ export async function joinHouseholdTx(
   if (claimed.count === 0) throw new MembershipError("That person already belongs to a household.");
 
   const contact = await tx.contact.create({
-    data: { householdId, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
+    data: { householdId, ownerHouseholdId: householdId, firstName: user.firstName, lastName: user.lastName, category: "FAMILY_FRIEND" },
   });
   await tx.user.update({ where: { id: user.id }, data: { contactId: contact.id } });
   await tx.activityLogEntry.create({
