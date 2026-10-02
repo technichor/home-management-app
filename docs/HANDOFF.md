@@ -10,14 +10,14 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 
 - Next.js 16.3.7 (App Router, Turbopack), React 19, TypeScript, **Ant Design v6** (UI), iron-session v9 (signed cookie session), bcryptjs, Zod v4, papaparse, `@dnd-kit` (list drag reorder).
 - Prisma 5.14 + PostgreSQL on Neon (via Vercel). Do not upgrade Prisma to v8; it is a different architecture.
-- Tests: Vitest 5 + Testing Library + jsdom. `npm test`, `npm run test:coverage`.
+- Tests: Vitest 5 + Testing Library + jsdom (`npm test`, `npm run test:coverage`) and Playwright browser tests (`npm run test:e2e`, in `e2e/`). The e2e runner (`scripts/e2e.mjs`) starts a throwaway Postgres from the `embedded-postgres` npm package, applies every migration from scratch, then builds and starts the app against it (a production build, as on Vercel); it sets `DATABASE_URL` itself, so it can never touch the real database. Emails are read from a file (`EMAIL_OUTBOX_FILE`, a seam in `lib/email.ts`). Covered: signup/confirm/login/lockout/reset/change password, household invites + join codes + removal, two-account isolation (contacts, exports, lists, conversations), contact/household add/edit/remove/restore, CSV round-trip, lists, messages, and two-household sync. CI (`.github/workflows/ci.yml`) runs lint, tsc, coverage and e2e on every push and PR. Chromium comes from `npx playwright install chromium`.
 - Hosting: Vercel project `home-management-app` (team `technichor`), auto-deploys from `origin/main` at https://github.com/technichor/home-management-app.
 - Windows 11 dev machine, Node 24. Git Bash + PowerShell available.
 
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 66 test files, 776 tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 67 test files, 777 unit tests plus 18 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -83,7 +83,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 5. **Cleanup**: optionally drop `[slug]` from URLs.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.
 7. Real-time messaging is a 5s poll via `router.refresh()`; fine at this scale.
-8. No end-to-end/browser tests exist. Component tests run in jsdom and cannot catch Next.js server-component problems (see gotchas).
+8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, private contact notes, and a visual/mobile pass.
 
 ## Verify by hand (not yet done in a browser)
 

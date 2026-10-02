@@ -1,3 +1,5 @@
+import { appendFile } from "node:fs/promises";
+
 // Sends mail through Resend's REST API. Without RESEND_API_KEY (local dev) the message is printed
 // to the server log instead, so flows that email a link can still be tried by hand.
 //
@@ -6,6 +8,11 @@
 const DEFAULT_FROM = "Home Management <onboarding@resend.dev>";
 
 export async function sendEmail(message: { to: string; subject: string; text: string }): Promise<void> {
+  // End-to-end tests set EMAIL_OUTBOX_FILE so the browser tests can read the links the app emails.
+  if (process.env.EMAIL_OUTBOX_FILE) {
+    await appendFile(process.env.EMAIL_OUTBOX_FILE, JSON.stringify(message) + "\n");
+    return;
+  }
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log(`[email not sent: no RESEND_API_KEY] to=${message.to} subject=${message.subject}\n${message.text}`);

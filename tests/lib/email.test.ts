@@ -49,6 +49,23 @@ describe("sendEmail", () => {
   });
 });
 
+describe("sendEmail outbox", () => {
+  it("appends to EMAIL_OUTBOX_FILE instead of sending (end-to-end tests read it)", async () => {
+    const { mkdtempSync, readFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const file = join(mkdtempSync(join(tmpdir(), "outbox-")), "outbox.jsonl");
+    vi.stubEnv("EMAIL_OUTBOX_FILE", file);
+    vi.stubEnv("RESEND_API_KEY", "key123");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await sendEmail(message);
+    await sendEmail({ ...message, to: "c@d.co" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const lines = readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines.map((l) => l.to)).toEqual(["a@b.co", "c@d.co"]);
+  });
+});
+
 describe("appUrl", () => {
   it("prefers APP_URL, without a trailing slash", () => {
     vi.stubEnv("APP_URL", "https://app.example.com/");
