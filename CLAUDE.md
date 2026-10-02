@@ -1,5 +1,7 @@
 # Home Management App — Build Brief for Claude Code
 
+> **Start here: read [`docs/HANDOFF.md`](docs/HANDOFF.md) first.** It is the current state of the project (what is built and deployed, environment, gotchas, what to verify, what to do next). Per-domain requirements are in `docs/domains/` (`lists.md`, `messaging.md`). The brief below is the original Phase 1 (Contacts & Households) spec; the app has since grown past it. Quality rules: keep `npm run test:coverage` at 100%, lint and `tsc` clean, and `next build` passing before pushing to `main` (it auto-deploys to Vercel).
+
 This is the Claude Code equivalent of the AI Studio brief, adjusted for the fact that Claude Code doesn't come with a hosting/database platform built in — you need to provision those yourself, once, before or alongside handing this to Claude Code. Everything below is written so you can drop it into the repo (as `CLAUDE.md`, see below) and use it as Claude Code's standing context.
 
 ---
