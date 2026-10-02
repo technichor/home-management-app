@@ -33,8 +33,8 @@ import { prisma } from "@/lib/db";
 import { requireOwner, requireMember } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-const owner: any = { id: "o1", role: "OWNER", householdId: "h1", household: { id: "h1", urlSlug: "smiths" } };
-const member: any = { id: "m1", role: "MEMBER", householdId: "h1", household: { id: "h1", urlSlug: "smiths" } };
+const owner: any = { id: "o1", role: "OWNER", householdId: "h1", household: { id: "h1" } };
+const member: any = { id: "m1", role: "MEMBER", householdId: "h1", household: { id: "h1" } };
 
 beforeEach(() => {
   vi.clearAllMocks();

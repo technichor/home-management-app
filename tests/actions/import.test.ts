@@ -72,7 +72,7 @@ beforeEach(() => {
 const dbHousehold = (over: object = {}) =>
   ({
     id: "h1", displayName: "The Smiths", mailingAddress: null, tags: [], notes: null,
-    urlSlug: null, ownerHouseholdId: "my-hh",
+    ownerHouseholdId: "my-hh",
     createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
   }) as any;
 
@@ -250,7 +250,7 @@ describe("applyImportAction", () => {
   it("applies adds, updates and removals to households and contacts", async () => {
     allowTransaction("my-hh");
     vi.mocked(prisma.household.findMany).mockResolvedValue([
-      dbHousehold({ id: "my-hh", displayName: "Mine", urlSlug: "me", passwordHash: "secret" }),
+      dbHousehold({ id: "my-hh", displayName: "Mine", passwordHash: "secret" }),
       dbHousehold({ id: "h-edit", displayName: "Old Name" }),
       dbHousehold({ id: "h-gone", displayName: "Gone Family" }),
     ]);

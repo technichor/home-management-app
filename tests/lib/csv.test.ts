@@ -19,7 +19,6 @@ function makeHousehold(overrides: Record<string, unknown> = {}) {
     mailingAddress: null,
     tags: [] as string[],
     notes: null,
-    urlSlug: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

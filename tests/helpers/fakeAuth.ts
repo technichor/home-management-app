@@ -20,7 +20,7 @@ async function sessionUser() {
   return {
     id: "u1",
     householdId: session.householdId,
-    household: { id: session.householdId, urlSlug: session.householdSlug, displayName: "H", deletedAt: null },
+    household: { id: session.householdId, displayName: "H", deletedAt: null },
   };
 }
 

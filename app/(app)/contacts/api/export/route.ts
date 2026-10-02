@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (which === "households") {
     const households = await prisma.household.findMany({
       where: { ...householdsOf(householdId), deletedAt: null },
-      // Never include urlSlug: it is a routing label, not directory data.
+      // Only directory data: ids, name, address, tags and notes.
       select: {
         id: true,
         displayName: true,

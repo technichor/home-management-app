@@ -166,7 +166,7 @@ describe("ContactDetailPage", () => {
     await run(
       contact({
         nickname: "JJ", favorite: true, address: "9 Elm St",
-        household: { id: "h1", displayName: "The Smiths", mailingAddress: null, urlSlug: null },
+        household: { id: "h1", displayName: "The Smiths", mailingAddress: null },
         phoneMobile: "111", phoneHome: "222", phoneWork: "333",
         emailPrimary: "a@x.com", emailSecondary: "b@x.com", linkedFamilyMember: "Sam",
         importantDate1: "2026-01-01", importantDate1Label: "Birthday",
@@ -204,7 +204,7 @@ describe("ContactDetailPage", () => {
     await run(
       contact({
         category: "FAMILY_FRIEND", address: "ignored own address",
-        household: { id: "h1", displayName: "The Smiths", mailingAddress: "1 Main St", urlSlug: null },
+        household: { id: "h1", displayName: "The Smiths", mailingAddress: "1 Main St" },
       })
     );
     expect(screen.getByText("Address (from household)")).toBeInTheDocument();
@@ -217,7 +217,7 @@ describe("ContactDetailPage", () => {
     await run(
       contact({
         category: "FAMILY_FRIEND",
-        household: { id: "h1", displayName: "The Smiths", mailingAddress: null, urlSlug: null },
+        household: { id: "h1", displayName: "The Smiths", mailingAddress: null },
       })
     );
     expect(screen.getByText(/No address on household record/)).toBeInTheDocument();
