@@ -28,9 +28,9 @@ Set in Vercel (Production unless noted); locally in `.env` and `.env.local` (bot
 |---|---|
 | `DATABASE_URL` | Neon Postgres. **The same database is used for local dev and production.** Anything run against it from a dev machine (e.g. a migration) is a production change. |
 | `SESSION_SECRET` | Signs the iron-session cookie. |
-| `RESEND_API_KEY` | Sends password-reset email via Resend. Unset = the email is only printed to the server log (local dev). |
+| `RESEND_API_KEY` | Sends verification and password-reset email via Resend. **Set in Vercel Production** (sensitive); verified working on 2026-10-02. Unset = the email is only printed to the server log (local dev). |
 | `EMAIL_FROM` | Sender. Defaults to Resend's shared test sender `onboarding@resend.dev`, which **only delivers to the Resend account's own address**. Set to an address on a verified domain once the app has one. |
-| `APP_URL` | Public site URL used in emailed links (never taken from the request's Host header). Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost. |
+| `APP_URL` | Public site URL used in emailed links (never taken from the request's Host header). **Set in Vercel Production** to `https://home-management-app-tan.vercel.app`; update it if a custom domain is added. Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost. |
 
 Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! npx vercel login` in the Claude prompt (interactive). The repo's `.vercel/project.json` links it to the project.
 
