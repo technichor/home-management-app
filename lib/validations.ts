@@ -56,7 +56,13 @@ export const householdSchema = z.object({
 
 export type HouseholdInput = z.infer<typeof householdSchema>;
 
-export const createHouseholdSchema = z.object({
+// The person an account acts as (sender of its messages, head who answers sync invites).
+export const personNameSchema = z.object({
+  firstName: z.string().trim().min(1, "First name is required"),
+  lastName: z.string().trim().min(1, "Last name is required"),
+});
+
+export const createHouseholdSchema = personNameSchema.extend({
   displayName: z.string().min(1, "Display name is required"),
   urlSlug: z
     .string()
@@ -71,4 +77,9 @@ export const createHouseholdSchema = z.object({
 
 export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
+});
+
+export const requestSyncSchema = z.object({
+  contactId: z.string().min(1, "Choose a contact"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
 });

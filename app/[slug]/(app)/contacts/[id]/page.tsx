@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
+import { sessionOptions, SessionData } from "@/lib/session";
+import SyncCard from "./SyncCard";
 import Link from "next/link";
 import { ContactCategory, ActivityAction } from "@prisma/client";
 import {
@@ -54,6 +58,17 @@ export default async function ContactDetailPage({
   });
 
   if (!contact) notFound();
+
+  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+  // People in our own household can already message each other; sync is for everyone else.
+  const canSync = contact.householdId !== session.householdId;
+  const latestSync = canSync
+    ? await prisma.sync.findFirst({
+        where: { relatedContactId: contact.id, initiatingHouseholdId: session.householdId },
+        orderBy: { createdAt: "desc" },
+        include: { counterpartHousehold: { select: { displayName: true } } },
+      })
+    : null;
 
   const activityLog = await prisma.activityLogEntry.findMany({
     where: { entityId: contact.id, entityType: "CONTACT" },
@@ -217,6 +232,24 @@ export default async function ContactDetailPage({
         column={{ xs: 1, sm: 2, lg: 3 }}
         items={descItems}
       />
+
+      {canSync && (
+        <SyncCard
+          slug={slug}
+          contactId={contact.id}
+          defaultEmail={latestSync?.counterpartEmail ?? contact.emailPrimary ?? ""}
+          sync={
+            latestSync
+              ? {
+                  id: latestSync.id,
+                  status: latestSync.status,
+                  counterpartEmail: latestSync.counterpartEmail,
+                  counterpartHouseholdName: latestSync.counterpartHousehold?.displayName ?? null,
+                }
+              : null
+          }
+        />
+      )}
 
       {activityLog.length > 0 && (
         <div>

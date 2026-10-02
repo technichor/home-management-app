@@ -19,17 +19,15 @@ vi.mock("bcryptjs", () => ({
   default: { hash: vi.fn(), compare: vi.fn() },
 }));
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    household: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    activityLogEntry: {
-      create: vi.fn(),
-    },
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const prisma: any = {
+    household: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    contact: { create: vi.fn() },
+    activityLogEntry: { createMany: vi.fn() },
+  };
+  prisma.$transaction = (fn: (tx: any) => unknown) => fn(prisma);
+  return { prisma };
+});
 
 import { createHouseholdAction } from "@/app/setup/actions";
 import { prisma } from "@/lib/db";
@@ -44,6 +42,8 @@ function makeFormData(fields: Record<string, string>) {
 
 const validInput = {
   setupCode: "let-me-in",
+  firstName: "Sam",
+  lastName: "Reynolds",
   displayName: "The Reynolds Family",
   urlSlug: "reynolds-family",
   password: "secure-password",
@@ -93,73 +93,81 @@ describe("createHouseholdAction: setup code", () => {
 
 describe("createHouseholdAction", () => {
   it("returns error when displayName is missing", async () => {
-    const fd = makeFormData({ ...validInput, displayName: "" });
-    const result = await createHouseholdAction(null, fd);
+    const result = await createHouseholdAction(null, makeFormData({ ...validInput, displayName: "" }));
     expect(result?.error).toMatch(/required/i);
   });
 
+  it("returns error when the owner's name is missing", async () => {
+    const first = await createHouseholdAction(null, makeFormData({ ...validInput, firstName: "" }));
+    const last = await createHouseholdAction(null, makeFormData({ ...validInput, lastName: "" }));
+    expect(first?.error).toBe("First name is required");
+    expect(last?.error).toBe("Last name is required");
+    expect(prisma.household.create).not.toHaveBeenCalled();
+  });
+
   it("returns error for bad slug format", async () => {
-    const fd = makeFormData({ ...validInput, urlSlug: "Bad Slug!" });
-    const result = await createHouseholdAction(null, fd);
+    const result = await createHouseholdAction(null, makeFormData({ ...validInput, urlSlug: "Bad Slug!" }));
     expect(result?.error).toBeTruthy();
   });
 
   it("returns error for short password", async () => {
-    const fd = makeFormData({ ...validInput, password: "short" });
-    const result = await createHouseholdAction(null, fd);
+    const result = await createHouseholdAction(null, makeFormData({ ...validInput, password: "short" }));
     expect(result?.error).toMatch(/8 characters/i);
   });
 
   it("returns error when slug is already taken", async () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue({ id: "existing" } as any);
-    const fd = makeFormData(validInput);
-    const result = await createHouseholdAction(null, fd);
+    const result = await createHouseholdAction(null, makeFormData(validInput));
     expect(result?.error).toMatch(/already taken/i);
+    expect(prisma.household.create).not.toHaveBeenCalled();
   });
 
-  it("creates household, logs activity, sets session, then redirects", async () => {
+  function allowCreate() {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
     vi.mocked(bcrypt.hash).mockResolvedValue("hashed_pw" as never);
     vi.mocked(prisma.household.create).mockResolvedValue({ id: "hh1" } as any);
-    vi.mocked(prisma.activityLogEntry.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.contact.create).mockResolvedValue({ id: "owner1" } as any);
+    vi.mocked(prisma.household.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.activityLogEntry.createMany).mockResolvedValue({ count: 2 } as any);
+    const session = { householdId: "", householdSlug: "", save: vi.fn().mockResolvedValue(undefined) };
+    vi.mocked(getIronSession).mockResolvedValue(session as any);
+    return session;
+  }
 
-    const mockSession = { householdId: "", householdSlug: "", save: vi.fn().mockResolvedValue(undefined) };
-    vi.mocked(getIronSession).mockResolvedValue(mockSession as any);
-
-    const fd = makeFormData(validInput);
-    await expect(createHouseholdAction(null, fd)).rejects.toThrow("REDIRECT:/reynolds-family/contacts");
-
-    expect(prisma.household.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          displayName: "The Reynolds Family",
-          urlSlug: "reynolds-family",
-          passwordHash: "hashed_pw",
-        }),
-      })
+  it("creates the household and its owner contact, links them, logs both, signs in, and redirects", async () => {
+    const session = allowCreate();
+    await expect(createHouseholdAction(null, makeFormData(validInput))).rejects.toThrow(
+      "REDIRECT:/reynolds-family/contacts"
     );
-    expect(prisma.activityLogEntry.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ action: "CREATED", entityType: "HOUSEHOLD", entityId: "hh1" }),
-      })
-    );
-    expect(mockSession.householdId).toBe("hh1");
-    expect(mockSession.householdSlug).toBe("reynolds-family");
-    expect(mockSession.save).toHaveBeenCalled();
+
+    expect(prisma.household.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        displayName: "The Reynolds Family",
+        urlSlug: "reynolds-family",
+        passwordHash: "hashed_pw",
+      }),
+    });
+    expect(prisma.contact.create).toHaveBeenCalledWith({
+      data: { householdId: "hh1", firstName: "Sam", lastName: "Reynolds", category: "FAMILY_FRIEND" },
+    });
+    expect(prisma.household.update).toHaveBeenCalledWith({
+      where: { id: "hh1" },
+      data: { accountContactId: "owner1" },
+    });
+    expect(prisma.activityLogEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        { entityType: "HOUSEHOLD", entityId: "hh1", action: "CREATED", source: "MANUAL" },
+        { entityType: "CONTACT", entityId: "owner1", action: "CREATED", source: "MANUAL" },
+      ],
+    });
+    expect(session.householdId).toBe("hh1");
+    expect(session.householdSlug).toBe("reynolds-family");
+    expect(session.save).toHaveBeenCalled();
   });
 
   it("hashes the password with bcrypt cost 12", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-    vi.mocked(bcrypt.hash).mockResolvedValue("hashed_pw" as never);
-    vi.mocked(prisma.household.create).mockResolvedValue({ id: "hh1" } as any);
-    vi.mocked(prisma.activityLogEntry.create).mockResolvedValue({} as any);
-    vi.mocked(getIronSession).mockResolvedValue({
-      householdId: "", householdSlug: "", save: vi.fn().mockResolvedValue(undefined),
-    } as any);
-
-    const fd = makeFormData(validInput);
-    await expect(createHouseholdAction(null, fd)).rejects.toThrow("REDIRECT:");
-
+    allowCreate();
+    await expect(createHouseholdAction(null, makeFormData(validInput))).rejects.toThrow("REDIRECT:");
     expect(bcrypt.hash).toHaveBeenCalledWith("secure-password", 12);
   });
 });

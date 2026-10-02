@@ -32,6 +32,7 @@ vi.mock("@/lib/db", () => ({
     contact: { findMany: vi.fn(), findUnique: vi.fn() },
     household: { findMany: vi.fn(), findUnique: vi.fn() },
     activityLogEntry: { findMany: vi.fn() },
+    sync: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/app/[slug]/(app)/contacts/removed/actions", () => ({
@@ -40,6 +41,9 @@ vi.mock("@/app/[slug]/(app)/contacts/removed/actions", () => ({
 }));
 vi.mock("@/app/[slug]/actions", () => ({ loginAction: vi.fn() }));
 const seen: Record<string, any> = {};
+vi.mock("@/app/[slug]/(app)/contacts/[id]/SyncCard", () => ({
+  default: (p: any) => ((seen.syncCard = p), <div>sync card</div>),
+}));
 vi.mock("@/app/[slug]/(app)/contacts/ContactsFilter", () => ({
   default: (p: any) => ((seen.filter = p), <div>filter</div>),
 }));
@@ -77,6 +81,7 @@ beforeEach(() => {
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getIronSession).mockResolvedValue({ householdId: "mine" } as any);
   vi.mocked(prisma.activityLogEntry.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.sync.findFirst).mockResolvedValue(null);
 });
 
 describe("ContactsPage", () => {
@@ -204,6 +209,49 @@ describe("ContactDetailPage", () => {
     await run(contact({ category: "FAMILY_FRIEND", household: null }));
     expect(screen.getByText(/No address on household record/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "The Smiths" })).not.toBeInTheDocument();
+  });
+
+  describe("messaging sync card", () => {
+    it("offers sync to a contact outside our household, defaulting to their primary email", async () => {
+      await run(contact({ emailPrimary: "pat@x.com" }));
+      expect(screen.getByText("sync card")).toBeInTheDocument();
+      expect(seen.syncCard).toEqual({ slug: "s", contactId: "c1", defaultEmail: "pat@x.com", sync: null });
+    });
+
+    it("defaults to an empty email when the contact has none", async () => {
+      await run(contact());
+      expect(seen.syncCard.defaultEmail).toBe("");
+    });
+
+    it("passes the latest sync, preferring the email it was sent to", async () => {
+      vi.mocked(prisma.sync.findFirst).mockResolvedValue({
+        id: "sy1", status: "ACTIVE", counterpartEmail: "sent@x.com",
+        counterpartHousehold: { displayName: "Reynolds" },
+      } as any);
+      await run(contact({ emailPrimary: "pat@x.com" }));
+      expect(seen.syncCard.defaultEmail).toBe("sent@x.com");
+      expect(seen.syncCard.sync).toEqual({
+        id: "sy1", status: "ACTIVE", counterpartEmail: "sent@x.com", counterpartHouseholdName: "Reynolds",
+      });
+      expect(vi.mocked(prisma.sync.findFirst).mock.calls[0]?.[0]).toMatchObject({
+        where: { relatedContactId: "c1", initiatingHouseholdId: "mine" },
+        orderBy: { createdAt: "desc" },
+      });
+    });
+
+    it("has no counterpart household name while the invite is pending", async () => {
+      vi.mocked(prisma.sync.findFirst).mockResolvedValue({
+        id: "sy1", status: "PENDING", counterpartEmail: "sent@x.com", counterpartHousehold: null,
+      } as any);
+      await run(contact());
+      expect(seen.syncCard.sync.counterpartHouseholdName).toBeNull();
+    });
+
+    it("hides sync for people in our own household and does not look one up", async () => {
+      await run(contact({ householdId: "mine" }));
+      expect(screen.queryByText("sync card")).not.toBeInTheDocument();
+      expect(prisma.sync.findFirst).not.toHaveBeenCalled();
+    });
   });
 
   it("shows the activity log with readable actions and sources", async () => {

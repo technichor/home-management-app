@@ -49,6 +49,14 @@ export default function AppNav({ slug, householdName, logoutAction }: AppNavProp
           <Text type="secondary" style={{ fontSize: 13 }}>
             {householdName}
           </Text>
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => router.push(`/${slug}/account`)}
+          >
+            Account
+          </Button>
           <form action={logoutAction} style={{ display: "inline" }}>
             <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
               Log out

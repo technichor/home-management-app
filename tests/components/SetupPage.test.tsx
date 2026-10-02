@@ -17,6 +17,8 @@ beforeEach(() => {
 
 async function fillAndSubmit() {
   await userEvent.type(document.querySelector("input[name=setupCode]") as HTMLInputElement, "let-me-in");
+  await userEvent.type(document.querySelector("input[name=firstName]") as HTMLInputElement, "Sam");
+  await userEvent.type(document.querySelector("input[name=lastName]") as HTMLInputElement, "Smith");
   await userEvent.type(screen.getByPlaceholderText("e.g. The Reynolds Family"), "The Smiths");
   await userEvent.type(screen.getByPlaceholderText("reynolds-family"), "smiths");
   await userEvent.type(document.querySelector("input[name=password]") as HTMLInputElement, "longenough");
@@ -30,6 +32,8 @@ describe("SetupPage", () => {
     await waitFor(() => expect(createHouseholdAction).toHaveBeenCalled());
     const formData = vi.mocked(createHouseholdAction).mock.calls[0][1] as FormData;
     expect(formData.get("setupCode")).toBe("let-me-in");
+    expect(formData.get("firstName")).toBe("Sam");
+    expect(formData.get("lastName")).toBe("Smith");
     expect(formData.get("displayName")).toBe("The Smiths");
     expect(formData.get("urlSlug")).toBe("smiths");
     expect(formData.get("password")).toBe("longenough");

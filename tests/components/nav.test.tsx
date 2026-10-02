@@ -62,6 +62,12 @@ describe("AppNav", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("opens the account page", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Account" }));
+    expect(push).toHaveBeenCalledWith("/s/account");
+  });
+
   it("logs out via the form action", async () => {
     const { logoutAction } = setup();
     await userEvent.click(screen.getByRole("button", { name: "Log out" }));

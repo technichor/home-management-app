@@ -3,6 +3,8 @@ import {
   contactSchema,
   householdSchema,
   createHouseholdSchema,
+  personNameSchema,
+  requestSyncSchema,
 } from "@/lib/validations";
 
 describe("contactSchema", () => {
@@ -106,7 +108,27 @@ describe("householdSchema", () => {
 });
 
 describe("createHouseholdSchema", () => {
-  const valid = { displayName: "The Reynolds", urlSlug: "reynolds-family", password: "secure-pw-1" };
+  const valid = {
+    firstName: "Sam",
+    lastName: "Reynolds",
+    displayName: "The Reynolds",
+    urlSlug: "reynolds-family",
+    password: "secure-pw-1",
+  };
+
+  it("requires the owner's first and last name", () => {
+    const first = createHouseholdSchema.safeParse({ ...valid, firstName: "  " });
+    const last = createHouseholdSchema.safeParse({ ...valid, lastName: "" });
+    expect(first.success).toBe(false);
+    expect(last.success).toBe(false);
+    expect(first.error?.issues[0].message).toBe("First name is required");
+    expect(last.error?.issues[0].message).toBe("Last name is required");
+  });
+
+  it("trims the owner's name", () => {
+    const r = createHouseholdSchema.safeParse({ ...valid, firstName: "  Sam ", lastName: " Reynolds  " });
+    expect(r.success && [r.data.firstName, r.data.lastName]).toEqual(["Sam", "Reynolds"]);
+  });
 
   it("requires displayName", () => {
     const r = createHouseholdSchema.safeParse({ ...valid, displayName: "" });
@@ -149,5 +171,27 @@ describe("createHouseholdSchema", () => {
   it("accepts slug with numbers and hyphens", () => {
     const r = createHouseholdSchema.safeParse({ ...valid, urlSlug: "smith-family-123" });
     expect(r.success).toBe(true);
+  });
+});
+
+describe("personNameSchema", () => {
+  it("accepts a trimmed first and last name and rejects blanks", () => {
+    expect(personNameSchema.safeParse({ firstName: " A ", lastName: "B" }).data).toEqual({ firstName: "A", lastName: "B" });
+    expect(personNameSchema.safeParse({ firstName: "", lastName: "B" }).success).toBe(false);
+    expect(personNameSchema.safeParse({ firstName: "A", lastName: " " }).success).toBe(false);
+  });
+});
+
+describe("requestSyncSchema", () => {
+  it("normalizes the email to trimmed lowercase", () => {
+    const r = requestSyncSchema.safeParse({ contactId: "c1", email: "  Pat@Example.COM " });
+    expect(r.data).toEqual({ contactId: "c1", email: "pat@example.com" });
+  });
+
+  it("rejects a malformed email and a missing contact", () => {
+    expect(requestSyncSchema.safeParse({ contactId: "c1", email: "not-an-email" }).error?.issues[0].message).toBe(
+      "Enter a valid email address"
+    );
+    expect(requestSyncSchema.safeParse({ contactId: "", email: "a@b.co" }).error?.issues[0].message).toBe("Choose a contact");
   });
 });

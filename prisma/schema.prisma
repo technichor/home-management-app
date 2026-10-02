@@ -49,19 +49,23 @@ enum ActivitySource {
 }
 
 model Household {
-  id              String    @id @default(cuid())
-  displayName     String
-  mailingAddress  String?
-  tags            String[]
-  notes           String?
-  urlSlug         String?   @unique
-  passwordHash    String?
-  headOfHousehold String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  id               String    @id @default(cuid())
+  displayName      String
+  mailingAddress   String?
+  tags             String[]
+  notes            String?
+  urlSlug          String?   @unique
+  passwordHash     String?
+  headOfHousehold  String?
+  // The one Contact this account acts as: the sender of its messages, and the "head" who
+  // answers sync invites. Everyone sharing the household password acts as this contact.
+  accountContactId String?
+  accountContact   Contact?  @relation("AccountContact", fields: [accountContactId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
-  contacts       Contact[]
+  contacts       Contact[]       @relation("HouseholdContacts")
   importVersions ImportVersion[]
   lists          List[]
 
@@ -73,7 +77,7 @@ model Household {
 model Contact {
   id                  String          @id @default(cuid())
   householdId         String?
-  household           Household?      @relation(fields: [householdId], references: [id])
+  household           Household?      @relation("HouseholdContacts", fields: [householdId], references: [id])
   firstName           String
   lastName            String
   nickname            String?
@@ -99,9 +103,10 @@ model Contact {
 
   assignedListItems ListItem[]
 
-  syncs         Sync[]
-  conversations Conversation[]
-  sentMessages  Message[]
+  syncs                Sync[]
+  conversations        Conversation[]
+  sentMessages         Message[]
+  accountForHouseholds Household[]    @relation("AccountContact")
 }
 
 // Polymorphic log — entityId can reference either a Contact or Household id.
@@ -172,6 +177,8 @@ model Sync {
   relatedContactId       String
   relatedContact         Contact    @relation(fields: [relatedContactId], references: [id], onDelete: Restrict)
   counterpartEmail       String
+  // SHA-256 of the invite token in the accept/decline link. The token itself is shown once.
+  inviteTokenHash        String     @unique
   status                 SyncStatus @default(PENDING)
   createdAt              DateTime   @default(now())
   respondedAt            DateTime?

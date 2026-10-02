@@ -64,6 +64,24 @@ export default function SetupPage() {
                   </Typography.Text>
                 </div>
 
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                      Your first name <span style={{ color: "#ff4d4f" }}>*</span>
+                    </Typography.Text>
+                    <Input name="firstName" type="text" required autoComplete="given-name" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+                      Your last name <span style={{ color: "#ff4d4f" }}>*</span>
+                    </Typography.Text>
+                    <Input name="lastName" type="text" required autoComplete="family-name" />
+                  </div>
+                </div>
+                <Typography.Text type="secondary" style={{ fontSize: 12, marginTop: -8, display: "block" }}>
+                  Everyone using this household login sends messages as this person.
+                </Typography.Text>
+
                 <div>
                   <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
                     Household display name <span style={{ color: "#ff4d4f" }}>*</span>

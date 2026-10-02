@@ -33,6 +33,8 @@ export async function createHouseholdAction(
   }
 
   const raw = {
+    firstName: formData.get("firstName") as string,
+    lastName: formData.get("lastName") as string,
     displayName: formData.get("displayName") as string,
     urlSlug: formData.get("urlSlug") as string,
     password: formData.get("password") as string,
@@ -44,7 +46,7 @@ export async function createHouseholdAction(
     return { error: messages };
   }
 
-  const { displayName, urlSlug, password } = parsed.data;
+  const { firstName, lastName, displayName, urlSlug, password } = parsed.data;
 
   const existing = await prisma.household.findUnique({ where: { urlSlug } });
   if (existing) {
@@ -55,22 +57,28 @@ export async function createHouseholdAction(
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const household = await prisma.household.create({
-    data: {
-      displayName,
-      urlSlug,
-      passwordHash,
-      headOfHousehold: displayName,
-    },
-  });
-
-  await prisma.activityLogEntry.create({
-    data: {
-      entityType: "HOUSEHOLD",
-      entityId: household.id,
-      action: "CREATED",
-      source: "MANUAL",
-    },
+  // The account acts as one Contact (its message sender, and the head who answers sync
+  // invites), so the household, that contact, and the link between them are created together.
+  const household = await prisma.$transaction(async (tx) => {
+    const created = await tx.household.create({
+      data: {
+        displayName,
+        urlSlug,
+        passwordHash,
+        headOfHousehold: `${firstName} ${lastName}`,
+      },
+    });
+    const owner = await tx.contact.create({
+      data: { householdId: created.id, firstName, lastName, category: "FAMILY_FRIEND" },
+    });
+    await tx.household.update({ where: { id: created.id }, data: { accountContactId: owner.id } });
+    await tx.activityLogEntry.createMany({
+      data: [
+        { entityType: "HOUSEHOLD", entityId: created.id, action: "CREATED", source: "MANUAL" },
+        { entityType: "CONTACT", entityId: owner.id, action: "CREATED", source: "MANUAL" },
+      ],
+    });
+    return created;
   });
 
   const session = await getIronSession<SessionData>(
