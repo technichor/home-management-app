@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { homePathFor, startSession } from "@/lib/auth";
 import { safeNext } from "@/lib/redirect";
+import { sendVerificationEmail } from "@/lib/emailVerification";
 import { signupSchema } from "@/lib/validations";
 
 export type AuthState = { error: string } | null;
@@ -38,6 +39,13 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     // Lost a race with another signup for the same email.
     if ((e as { code?: string }).code === "P2002") return { error: EMAIL_TAKEN };
     throw e;
+  }
+
+  // A failed send isn't fatal: the verify page lets them ask for another.
+  try {
+    await sendVerificationEmail(user);
+  } catch (e) {
+    console.error("Verification email failed", e);
   }
 
   await startSession(user);

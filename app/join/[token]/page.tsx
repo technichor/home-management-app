@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button, Card } from "antd";
 import { prisma } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, isUnverified } from "@/lib/auth";
 import { hashInviteToken } from "@/lib/syncToken";
 import AcceptInvite from "./AcceptInvite";
 
@@ -58,6 +58,16 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
         </Link>{" "}
         <Link href={`/signup?next=${next}`}>
           <Button>Create an account</Button>
+        </Link>
+      </Shell>
+    );
+  }
+  if (isUnverified(user)) {
+    return (
+      <Shell title={`Join ${invite.household.displayName}`}>
+        <p>Confirm your email address first, then open this invite link again.</p>
+        <Link href="/verify-email">
+          <Button type="primary">Confirm your email</Button>
         </Link>
       </Shell>
     );

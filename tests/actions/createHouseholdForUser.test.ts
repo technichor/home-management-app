@@ -5,7 +5,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${url}`);
   }),
 }));
-vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), startSession: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), startSession: vi.fn(), isUnverified: (u: any) => u.emailVerifiedAt === null }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     household: { findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -41,6 +41,14 @@ describe("createHouseholdForUserAction", () => {
   it("requires a signed-in user", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
     await expect(createHouseholdForUserAction(null, fd({ displayName: "X" }))).rejects.toThrow("REDIRECT:/login");
+    expect(prisma.household.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who hasn't confirmed their email", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ ...user, emailVerifiedAt: null } as any);
+    expect(await createHouseholdForUserAction(null, fd({ displayName: "X" }))).toEqual({
+      error: "Confirm your email address first.",
+    });
     expect(prisma.household.create).not.toHaveBeenCalled();
   });
 

@@ -92,7 +92,7 @@ describe("requestPasswordResetAction", () => {
 
 describe("resetPasswordAction", () => {
   const good = { newPassword: "new-password-1", confirmPassword: "new-password-1" };
-  const row = { id: "t1", user: { id: "u1", email: "a@b.co" } };
+  const row = { id: "t1", user: { id: "u1", email: "a@b.co", emailVerifiedAt: new Date("2026-01-01T00:00:00Z") } };
 
   beforeEach(() => {
     vi.mocked(findValidResetToken).mockResolvedValue(row as any);
@@ -123,6 +123,12 @@ describe("resetPasswordAction", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("also confirms the email of a user who hadn't yet, since the link proves mailbox access", async () => {
+    vi.mocked(findValidResetToken).mockResolvedValue({ ...row, user: { ...row.user, emailVerifiedAt: null } } as any);
+    await expect(resetPasswordAction("tok", null, fd(good))).rejects.toThrow("REDIRECT:/login?reset=1");
+    expect(vi.mocked(prisma.user.update).mock.calls[0][0].data.emailVerifiedAt).toBeInstanceOf(Date);
+  });
+
   it("sets the password, stamps the change, burns every link, clears lockouts and goes to login", async () => {
     await expect(resetPasswordAction("tok", null, fd(good))).rejects.toThrow("REDIRECT:/login?reset=1");
     expect(bcrypt.hash).toHaveBeenCalledWith("new-password-1", 12);
@@ -132,7 +138,7 @@ describe("resetPasswordAction", () => {
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
-      data: { passwordHash: "NEWHASH", passwordChangedAt: expect.any(Date) },
+      data: { passwordHash: "NEWHASH", passwordChangedAt: expect.any(Date), emailVerifiedAt: new Date("2026-01-01T00:00:00Z") },
     });
     expect(vi.mocked(prisma.passwordResetToken.updateMany).mock.calls[1][0].where).toEqual({ userId: "u1", usedAt: null });
     expect(clearFailedLogins).toHaveBeenCalledWith("a@b.co");

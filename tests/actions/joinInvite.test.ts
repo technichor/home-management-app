@@ -6,7 +6,7 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${url}`);
   }),
 }));
-vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), startSession: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), startSession: vi.fn(), isUnverified: (u: any) => u.emailVerifiedAt === null }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     householdInvite: { findUnique: vi.fn(), updateMany: vi.fn() },
@@ -46,6 +46,12 @@ describe("acceptHouseholdInviteAction", () => {
   it("sends a signed-out visitor to log in and come back", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
     await expect(acceptHouseholdInviteAction("tok")).rejects.toThrow("REDIRECT:/login?next=%2Fjoin%2Ftok");
+  });
+
+  it("refuses a user who hasn't confirmed their email", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ ...user, emailVerifiedAt: null } as any);
+    expect(await acceptHouseholdInviteAction("tok")).toEqual({ error: "Confirm your email address first." });
+    expect(prisma.householdInvite.findUnique).not.toHaveBeenCalled();
   });
 
   it("refuses a user who already has a household", async () => {
@@ -123,6 +129,12 @@ function fd(fields: Record<string, string>) {
 }
 
 describe("requestJoinAction", () => {
+  it("won't ask to join before the email is confirmed", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ ...user, emailVerifiedAt: null } as any);
+    expect(await requestJoinAction(null, fd({ joinCode: "ABCD2345" }))).toEqual({ error: "Confirm your email address first." });
+    expect(prisma.household.findUnique).not.toHaveBeenCalled();
+  });
+
   it("requires a signed-in user without a household", async () => {
     vi.mocked(getSessionUser).mockResolvedValue(null);
     await expect(requestJoinAction(null, fd({ joinCode: "ABCD2345" }))).rejects.toThrow("REDIRECT:/login");

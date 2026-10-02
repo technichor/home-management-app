@@ -33,7 +33,7 @@ try {
       contactId = contact.id;
     }
     return tx.user.create({
-      data: { email: normalized, passwordHash, firstName, lastName, role: "OWNER", householdId: household.id, contactId },
+      data: { email: normalized, passwordHash, firstName, lastName, role: "OWNER", householdId: household.id, contactId, emailVerifiedAt: new Date() },
     });
   });
   console.log(`Created owner ${user.email} for "${household.displayName}". Log in at /login.`);

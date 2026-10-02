@@ -18,12 +18,17 @@ export async function getSessionUser() {
 
 type SignedInUser = {
   id: string;
+  emailVerifiedAt?: Date | null;
   household: { urlSlug: string | null; deletedAt: Date | null } | null;
 };
 
-// Where a signed-in user belongs: a user with no (active) household can't use any feature yet,
-// so they go to onboarding.
+/** Has not confirmed their email yet. (Only a null from the database counts, never an absent field.) */
+export const isUnverified = (user: { emailVerifiedAt?: Date | null }) => user.emailVerifiedAt === null;
+
+// Where a signed-in user belongs: an unverified user must confirm their email first, and a user
+// with no (active) household can't use any feature yet, so they go to onboarding.
 export function homePathFor(user: SignedInUser): string {
+  if (isUnverified(user)) return "/verify-email";
   const household = user.household;
   return household && !household.deletedAt && household.urlSlug ? `/${household.urlSlug}/contacts` : "/onboarding";
 }

@@ -7,7 +7,7 @@ export const RESET_TTL_MS = 60 * 60 * 1000;
 export async function findValidResetToken(token: string) {
   const row = await prisma.passwordResetToken.findUnique({
     where: { tokenHash: hashInviteToken(token) },
-    include: { user: { select: { id: true, email: true } } },
+    include: { user: { select: { id: true, email: true, emailVerifiedAt: true } } },
   });
   return row && !row.usedAt && row.expiresAt > new Date() ? row : null;
 }

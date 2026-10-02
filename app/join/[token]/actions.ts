@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, startSession } from "@/lib/auth";
+import { getSessionUser, isUnverified, startSession } from "@/lib/auth";
 import { joinHouseholdTx, MembershipError } from "@/lib/membership";
 import { hashInviteToken } from "@/lib/syncToken";
 import type { AuthState } from "@/app/signup/actions";
@@ -11,6 +11,7 @@ import type { AuthState } from "@/app/signup/actions";
 export async function acceptHouseholdInviteAction(token: string): Promise<AuthState> {
   const user = await getSessionUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/join/${token}`)}`);
+  if (isUnverified(user)) return { error: "Confirm your email address first." };
   if (user.household && !user.household.deletedAt) return { error: "You already belong to a household." };
 
   const invite = await prisma.householdInvite.findUnique({

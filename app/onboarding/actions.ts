@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getSessionUser, startSession } from "@/lib/auth";
+import { getSessionUser, isUnverified, startSession } from "@/lib/auth";
 import { pickSlug, slugify } from "@/lib/slug";
 import { normalizeJoinCode } from "@/lib/joinCode";
 import { newHouseholdSchema } from "@/lib/validations";
@@ -12,6 +12,7 @@ import type { AuthState } from "@/app/signup/actions";
 export async function createHouseholdForUserAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  if (isUnverified(user)) return { error: "Confirm your email address first." };
   if (user.household && !user.household.deletedAt) {
     return { error: "You already belong to a household." };
   }
@@ -66,6 +67,7 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
 export async function requestJoinAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  if (isUnverified(user)) return { error: "Confirm your email address first." };
   if (user.household && !user.household.deletedAt) return { error: "You already belong to a household." };
 
   const code = normalizeJoinCode(String(formData.get("joinCode") ?? ""));

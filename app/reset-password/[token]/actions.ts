@@ -31,7 +31,11 @@ export async function resetPasswordAction(token: string, _prev: AuthState, formD
       data: { usedAt: now },
     });
     if (claimed.count === 0) return false;
-    await tx.user.update({ where: { id: row.user.id }, data: { passwordHash, passwordChangedAt: now } });
+    await tx.user.update({
+      where: { id: row.user.id },
+      // Following an emailed link also proves the address is theirs.
+      data: { passwordHash, passwordChangedAt: now, emailVerifiedAt: row.user.emailVerifiedAt ?? now },
+    });
     await tx.passwordResetToken.updateMany({ where: { userId: row.user.id, usedAt: null }, data: { usedAt: now } });
     return true;
   });

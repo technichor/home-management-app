@@ -14,6 +14,8 @@ import {
   clearFailedLogins,
   resetRetryAfterMinutes,
   recordResetRequest,
+  verifyRetryAfterMinutes,
+  recordVerifyRequest,
   WINDOW_MS,
   MAX_FAILURES,
   RESET_WINDOW_MS,
@@ -94,6 +96,26 @@ describe("password reset requests", () => {
       data: [
         { kind: "reset-email", key: "a@b.co" },
         { kind: "reset-ip", key: "1.1.1.1" },
+      ],
+    });
+  });
+});
+
+describe("verification email requests", () => {
+  it("are limited per email like reset requests", async () => {
+    vi.mocked(prisma.authAttempt.findMany).mockImplementation((async (q: any) =>
+      q.where.kind === "verify-email" ? rows(MAX_RESET_REQUESTS.email, 20 * 60_000) : []) as any);
+    expect(await verifyRetryAfterMinutes("a@b.co", "1.1.1.1")).toBe(40);
+  });
+  it("allows a caller under the limits", async () => {
+    expect(await verifyRetryAfterMinutes("a@b.co", "1.1.1.1")).toBe(0);
+  });
+  it("records the email and IP", async () => {
+    await recordVerifyRequest("a@b.co", "1.1.1.1");
+    expect(prisma.authAttempt.createMany).toHaveBeenCalledWith({
+      data: [
+        { kind: "verify-email", key: "a@b.co" },
+        { kind: "verify-ip", key: "1.1.1.1" },
       ],
     });
   });

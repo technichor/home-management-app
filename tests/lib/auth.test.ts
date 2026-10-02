@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn() } } }));
 
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
-import { getSessionUser, getHouseholdId, homePathFor, startSession, requireHouseholdId, pageHouseholdId } from "@/lib/auth";
+import { getSessionUser, getHouseholdId, homePathFor, isUnverified, startSession, requireHouseholdId, pageHouseholdId } from "@/lib/auth";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -42,6 +42,17 @@ describe("getSessionUser", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: "u1" } as any);
     expect(await getSessionUser()).toEqual({ id: "u1" });
     expect(vi.mocked(prisma.user.findUnique).mock.calls[0][0]).toMatchObject({ where: { id: "u1" } });
+  });
+});
+
+describe("isUnverified / homePathFor for unverified users", () => {
+  it("only a null emailVerifiedAt counts as unverified", () => {
+    expect(isUnverified({ emailVerifiedAt: null })).toBe(true);
+    expect(isUnverified({ emailVerifiedAt: new Date() })).toBe(false);
+    expect(isUnverified({})).toBe(false);
+  });
+  it("sends an unverified user to confirm their email, even if they have a household", () => {
+    expect(homePathFor({ id: "u", emailVerifiedAt: null, household: { urlSlug: "smiths", deletedAt: null } })).toBe("/verify-email");
   });
 });
 

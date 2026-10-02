@@ -72,3 +72,17 @@ export const recordResetRequest = (email: string, ip: string) =>
     { kind: "reset-email", key: email },
     { kind: "reset-ip", key: ip },
   ]);
+
+// ---- Verification emails (resends count, so nobody can flood an inbox) ----
+
+export const verifyRetryAfterMinutes = (email: string, ip: string) =>
+  retryAfterMinutes([
+    { kind: "verify-email", key: email, max: MAX_RESET_REQUESTS.email, windowMs: RESET_WINDOW_MS },
+    { kind: "verify-ip", key: ip, max: MAX_RESET_REQUESTS.ip, windowMs: RESET_WINDOW_MS },
+  ]);
+
+export const recordVerifyRequest = (email: string, ip: string) =>
+  record([
+    { kind: "verify-email", key: email },
+    { kind: "verify-ip", key: ip },
+  ]);

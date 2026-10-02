@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   }),
 }));
-vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), isUnverified: (u: any) => u.emailVerifiedAt === null }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findMany: vi.fn() },
@@ -131,6 +131,15 @@ describe("JoinPage", () => {
     render(await JoinPage({ params: tokenParams }));
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login?next=%2Fjoin%2Ftok");
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup?next=%2Fjoin%2Ftok");
+  });
+
+  it("asks an unverified user to confirm their email first", async () => {
+    vi.mocked(prisma.householdInvite.findUnique).mockResolvedValue(invite() as any);
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u", email: "a@b.co", emailVerifiedAt: null, household: null } as any);
+    render(await JoinPage({ params: tokenParams }));
+    expect(screen.getByText(/Confirm your email address first/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Confirm your email" })).toHaveAttribute("href", "/verify-email");
+    expect(screen.queryByText("accept tok")).toBeNull();
   });
 
   it("tells a user who already has a household they can't accept", async () => {

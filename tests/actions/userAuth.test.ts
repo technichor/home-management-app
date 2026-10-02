@@ -11,6 +11,7 @@ vi.mock("bcryptjs", () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
 vi.mock("@/lib/db", () => ({
   prisma: { user: { findUnique: vi.fn(), create: vi.fn() } },
 }));
+vi.mock("@/lib/emailVerification", () => ({ sendVerificationEmail: vi.fn() }));
 vi.mock("@/lib/rateLimit", () => ({
   getClientIp: vi.fn().mockResolvedValue("1.2.3.4"),
   loginRetryAfterMinutes: vi.fn(),
@@ -23,6 +24,7 @@ import { loginAction, logoutAction } from "@/app/login/actions";
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import bcrypt from "bcryptjs";
+import { sendVerificationEmail } from "@/lib/emailVerification";
 import { loginRetryAfterMinutes, recordFailedLogin, clearFailedLogins } from "@/lib/rateLimit";
 
 function fd(fields: Record<string, string>) {
@@ -70,6 +72,27 @@ describe("signupAction", () => {
     });
     expect(session.userId).toBe("u1");
     expect(session.save).toHaveBeenCalled();
+  });
+
+  it("emails a confirmation link to the new user, and an unverified user is sent to confirm first", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(bcrypt.hash).mockResolvedValue("HASH" as never);
+    const created = { id: "u1", email: "sam@example.com", firstName: "Sam", emailVerifiedAt: null, household: null };
+    vi.mocked(prisma.user.create).mockResolvedValue(created as any);
+    await expect(signupAction(null, fd(valid))).rejects.toThrow("REDIRECT:/verify-email");
+    expect(sendVerificationEmail).toHaveBeenCalledWith(created);
+  });
+
+  it("still signs the user in when the confirmation email fails to send", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(bcrypt.hash).mockResolvedValue("HASH" as never);
+    vi.mocked(prisma.user.create).mockResolvedValue({ id: "u1", household: null } as any);
+    vi.mocked(sendVerificationEmail).mockRejectedValue(new Error("provider down"));
+    await expect(signupAction(null, fd(valid))).rejects.toThrow("REDIRECT:/onboarding");
+    expect(session.userId).toBe("u1");
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("reports a duplicate email caught by the database (signup race)", async () => {
