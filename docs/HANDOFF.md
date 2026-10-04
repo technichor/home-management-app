@@ -1,6 +1,6 @@
 # Handoff: current state of the Home Management App
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0016 are already applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0018 are applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
 
 ## One-paragraph summary
 
