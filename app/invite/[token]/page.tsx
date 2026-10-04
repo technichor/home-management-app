@@ -120,7 +120,7 @@ export default async function InvitePage({
         {inviter} wants to sync with your household
       </h4>
       <p>
-        Syncing lets both households message each other in shared conversations. This invite was
+        Syncing lets both households put each other&apos;s members in shared message channels. This invite was
         addressed to <strong>{sync.counterpartEmail}</strong>.
       </p>
       <InviteResponse token={token} />

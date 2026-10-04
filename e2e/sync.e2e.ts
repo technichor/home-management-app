@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import { addServiceProvider, newOwner, newSession, gotoMissing, test } from "./helpers";
+import { addServiceProvider, newChannel, newOwner, newSession, gotoMissing, test } from "./helpers";
 
 test("two households sync and message each other", async ({ browser }) => {
   const a = await newSession(browser);
@@ -25,31 +25,36 @@ test("two households sync and message each other", async ({ browser }) => {
   await b.page.getByRole("button", { name: "Accept" }).click();
   await expect(b.page.getByText(/You are synced with The Syncas|Open messages/).first()).toBeVisible();
 
-  // Both now see a shared conversation.
+  // Syncing creates no channel by itself. A starts one with B's person in it.
+  await a.page.goto(`/messages`);
+  await expect(a.page.getByText("The Syncas & The Syncbs")).toHaveCount(0);
+  await newChannel(a.page, "Neighbours", ["Casey syncb"]);
+  await a.page.getByPlaceholder(/Write a message/).fill("Hello from the Syncas");
+  await a.page.getByRole("button", { name: "Send" }).click();
+  await expect(a.page.getByText("Hello from the Syncas")).toBeVisible();
+  const channelPath = new URL(a.page.url()).pathname;
+
+  // It arrives for B (a reload is enough here), labelled with A's household.
   await b.page.goto(`/messages`);
-  await b.page.getByText("The Syncas & The Syncbs").click();
-  await expect(b.page).toHaveURL(new RegExp(`/messages/[a-z0-9]+`));
+  await b.page.getByText("Neighbours").click();
+  await expect(b.page.getByText("Hello from the Syncas")).toBeVisible();
+  await expect(b.page.getByText("The Syncas").first()).toBeVisible();
   await b.page.getByPlaceholder(/Write a message/).fill("Hello from the Syncbs");
   await b.page.getByRole("button", { name: "Send" }).click();
   await expect(b.page.getByText("Hello from the Syncbs")).toBeVisible();
-
-  // It arrives for A (the page polls, so a reload is enough here), labelled with B's household.
-  await a.page.goto(`/messages`);
-  await a.page.getByText("The Syncas & The Syncbs").click();
-  await expect(a.page.getByText("Hello from the Syncbs")).toBeVisible();
-  await expect(a.page.getByText("The Syncbs").first()).toBeVisible();
 
   // The invite can't be answered a second time.
   await b.page.goto(new URL(link).pathname);
   await expect(b.page.getByText(/You are synced with The Syncas/)).toBeVisible();
 
-  // An outsider can't open the shared conversation by guessing its URL.
-  const conversationPath = new URL(a.page.url()).pathname;
+  // An outsider can't open the shared channel by guessing its URL.
+  const conversationPath = channelPath;
   const outsider = await newSession(browser);
   await newOwner(outsider.page, "syncc", "The Syncc Outsiders");
   await gotoMissing(outsider.page, conversationPath);
   await expect(outsider.page.getByText(/could not be found/i)).toBeVisible();
   await expect(outsider.page.getByText("Hello from the Syncbs")).toHaveCount(0);
+  await expect(outsider.page.getByText("Hello from the Syncas")).toHaveCount(0);
 
   for (const s of [a, b, outsider]) await s.context.close();
 });

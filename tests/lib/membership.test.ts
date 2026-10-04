@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn() }));
+
+import { addToGeneral, removeUserFromAllChannels } from "@/lib/channels";
 import { joinHouseholdTx, detachUser, MembershipError, INVITE_TTL_MS } from "@/lib/membership";
 import { generateJoinCode, normalizeJoinCode, JOIN_CODE_LENGTH } from "@/lib/joinCode";
 import { safeNext } from "@/lib/redirect";
@@ -30,6 +33,7 @@ describe("joinHouseholdTx", () => {
     });
     expect(tx.user.update).toHaveBeenCalledWith({ where: { id: "u1" }, data: { contactId: "c1" } });
     expect(tx.activityLogEntry.create).toHaveBeenCalled();
+    expect(addToGeneral).toHaveBeenCalledWith(tx, "u1", "h1");
   });
 
   it("throws, creating nothing, when the user already has a household", async () => {
@@ -47,6 +51,7 @@ describe("detachUser", () => {
       where: { id: "u1" },
       data: { householdId: null, role: "MEMBER", contactId: null },
     });
+    expect(removeUserFromAllChannels).toHaveBeenCalledWith(tx, "u1");
   });
 });
 

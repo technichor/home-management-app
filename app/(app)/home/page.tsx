@@ -3,7 +3,7 @@ import { Button, Card, Tag } from "antd";
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import { inDays, upcomingDates } from "@/lib/home";
-import { conversationsVisibleTo, previewText } from "@/lib/messaging";
+import { channelsFor, previewText } from "@/lib/messaging";
 import { contactsOf, householdsOf } from "@/lib/scope";
 
 const COMING_SOON = ["Meal planning", "Maintenance", "Schedules"];
@@ -19,7 +19,7 @@ export default async function HomePage() {
 
   const [conversations, lists, dated, favorites, contactCount, householdCount] = await Promise.all([
     prisma.conversation.findMany({
-      where: { AND: [conversationsVisibleTo(householdId), { archivedAt: null }] },
+      where: { AND: [channelsFor(me.id), { archivedAt: null }] },
       orderBy: { updatedAt: "desc" },
       take: 3,
       include: {
@@ -87,7 +87,7 @@ export default async function HomePage() {
       <div className="home-grid">
         <Card size="small" title="Messages" extra={<Link href="/messages">View all</Link>}>
           {conversations.length === 0 ? (
-            <span style={muted}>No conversations yet.</span>
+            <span style={muted}>No channels yet.</span>
           ) : (
             conversations.map((c) => {
               const last = c.messages[0];
@@ -96,7 +96,7 @@ export default async function HomePage() {
                   <div style={{ ...row, flexDirection: "column", alignItems: "stretch", gap: 2 }}>
                     <strong style={clip}>{c.name}</strong>
                     <span style={{ ...muted, ...clip }}>
-                      {last ? `${last.sender.firstName}: ${previewText(last.text, 60)}` : "No messages yet"}
+                      {last ? `${last.sender?.firstName ?? "Former member"}: ${previewText(last.text, 60)}` : "No messages yet"}
                     </span>
                   </div>
                 </Link>

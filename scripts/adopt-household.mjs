@@ -35,9 +35,15 @@ try {
       });
       contactId = contact.id;
     }
-    return tx.user.create({
+    const created = await tx.user.create({
       data: { email: normalized, passwordHash, firstName, lastName, role: "OWNER", householdId: household.id, contactId, emailVerifiedAt: new Date() },
     });
+    // Everyone in a household is in its General channel (made here if it doesn't exist yet).
+    const general =
+      (await tx.conversation.findFirst({ where: { kind: "GENERAL", householdId: household.id }, select: { id: true } })) ??
+      (await tx.conversation.create({ data: { kind: "GENERAL", householdId: household.id, name: "General" } }));
+    await tx.conversationMember.create({ data: { conversationId: general.id, userId: created.id } });
+    return created;
   });
   console.log(`Created owner ${user.email} for "${household.displayName}". Log in at /login.`);
 } catch (e) {

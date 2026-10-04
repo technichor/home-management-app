@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Prisma, SyncStatus, ConversationScope } from "@prisma/client";
+import { Prisma, SyncStatus, ConversationKind, ConversationRole } from "@prisma/client";
 
 // Guards the messaging schema against accidental renames or drift from the agreed spec.
 describe("messaging schema", () => {
@@ -13,8 +13,16 @@ describe("messaging schema", () => {
     expect(Object.values(SyncStatus).sort()).toEqual(["ACTIVE", "DECLINED", "PENDING", "REVOKED"]);
   });
 
-  it("has the agreed conversation scopes", () => {
-    expect(Object.values(ConversationScope).sort()).toEqual(["HOUSEHOLD", "SYNCED"]);
+  it("has the agreed channel kinds and roles", () => {
+    expect(Object.values(ConversationKind).sort()).toEqual(["CHANNEL", "GENERAL"]);
+    expect(Object.values(ConversationRole).sort()).toEqual(["MANAGER", "MEMBER"]);
+  });
+
+  it("has channel members, and messages are sent by a user", () => {
+    expect(Object.values(Prisma.ModelName)).toContain("ConversationMember");
+    const fields = Prisma.dmmf.datamodel.models.find((m) => m.name === "Message")!.fields.map((f) => f.name);
+    expect(fields).toContain("senderUserId");
+    expect(fields).not.toContain("senderContactId");
   });
 
   it("keeps messages soft-delete only, with no editedAt column", () => {

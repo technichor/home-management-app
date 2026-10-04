@@ -116,7 +116,7 @@ export async function removeMemberAction(userId: string): Promise<HouseholdActio
   if (userId === owner.id) return { ok: false, error: "Use Leave household to remove yourself." };
   const member = await prisma.user.findFirst({ where: { id: userId, householdId: owner.householdId } });
   if (!member) return { ok: false, error: "That person is not in your household." };
-  await detachUser(prisma, member.id);
+  await prisma.$transaction((tx) => detachUser(tx, member.id));
   refresh();
   return { ok: true };
 }
@@ -131,7 +131,7 @@ export async function leaveHouseholdAction(): Promise<HouseholdActionResult> {
       return { ok: false, error: "You are the only owner. Make someone else an owner before you leave." };
     }
   }
-  await detachUser(prisma, user.id);
+  await prisma.$transaction((tx) => detachUser(tx, user.id));
 
   redirect("/onboarding");
 }

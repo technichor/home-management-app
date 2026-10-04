@@ -177,3 +177,43 @@ export async function seedFailedEmail(to: string, error: string) {
     await prisma.$disconnect();
   }
 }
+
+/** A second person who joins the owner's household by invite link. Returns their session and full name. */
+export async function addMember(browser: Browser, ownerPage: Page, tag: string) {
+  await ownerPage.goto(`/household`);
+  await ownerPage.getByRole("button", { name: "Create invite link" }).click();
+  const link = await ownerPage.locator("input[readonly]").inputValue();
+  const session = await newSession(browser);
+  const email = uniqueEmail(tag);
+  await signUp(session.page, { first: "Joiner", last: tag, email });
+  await confirmEmail(session.page, email);
+  await session.page.goto(new URL(link).pathname);
+  await session.page.getByRole("button", { name: "Join this household" }).click();
+  await expect(session.page).toHaveURL(/\/home$/);
+  return { ...session, email, name: `Joiner ${tag}` };
+}
+
+/** Two households become synced: A records B's owner as a contact and invites them, B accepts. */
+export async function syncHouseholds(a: Page, b: Page, bEmail: string, tag: string) {
+  const contactId = await addServiceProvider(a, "Bea", tag);
+  await a.goto(`/contacts/${contactId}`);
+  await a.getByLabel("Email address").fill(bEmail);
+  await a.getByRole("button", { name: "Request sync" }).click();
+  const link = await a.getByLabel("Invite link").inputValue();
+  await b.goto(new URL(link).pathname);
+  await b.getByRole("button", { name: "Accept" }).click();
+  await expect(b.getByText(/You are synced with|Open messages/).first()).toBeVisible();
+}
+
+/** Start a channel from /messages with the named people (from the picker's option titles). */
+export async function newChannel(page: Page, name: string, people: string[]) {
+  await page.goto(`/messages`);
+  await page.getByRole("button", { name: "New channel" }).click();
+  await page.getByPlaceholder("Name, e.g. Weekend plans").fill(name);
+  // The dropdown of a multiple select stays open between picks.
+  await page.getByRole("dialog").getByRole("combobox").click();
+  for (const person of people) await page.locator(`.ant-select-item-option[title="${person}"]`).click();
+  await page.locator(".ant-modal-title").click(); // close the dropdown
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page).toHaveURL(/\/messages\/[a-z0-9]+$/);
+}

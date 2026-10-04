@@ -4,7 +4,7 @@ import { addServiceProvider, choose, newOwner, test } from "./helpers";
 test("the home page greets you and reflects what's in the household", async ({ page }) => {
   await newOwner(page, "home", "The Homes");
   await expect(page.getByRole("heading", { name: /Welcome back, Casey/ })).toBeVisible();
-  await expect(page.getByText("No conversations yet.")).toBeVisible();
+  await expect(page.getByRole("link", { name: /General/ })).toBeVisible(); // every household starts with General
   await expect(page.getByText("No lists yet.")).toBeVisible();
 
   // A contact with a birthday today shows under "Coming up", and is found from the home page.
@@ -79,9 +79,7 @@ test.describe("on a phone", () => {
     const listPath = new URL(page.url()).pathname;
 
     await page.goto(`/messages`);
-    await page.getByRole("button", { name: "New group chat" }).click();
-    await page.getByPlaceholder("Name, e.g. Weekend plans").fill("Weekend plans");
-    await page.getByRole("button", { name: "Create" }).click();
+    await page.getByText("General").first().click();
     await expect(page).toHaveURL(/messages\/[a-z0-9]+/);
     const box = page.getByPlaceholder(/Write a message/);
     await box.fill("A very long message that goes on and on so we can see how it wraps on a small screen");

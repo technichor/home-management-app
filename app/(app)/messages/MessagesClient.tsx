@@ -3,45 +3,44 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { App, Button, Empty, Input, Modal, Select, Space, Tag, Typography } from "antd";
-import { createGroupConversationAction, startContactThreadAction } from "./actions";
+import { App, Button, Empty, Input, Modal, Space, Tag, Typography } from "antd";
+import type { Candidate } from "@/lib/channels";
+import { createChannelAction } from "./actions";
+import MemberPicker from "./MemberPicker";
 
-export type ConversationRow = {
+export type ChannelRow = {
   id: string;
   name: string;
-  kind: "group" | "private" | "synced";
+  general: boolean;
+  shared: boolean;
+  memberCount: number;
   preview: string | null;
   previewSender: string | null;
   lastActivity: string;
 };
 
-const KIND_LABEL = { group: "Group", private: "Private note", synced: "Synced" } as const;
-const KIND_COLOR = { group: "default", private: "gold", synced: "green" } as const;
-
 export default function MessagesClient({
-  conversations,
-  contacts,
+  channels,
+  candidates,
   showArchived,
 }: {
-  conversations: ConversationRow[];
-  contacts: { id: string; name: string }[];
+  channels: ChannelRow[];
+  candidates: Candidate[];
   showArchived: boolean;
 }) {
   const router = useRouter();
   const { message } = App.useApp();
-  const [groupOpen, setGroupOpen] = useState(false);
-  const [groupName, setGroupName] = useState("");
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [noteContact, setNoteContact] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [members, setMembers] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
-  async function open(fn: () => Promise<{ id: string }>) {
+  async function create() {
     setBusy(true);
     try {
-      const { id } = await fn();
-      router.push(`/messages/${id}`);
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : "Something went wrong");
+      const result = await createChannelAction(name, members);
+      if (result.ok) router.push(`/messages/${result.id}`);
+      else message.error(result.error);
     } finally {
       setBusy(false);
     }
@@ -51,44 +50,41 @@ export default function MessagesClient({
     <Space orientation="vertical" style={{ width: "100%" }} size="middle">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>
-          {showArchived ? "Archived conversations" : "Messages"}
+          {showArchived ? "Archived channels" : "Messages"}
         </Typography.Title>
         <Space>
           <Link href={showArchived ? "/messages" : "/messages?archived=1"}>
             <Button>{showArchived ? "Back to messages" : "Archived"}</Button>
           </Link>
           {!showArchived && (
-            <>
-              <Button onClick={() => setNoteOpen(true)}>Note about a contact</Button>
-              <Button type="primary" onClick={() => setGroupOpen(true)}>
-                New group chat
-              </Button>
-            </>
+            <Button type="primary" onClick={() => setOpen(true)}>
+              New channel
+            </Button>
           )}
         </Space>
       </div>
 
-      {conversations.length === 0 ? (
+      {channels.length === 0 ? (
         <Empty
-          description={showArchived ? "No archived conversations." : "No conversations yet. Start a group chat to begin."}
+          description={showArchived ? "No archived channels." : "No channels yet. Start one to begin."}
           style={{ padding: "48px 0" }}
         />
       ) : (
         <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
-          {conversations.map((c, i) => (
+          {channels.map((c, i) => (
             <Link
               key={c.id}
               href={`/messages/${c.id}`}
-              style={{
-                display: "block",
-                padding: "12px 16px",
-                borderTop: i > 0 ? "1px solid #f0f0f0" : undefined,
-                color: "inherit",
-              }}
+              style={{ display: "block", padding: "12px 16px", borderTop: i > 0 ? "1px solid #f0f0f0" : undefined, color: "inherit" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ fontWeight: 500 }}>
-                  {c.name} <Tag color={KIND_COLOR[c.kind]}>{KIND_LABEL[c.kind]}</Tag>
+                  {c.name}{" "}
+                  {c.general && <Tag color="blue">Everyone</Tag>}
+                  {c.shared && <Tag color="green">Shared</Tag>}
+                  <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12, fontWeight: 400 }}>
+                    {c.memberCount} {c.memberCount === 1 ? "person" : "people"}
+                  </span>
                 </span>
                 <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12, whiteSpace: "nowrap" }} suppressHydrationWarning>
                   {new Date(c.lastActivity).toLocaleString()}
@@ -103,42 +99,27 @@ export default function MessagesClient({
       )}
 
       <Modal
-        title="New group chat"
-        open={groupOpen}
-        onCancel={() => setGroupOpen(false)}
-        onOk={() => open(() => createGroupConversationAction(groupName))}
+        title="New channel"
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={create}
         okText="Create"
-        okButtonProps={{ loading: busy, disabled: !groupName.trim() }}
+        okButtonProps={{ loading: busy, disabled: !name.trim() || members.length === 0 }}
+        destroyOnHidden
       >
-        <Input
-          placeholder="Name, e.g. Weekend plans"
-          value={groupName}
-          onChange={(e) => setGroupName(e.target.value)}
-          autoFocus
-        />
-      </Modal>
-
-      <Modal
-        title="Note about a contact"
-        open={noteOpen}
-        onCancel={() => setNoteOpen(false)}
-        onOk={() => open(() => startContactThreadAction(noteContact as string))}
-        okText="Open"
-        okButtonProps={{ loading: busy, disabled: !noteContact }}
-      >
-        <Typography.Paragraph type="secondary">
-          A private thread only your household can see, for keeping notes about someone you are not
-          synced with.
-        </Typography.Paragraph>
-        <Select
-          showSearch
-          optionFilterProp="label"
-          placeholder="Choose a contact"
-          value={noteContact}
-          onChange={setNoteContact}
-          options={contacts.map((c) => ({ value: c.id, label: c.name }))}
-          style={{ width: "100%" }}
-        />
+        <Space orientation="vertical" style={{ width: "100%" }}>
+          <Input placeholder="Name, e.g. Weekend plans" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <MemberPicker candidates={candidates} value={members} onChange={setMembers} placeholder="Who is in it?" />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            You can add people from your household and from households you&apos;re synced with. Only the people you add can see
+            this channel, and you manage it.
+          </Typography.Text>
+          {candidates.length === 0 && (
+            <Typography.Text type="warning" style={{ fontSize: 12 }}>
+              No one else is available yet. Invite someone to your household, or sync with another household first.
+            </Typography.Text>
+          )}
+        </Space>
       </Modal>
     </Space>
   );

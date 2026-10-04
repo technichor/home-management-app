@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/auth", () => ({ getSessionUser: vi.fn(), startSession: vi.fn(), isUnverified: (u: any) => u.emailVerifiedAt === null }));
+vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     householdInvite: { findUnique: vi.fn(), updateMany: vi.fn() },

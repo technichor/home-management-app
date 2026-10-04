@@ -4,7 +4,7 @@ Written 2026-10-01 (accounts section revised the same day, after the move to ind
 
 ## One-paragraph summary
 
-A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, tested and live in production: **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (group chats, private notes, and household-to-household "sync" with shared conversations). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
+A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, tested and live in production: **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (Slack-style channels with explicit members, a General channel per household, and household-to-household "sync" so channels can include people from synced households). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
 
 ## Stack and tooling
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 900 unit tests plus 40 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 936 unit tests plus 42 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -42,7 +42,7 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
 
 - **Users, not shared household logins.** Anyone can sign up at `/signup` (email + own password, bcrypt) and log in at `/login`. The session is just `{ userId }` (`lib/session.ts`, iron-session); the user's household is looked up in the database on every request (`lib/auth.ts`: `getSessionUser`, `requireMember`/`requireOwner`/`requireHouseholdId` for server actions, `pageMember`/`pageHouseholdId` for pages), so removing someone takes effect immediately. A user with no household is sent to `/onboarding` and can't use any feature until they create a household (they become its `OWNER`) or join one.
 - **Joining a household:** an owner makes a single-use invite link (`/join/[token]`, 7-day expiry, token hash stored) on `/household`, or turns on a household join code that lets a household-less user *request* to join (owner approves). Users belong to at most one household. Owners can promote/remove members; members can leave; the last owner can't leave.
-- **Each user acts as their own Contact** (`User.contactId`, created when they found/join a household; relink on `/account`). That contact is the sender of their messages.  The old shared-login columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) were dropped in migration 0012.
+- **Each user acts as their own Contact** (`User.contactId`, created when they found/join a household; relink on `/account`). Messages are sent by the user account, not the contact. The old shared-login columns (`Household.passwordHash`, `headOfHousehold`, `accountContactId`) were dropped in migration 0012.
 - **Contacts and households are private to a household's directory** (`ownerHouseholdId` on Contact and Household; `lib/scope.ts` has the filters and ownership checks). Every list, detail, restore, export, import, sync and messaging lookup is scoped, and CSV rows can only reference the caller's own households. The account household itself has `ownerHouseholdId = null`; passive households it recorded point at it.
 - **Admin area (superusers only), `/admin`:** `User.isSuperuser` (separate from the household OWNER/MEMBER role; migration 0015 made `corey.b.becker@gmail.com` the first). It lists every account (created, last login, last seen, confirmed, household), has a page per user, lets a superuser **start a password reset** for someone (email them a link, or create a one-time 24-hour link to copy and send by hand; the admin never sees or sets a password, and the user's completing it signs out their other devices), and **grant/revoke superuser** (re-asks the admin's own password, counts wrong guesses against the login limiter, can never remove the last superuser). Everything is written to `AdminAuditEntry` and shown under "Recent admin activity". **It must stay invisible to everyone else:** `app/admin/layout.tsx` AND every admin page call `pageSuperuser()`, which shows the ordinary 404 page (no redirect to login, even when signed out); every admin server action calls `requireSuperuser()` first; the "Admin" nav link is only rendered for superusers; the check reads the database on every request, so granting/revoking takes effect immediately. Known limit: Next's router *prefetch* response for `/admin` returns a content-free route skeleton, so someone crafting raw requests could tell an `/admin` segment exists (nothing else). "Last seen" is refreshed at most every 10 minutes (`lib/auth.ts`); "last login" on password login. **Email log (`/admin/email`):** every send attempt (recipient, subject, SENT / FAILED / NOT_SENT, the provider's message id or error text; never the body, since links in it are secrets) is recorded by `lib/email.ts` in `EmailLogEntry` (migration 0016; kept 30 days; logging can never block a send), with a "send a test email" tool that shows the provider's exact answer, and a "failed in 24h" count on the overview. **Why it exists:** forgot-password / verification pages say "Check your email" even when sending fails (by design, so they can't reveal which addresses exist), and Vercel keeps runtime logs only ~1 hour, so a refused send was invisible. `e2e/admin.e2e.ts` covers all of this (it promotes users straight in the test database via `makeSuperuser`).
 - **No household name in URLs.** Every page lives at the same address for every household (`/home`, `/contacts`, `/lists`, `/messages`, `/account`, `/household`, ...); the data always comes from who you're signed in as (`app/(app)/layout.tsx` guards the whole group). Sharing a link to a record only works for people in the same household. `app/not-found.tsx` is the 404 page. The old `Household.urlSlug` column was dropped in migration 0013. **Rule for dropping a column:** first deploy code whose Prisma schema no longer has it (the column can sit unused), and only then apply the drop migration; dropping it while the running code still reads it breaks every query that loads that table.
@@ -64,14 +64,14 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
                                /import (two-file CSV, diff + confirm); /removed (soft-deleted + restore);
                                /api/export?file=households|contacts
 /lists                  active lists; /archived; /[id] items; /[id]/compare (pairwise ranking)
-/messages               conversation list (?archived=1); /[id] conversation view
+/messages               channel list (?archived=1) and New channel; /[id] channel view with People panel
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0016 in prisma/migrations)
-User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
+### Data model (prisma/schema.prisma; migrations 0001–0018 in prisma/migrations)
+User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
-- `lib/csv.ts`, `lib/listCsv.ts` CSV parse/export/diff · `lib/elo.ts` Elo + pair selection · `lib/messaging.ts` **`conversationsVisibleTo`** (the one messaging access rule) · `lib/syncToken.ts` invite-token hashing · `lib/validations.ts` all Zod schemas.
+- `lib/csv.ts`, `lib/listCsv.ts` CSV parse/export/diff · `lib/elo.ts` Elo + pair selection · `lib/messaging.ts` **`channelsFor`** (the one messaging access rule: membership) · `lib/channels.ts` (who can be added, General, leaving) · `lib/syncToken.ts` invite-token hashing · `lib/validations.ts` all Zod schemas.
 - Server actions: `app/(app)/{lists,messages,account}/actions.ts`, `contacts/import/actions.ts`, `contacts/removed/actions.ts`, `contacts/[id]/syncActions.ts`, `app/invite/[token]/actions.ts`, `app/join/[token]/actions.ts`, `app/onboarding/actions.ts`, `app/signup/actions.ts`, `app/login/actions.ts`, `app/(app)/household/actions.ts`.
 
 ## What is built, and what is not
@@ -80,7 +80,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Lists**: complete per `docs/domains/lists.md`, including the pairwise Elo mode (a list is either manually sorted or pairwise, set per list; switching to pairwise keeps the order and resets all ratings to 1500). Not built: single-list CSV export (nice-to-have).
 
-**Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), ending an **active** sync (only a *pending* invite can be revoked, from the Messaging sync card on the contact page: `revokeInviteAction`; the link then stops working and the sender can invite again) and any decision about what happens to conversation history if an active sync is ended.
+**Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), ending an **active** sync (only a *pending* invite can be revoked, from the Messaging sync card on the contact page: `revokeInviteAction`; the link then stops working and the sender can invite again) and any decision about what happens to shared channels if an active sync is ended.
 
 ## Known gaps and suggestions for next work
 
@@ -90,7 +90,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 4. **Attachments**: add storage (Vercel Blob is the natural fit) then wire `attachmentIds`.
 6. **Sync invites** are bearer tokens: whoever holds a pending link, from a user in a household that isn't the inviter, can answer it; the invite email is only a label.
 7. Real-time messaging is a 5s poll via `router.refresh()`; fine at this scale.
-8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, private contact notes, and touch-drag reordering on a real phone (the browser tests only check layout at 375px, not a real iOS/Android device).
+8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, and touch-drag reordering on a real phone (the browser tests only check layout at 375px, not a real iOS/Android device).
 
 ## Verify by hand (not yet done in a browser)
 
@@ -99,8 +99,8 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 3. **Lists**: create a list, add items, drag to reorder, check items off, import a CSV, flip **Sort: Pairwise** and use **Prioritize**, search/filter.
 3a. **Households**: Add household, edit its name/address/tags/notes, remove and restore a passive one; your own household has no Remove.
 3b. **Contacts**: Add contact (Family & Friend needs a household; others show an Address field), edit it, check the activity log shows the change, remove it and restore it from Removed; a household member's own profile can't be removed.
-4. **Messages**: group chat, send a message (shows your own name), archive/unarchive, a "Note about a contact".
-5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Both see a shared conversation; messages arrive within ~5s labelled with their household.
+4. **Messages**: New channel with a household member, send a message (shows your own name), People panel (add/remove/rename/archive/leave), General.
+5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Syncing creates no channel; start one with a person from the other household and messages arrive within ~5s labelled with their household.
 
 ## Mobile / responsive
 

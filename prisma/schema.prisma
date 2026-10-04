@@ -26,11 +26,6 @@ enum SyncStatus {
   REVOKED
 }
 
-enum ConversationScope {
-  HOUSEHOLD
-  SYNCED
-}
-
 enum EntityType {
   CONTACT
   HOUSEHOLD
@@ -110,12 +105,10 @@ model Contact {
   assignedListItems ListItem[]
 
   syncs            Sync[]
-  conversations    Conversation[]
-  sentMessages     Message[]
   user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
   ownerHouseholdId String?
-  ownerHousehold   Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+  ownerHousehold   Household? @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
 
   @@index([ownerHouseholdId])
 }
@@ -194,47 +187,68 @@ model Sync {
   createdAt              DateTime   @default(now())
   respondedAt            DateTime?
 
-  conversations Conversation[]
-
   @@index([initiatingHouseholdId])
   @@index([counterpartHouseholdId])
   @@index([relatedContactId])
 }
 
-// scope HOUSEHOLD: householdId is set, syncId is null. scope SYNCED: syncId is set.
-// relatedContactId marks a thread kept against one specific contact.
+// A channel: only its members can see it. kind GENERAL is each household's automatic channel (householdId
+// is that household; membership always equals the household's members). Everything else is a CHANNEL
+// whose members were picked by its creator.
 model Conversation {
-  id               String            @id @default(cuid())
-  scope            ConversationScope
-  householdId      String?
-  household        Household?        @relation(fields: [householdId], references: [id], onDelete: Restrict)
-  syncId           String?
-  sync             Sync?             @relation(fields: [syncId], references: [id], onDelete: Restrict)
-  relatedContactId String?
-  relatedContact   Contact?          @relation(fields: [relatedContactId], references: [id], onDelete: Restrict)
-  name             String
-  archivedAt       DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id          String           @id @default(cuid())
+  kind        ConversationKind @default(CHANNEL)
+  householdId String?
+  household   Household?       @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  createdById String?
+  createdBy   User?            @relation("ChannelsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  name        String
+  archivedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
+  members  ConversationMember[]
   messages Message[]
 
   @@index([householdId])
-  @@index([syncId])
-  @@index([relatedContactId])
+  @@index([kind, householdId])
+}
+
+enum ConversationKind {
+  CHANNEL
+  GENERAL
+}
+
+enum ConversationRole {
+  MANAGER
+  MEMBER
+}
+
+model ConversationMember {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User             @relation("ChannelMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role           ConversationRole @default(MEMBER)
+  addedById      String?
+  createdAt      DateTime         @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
 }
 
 // Messages are never edited and never hard-deleted; deletedAt is the only removal.
 model Message {
-  id              String       @id @default(cuid())
-  conversationId  String
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
-  senderContactId String
-  sender          Contact      @relation(fields: [senderContactId], references: [id], onDelete: Restrict)
-  text            String
-  attachmentIds   String[]
-  deletedAt       DateTime?
-  createdAt       DateTime     @default(now())
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  senderUserId   String?
+  sender         User?        @relation("MessagesSent", fields: [senderUserId], references: [id], onDelete: SetNull)
+  text           String
+  attachmentIds  String[]
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
 }
@@ -273,13 +287,16 @@ model User {
 
   // Can open /admin (see all users, start password resets, grant superuser). Separate from the
   // household OWNER/MEMBER role.
-  isSuperuser       Boolean           @default(false)
+  isSuperuser             Boolean              @default(false)
   // When they last logged in with a password, and when they were last seen using the app
   // (updated at most every few minutes; see lib/auth.ts).
-  lastLoginAt       DateTime?
-  lastSeenAt        DateTime?
-  adminActionsTaken AdminAuditEntry[] @relation("AuditActor")
-  adminActionsOnMe  AdminAuditEntry[] @relation("AuditTarget")
+  lastLoginAt             DateTime?
+  lastSeenAt              DateTime?
+  adminActionsTaken       AdminAuditEntry[]    @relation("AuditActor")
+  adminActionsOnMe        AdminAuditEntry[]    @relation("AuditTarget")
+  conversationMemberships ConversationMember[] @relation("ChannelMemberships")
+  channelsCreated         Conversation[]       @relation("ChannelsCreated")
+  messagesSent            Message[]            @relation("MessagesSent")
 
   @@index([householdId])
 }

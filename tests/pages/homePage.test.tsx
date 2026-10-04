@@ -15,8 +15,8 @@ vi.mock("@/lib/db", () => ({
 import HomePage from "@/app/(app)/home/page";
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
-import { conversationsVisibleTo } from "@/lib/messaging";
-const me = (role = "OWNER") => ({ firstName: "Sam", role, householdId: "h1", household: { displayName: "The Smiths" } });
+import { channelsFor } from "@/lib/messaging";
+const me = (role = "OWNER") => ({ id: "u1", firstName: "Sam", role, householdId: "h1", household: { displayName: "The Smiths" } });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -39,7 +39,7 @@ describe("HomePage", () => {
     await run();
     expect(screen.getByText("Welcome back, Sam")).toBeInTheDocument();
     expect(screen.getByText("The Smiths")).toBeInTheDocument();
-    expect(screen.getByText("No conversations yet.")).toBeInTheDocument();
+    expect(screen.getByText("No channels yet.")).toBeInTheDocument();
     expect(screen.getByText("No lists yet.")).toBeInTheDocument();
     expect(screen.getByText(/Nothing coming up/)).toBeInTheDocument();
     expect(screen.getByText("Star a contact to keep them handy here.")).toBeInTheDocument();
@@ -58,10 +58,10 @@ describe("HomePage", () => {
     expect(screen.queryByRole("link", { name: "Invite someone" })).toBeNull();
   });
 
-  it("asks only for what this household may see", async () => {
+  it("asks only for what this user and household may see", async () => {
     await run();
     const convoQuery = vi.mocked(prisma.conversation.findMany).mock.calls[0][0]!;
-    expect(convoQuery.where).toEqual({ AND: [conversationsVisibleTo("h1"), { archivedAt: null }] });
+    expect(convoQuery.where).toEqual({ AND: [channelsFor("u1"), { archivedAt: null }] });
     expect(vi.mocked(prisma.list.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1", archivedAt: null });
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.where).toMatchObject({ ownerHouseholdId: "h1", deletedAt: null });
     expect(vi.mocked(prisma.contact.count).mock.calls[0][0]!.where).toEqual({ ownerHouseholdId: "h1", deletedAt: null });
@@ -71,15 +71,17 @@ describe("HomePage", () => {
     });
   });
 
-  it("shows recent conversations with the latest message", async () => {
+  it("shows recent channels with the latest message", async () => {
     vi.mocked(prisma.conversation.findMany).mockResolvedValue([
       { id: "cv1", name: "Weekend plans", messages: [{ text: "Who is\nbringing snacks?", sender: { firstName: "Pat" } }] },
       { id: "cv2", name: "Empty chat", messages: [] },
+      { id: "cv3", name: "Old news", messages: [{ text: "bye", sender: null }] },
     ] as any);
     await run();
     expect(screen.getByRole("link", { name: /Weekend plans/ })).toHaveAttribute("href", "/messages/cv1");
     expect(screen.getByText("Pat: Who is bringing snacks?")).toBeInTheDocument();
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
+    expect(screen.getByText("Former member: bye")).toBeInTheDocument();
   });
 
   it("shows lists with their progress", async () => {

@@ -9,8 +9,8 @@ export type RespondResult = { ok: true; status: "ACTIVE" | "DECLINED" } | { ok: 
 /**
  * Accept or decline a sync invite as the logged-in household. Everyone sharing the household
  * login acts as the account's one linked contact, so any logged-in member can answer.
- * Accepting records both households, activates the sync, and opens a brand-new SYNCED
- * conversation (earlier private threads about the contact are left untouched).
+ * Accepting records both households and activates the sync. That is all: the two households can now
+ * put each other's members in channels, but no channel is created automatically.
  */
 export async function respondToInviteAction(
   token: string,
@@ -24,7 +24,6 @@ export async function respondToInviteAction(
 
   const sync = await prisma.sync.findUnique({
     where: { inviteTokenHash: hashInviteToken(token) },
-    include: { initiatingHousehold: { select: { displayName: true } } },
   });
   if (!sync) return { ok: false, error: "This invite link is not valid." };
   if (sync.initiatingHouseholdId === householdId) {
@@ -32,12 +31,6 @@ export async function respondToInviteAction(
   }
   if (sync.status === "REVOKED") return { ok: false, error: "This invite was revoked by the sender." };
   if (sync.status !== "PENDING") return { ok: false, error: "This invite was already answered." };
-
-  const me = await prisma.household.findUnique({
-    where: { id: householdId },
-    select: { displayName: true },
-  });
-  if (!me) throw new Error("Not authenticated");
 
   return prisma.$transaction(async (tx): Promise<RespondResult> => {
     const respondedAt = new Date();
@@ -53,13 +46,6 @@ export async function respondToInviteAction(
 
     if (decision === "decline") return { ok: true, status: "DECLINED" };
 
-    await tx.conversation.create({
-      data: {
-        scope: "SYNCED",
-        syncId: sync.id,
-        name: `${sync.initiatingHousehold.displayName} & ${me.displayName}`,
-      },
-    });
     return { ok: true, status: "ACTIVE" };
   });
 }

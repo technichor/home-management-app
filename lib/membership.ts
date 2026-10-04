@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { addToGeneral, removeUserFromAllChannels } from "@/lib/channels";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -30,9 +31,14 @@ export async function joinHouseholdTx(
   await tx.activityLogEntry.create({
     data: { entityType: "CONTACT", entityId: contact.id, action: "CREATED", source: "MANUAL" },
   });
+  await addToGeneral(tx, user.id, householdId);
 }
 
-/** Take a user out of their household. Their Contact stays in the household's directory. */
-export function detachUser(tx: Tx, userId: string) {
-  return tx.user.update({ where: { id: userId }, data: { householdId: null, role: "MEMBER", contactId: null } });
+/**
+ * Take a user out of their household. Their Contact stays in the household's directory; they leave
+ * every channel (their household's General and any shared ones) and lose access to them at once.
+ */
+export async function detachUser(tx: Tx, userId: string): Promise<void> {
+  await tx.user.update({ where: { id: userId }, data: { householdId: null, role: "MEMBER", contactId: null } });
+  await removeUserFromAllChannels(tx, userId);
 }

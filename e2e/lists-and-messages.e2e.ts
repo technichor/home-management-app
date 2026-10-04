@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import { newOwner, newSession, gotoMissing, test } from "./helpers";
+import { addMember, newChannel, newOwner, newSession, gotoMissing, test } from "./helpers";
 
 test("lists: create, add items, check one off, delete one", async ({ page }) => {
   await newOwner(page, "lists", "The Listers");
@@ -48,23 +48,27 @@ test("another household can't open your list", async ({ page, browser }) => {
   await other.close();
 });
 
-test("messages: start a group chat and send a message", async ({ page }) => {
+test("messages: start a channel with a household member and send a message", async ({ page, browser }) => {
   await newOwner(page, "chat", "The Chatters");
-  await page.goto(`/messages`);
-  await page.getByRole("button", { name: "New group chat" }).click();
-  await page.getByPlaceholder("Name, e.g. Weekend plans").fill("Weekend plans");
-  await page.getByRole("button", { name: "Create" }).click();
-  await expect(page).toHaveURL(new RegExp(`/messages/[a-z0-9]+`));
+  const joiner = await addMember(browser, page, "chatmate");
+  await newChannel(page, "Weekend plans", [joiner.name]);
 
   const box = page.getByPlaceholder(/Write a message/);
   await box.fill("Who is bringing snacks?");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Who is bringing snacks?")).toBeVisible();
-  await expect(page.getByText("Casey chat")).toBeVisible(); // sent as the signed-in user's own contact
+  await expect(page.getByText("Casey chat")).toBeVisible(); // sent as the signed-in user
 
   await page.reload();
   await expect(page.getByText("Who is bringing snacks?")).toBeVisible();
 
   await page.goto(`/messages`);
   await expect(page.getByText("Weekend plans")).toBeVisible();
+  await expect(page.getByText("General")).toBeVisible();
+
+  // The other member sees it too.
+  await joiner.page.goto(`/messages`);
+  await joiner.page.getByText("Weekend plans").click();
+  await expect(joiner.page.getByText("Who is bringing snacks?")).toBeVisible();
+  await joiner.context.close();
 });

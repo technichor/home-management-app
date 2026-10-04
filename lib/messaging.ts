@@ -3,23 +3,12 @@ import type { Prisma } from "@prisma/client";
 export const MAX_MESSAGE_LENGTH = 4000;
 
 /**
- * The conversations a household may read and write: its own household-scope ones, plus synced
- * ones whose Sync is ACTIVE and names it on either side. This is the single place that decides
- * who can see a conversation; every messaging query goes through it.
+ * Where a channel is visible: exactly when you are one of its members (nobody else, household owners
+ * included). This is the single place that decides who can see a channel; every messaging query and
+ * server action goes through it, and a channel you aren't in is reported as not found.
  */
-export function conversationsVisibleTo(householdId: string): Prisma.ConversationWhereInput {
-  return {
-    OR: [
-      { scope: "HOUSEHOLD", householdId },
-      {
-        scope: "SYNCED",
-        sync: {
-          status: "ACTIVE",
-          OR: [{ initiatingHouseholdId: householdId }, { counterpartHouseholdId: householdId }],
-        },
-      },
-    ],
-  };
+export function channelsFor(userId: string): Prisma.ConversationWhereInput {
+  return { members: { some: { userId } } };
 }
 
 /** One-line preview of a message for the conversation list. */

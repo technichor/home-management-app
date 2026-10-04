@@ -184,16 +184,13 @@ describe("respondToInviteAction", () => {
     id: "sy1",
     status: "PENDING",
     initiatingHouseholdId: "h-inviter",
-    initiatingHousehold: { displayName: "Reynolds" },
   };
 
   beforeEach(() => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(pending as any);
-    vi.mocked(prisma.household.findUnique).mockResolvedValue({ displayName: "Smiths" } as any);
-    vi.mocked(prisma.conversation.create).mockResolvedValue({} as any);
   });
 
-  it("accepting records our household, activates the sync, and opens a new SYNCED conversation", async () => {
+  it("accepting records our household and activates the sync, without creating any channel", async () => {
     const result = await respondToInviteAction("tok", "accept");
     expect(result).toEqual({ ok: true, status: "ACTIVE" });
     expect(prisma.sync.findUnique).toHaveBeenCalledWith(
@@ -203,12 +200,10 @@ describe("respondToInviteAction", () => {
       where: { id: "sy1", status: "PENDING" },
       data: { status: "ACTIVE", counterpartHouseholdId: "h1", respondedAt: expect.any(Date) },
     });
-    expect(prisma.conversation.create).toHaveBeenCalledWith({
-      data: { scope: "SYNCED", syncId: "sy1", name: "Reynolds & Smiths" },
-    });
+    expect(prisma.conversation.create).not.toHaveBeenCalled();
   });
 
-  it("declining marks the sync declined without opening a conversation or recording our household", async () => {
+  it("declining marks the sync declined without recording our household", async () => {
     const result = await respondToInviteAction("tok", "decline");
     expect(result).toEqual({ ok: true, status: "DECLINED" });
     expect(prisma.sync.updateMany).toHaveBeenCalledWith({
@@ -268,11 +263,5 @@ describe("respondToInviteAction", () => {
       error: "This invite was already answered.",
     });
     expect(prisma.conversation.create).not.toHaveBeenCalled();
-  });
-
-  it("fails as unauthenticated if the logged-in household no longer exists", async () => {
-    vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
-    await expect(respondToInviteAction("tok", "accept")).rejects.toThrow("Not authenticated");
-    expect(prisma.sync.updateMany).not.toHaveBeenCalled();
   });
 });

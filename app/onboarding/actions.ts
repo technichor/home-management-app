@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, isUnverified, startSession } from "@/lib/auth";
 import { normalizeJoinCode } from "@/lib/joinCode";
+import { addToGeneral } from "@/lib/channels";
 import { newHouseholdSchema } from "@/lib/validations";
 import type { AuthState } from "@/app/signup/actions";
 
@@ -43,6 +44,8 @@ export async function createHouseholdForUserAction(_prev: AuthState, formData: F
         { entityType: "CONTACT", entityId: contact.id, action: "CREATED", source: "MANUAL" },
       ],
     });
+    // Every household has a General channel, and its founder is the first person in it.
+    await addToGeneral(tx, user.id, created.id);
   });
 
   await startSession(user);

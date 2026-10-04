@@ -1,58 +1,50 @@
-# Domain: Messaging & Group Chat
+# Domain: Messaging (channels)
 
-Status: **Stages 1–3 built and deployed** (see "Decisions made while building" at the bottom for where the build departs from or adds to this spec). This is the owner's original spec, kept so a new session has the requirements.
+Status: **Channels built** (replacing the earlier group chats, private contact notes and auto-created synced conversations). The earlier version of this spec was the owner's original brief; this one reflects the owner's request to work like Slack channels and the decisions made while building it.
 
 ## What this domain is
 
-A Household is like a Slack workspace: household members can always message each other. An external contact (someone in a different household) is only reachable once the two households mutually agree to "Sync": a household-to-household handshake, not a per-contact setting. Before sync, you can keep a private one-sided note thread against that contact; once synced, a real two-way conversation opens.
+Messaging works like Slack channels. A **channel** has an explicit list of members, and only members can see it. Members are **user accounts**, from the person's own household and from households it is actively **synced** with. Syncing is the household-to-household handshake (unchanged); what it unlocks is that each household's people can be put in the other's channels.
+
+## Rules
+
+- **Visibility is membership only**, household owners included. One function decides it: `channelsFor(userId)` in `lib/messaging.ts`. Every messaging query and action goes through it; a channel the caller isn't in is reported as "not found".
+- **Who can be added:** accounts in the creator's own household, and accounts in a household with an ACTIVE Sync to it (either side may have started it). A person with no account can't be in a channel.
+- **Pairwise connection (added by us, not in the original request):** all households present in one channel must be the same household or have an ACTIVE Sync with each other. If A is synced with B and with C, but B and C aren't synced, a channel can't hold people from both B and C. This stops adding someone from exposing two households to each other. The check is `checkChannelMembers` in `lib/channels.ts`, run on create and on every add.
+- **Creating:** any member can create a channel (a name and at least one other person). The creator becomes its **manager**.
+- **Managing:** managers add and remove people and rename or archive/unarchive the channel. **Anyone can leave** a channel. If the last manager leaves, the longest-standing member becomes manager; if nobody is left the channel is archived.
+- **General:** every household has one automatic `GENERAL` channel holding everyone in the household. People are added when they join (or found) the household and removed when they leave or are removed. It can't be left, renamed or archived, and it has no managers.
+- **Leaving a household** removes the person from every channel they were in (including channels shared with other households).
+- **Syncing creates no channel.** Accepting a sync only makes the two households eligible for each other's channels.
+- **Senders** are the signed-in user (`Message.senderUserId`). A linked contact is no longer needed to send. A message whose sender account was deleted shows "Former member".
+- Messages are text only, soft-delete only and never edited. Attachments are not built (no file storage).
+- Email is only ever the sync/verification handshake; messages are never sent by email or SMS.
 
 ## Schema
 
-**Sync**: `id`, `initiatingHouseholdId` (FK Household), `counterpartHouseholdId` (FK Household, nullable until the counterpart household is a real activated account), `relatedContactId` (FK Contact, required: the Contact in the initiating household's directory this sync is attached to), `counterpartEmail` (required: the email the invite was sent to), `status` (PENDING | ACTIVE | DECLINED | REVOKED), `createdAt`, `respondedAt`.
-A contact's "synced" status is derived from an ACTIVE Sync row pointing at it. Never store it redundantly on Contact.
+**Sync**: unchanged (`initiatingHouseholdId`, `counterpartHouseholdId`, `relatedContactId`, `counterpartEmail`, `status` PENDING | ACTIVE | DECLINED | REVOKED, ...). A contact's "synced" status is derived from an ACTIVE Sync row.
 
-**Conversation**: `id`, `scope` (HOUSEHOLD | SYNCED), `householdId` (required if HOUSEHOLD), `syncId` (required if SYNCED), `relatedContactId` (nullable; set when it is a thread against one specific contact), `name` (required), `archivedAt` (nullable), `createdAt`, `updatedAt`.
+**Conversation** (a channel): `id`, `kind` (CHANNEL | GENERAL), `householdId` (set for GENERAL), `createdById`, `name`, `archivedAt`, `createdAt`, `updatedAt`.
 
-**Message**: `id`, `conversationId`, `senderContactId` (FK Contact; always the Contact linked to whoever is logged in; no sender picker anywhere in the UI), `text`, `attachmentIds` (reuse an existing attachment model, or a simple array of uploaded-file references), `deletedAt` (soft delete only: never hard-delete a message, never allow editing after send), `createdAt`.
+**ConversationMember**: `conversationId`, `userId`, `role` (MANAGER | MEMBER), `addedById`, `createdAt`; unique on (conversationId, userId).
 
-## Behavior rules
+**Message**: `id`, `conversationId`, `senderUserId` (nullable: set null if the account is deleted), `text`, `attachmentIds` (always empty), `deletedAt`, `createdAt`.
 
-- Household-scope conversations: normal household access applies; anyone logged into that household can read/write.
-- Synced-scope conversations: both households' members get full read/write once the Sync is ACTIVE. This is the one explicit exception to "a household only sees its own data."
-- A household member with no account (e.g. a kid with no login) has no messaging access at all, same as every other domain.
-- Starting a sync: initiated from an existing Contact record, by confirming/entering their email. Cannot sync with someone who is not already a Contact.
-- Accepting/declining an incoming sync is a head-of-household action.
-- When sync activates, create a brand-new SYNCED conversation. Do not convert or expose the pre-sync HOUSEHOLD-scope thread tied to that contact. That old private thread stays exactly as private as it was.
-- Email is only ever the sync invitation handshake. All actual messaging is in-app/real-time. Never send messages by email or SMS.
+One General per household is enforced in code (`ensureGeneral`), not by a database constraint (Prisma can't express the partial unique index, and the migration diff would flag it).
 
-## Features, in build order
+## Where things are
 
-1. Prisma schema + migration for Sync, Conversation, Message. **Done.**
-2. Request sync from a Contact detail page (enter/confirm email, create a PENDING Sync, invite with accept/decline link). **Done** (copyable link instead of email; see below).
-3. Accept/decline flow for the counterpart household (head of household only). On accept: set both household IDs, status ACTIVE, create the new SYNCED conversation. **Done.**
-4. Conversation list: HOUSEHOLD and SYNCED conversations for the logged-in household, most-recent-message preview, sorted by recency. **Done.**
-5. Start a private HOUSEHOLD-scope thread against an unsynced contact. **Done.**
-6. Create a household group conversation (named; multiple can exist concurrently). **Done.**
-7. Conversation detail: message list + composer; for SYNCED conversations, label which household each message came from, not just the sender's name. **Done.**
-8. Send message (text + optional attachment); sender auto-set from session. **Text done; attachments NOT built** (no file storage exists).
-9. Archive/unarchive a conversation (global, not per-household). **Done.**
-10. Near-real-time delivery; polling is fine at this scale. **Done** (5s poll via `router.refresh()`).
+- `lib/channels.ts`: candidates (`candidatesFor`), the connection rules (`allConnected`, `checkChannelMembers`), General (`ensureGeneral`, `addToGeneral`) and leaving (`leaveChannelTx`, `removeUserFromAllChannels`).
+- `app/(app)/messages/actions.ts`: create, send, add/remove people, leave, rename, archive/unarchive. Expected failures come back as `{ ok: false, error }` (production builds hide the message of a thrown server-action error); only a missing session throws.
+- UI: `/messages` (list, "New channel" with a household-grouped picker, `?archived=1`) and `/messages/[id]` (messages, People panel). The conversation view shows the latest 200 messages and polls every 5 seconds via `router.refresh()`.
 
-## Explicitly out of scope (do not build)
+## Explicitly out of scope
 
-- Per-contact or per-message-category privacy controls on sync (it is all-or-nothing)
-- Actual email/SMS delivery of messages to non-users
-- Ending an **active** sync, and what happens to conversation history when it ends. (Revoking a *pending* invite is built: status goes PENDING to REVOKED, its link stops working, and the sender can invite again.)
-- Message editing, read receipts, typing indicators, reactions, @mentions, threading/replies, search
-- Push notifications
-- Per-household archiving of a shared synced conversation
+- Ending an **active** sync, and what happens to shared channels and history when it ends. (Revoking a *pending* invite is built.)
+- Attachments, message editing, read receipts, typing indicators, reactions, @mentions, threading, search, push notifications.
+- Per-household archiving of a shared channel (archiving is global).
+- Messaging people without an account.
 
-## Decisions made while building
+## Migration notes
 
-- **Who is "the logged-in Contact"?** The app has one shared password per household and no per-person identity, so the spec's "sender is the Contact linked to whoever is logged in" had nothing to resolve to. Decision (owner's choice): each household account links to **one Contact** (`Household.accountContactId`). Every message from that household shows that contact as sender, and that contact is the "head" who answers sync invites. Because everyone sharing the password acts as that one person, **any logged-in member of the counterpart household can accept/decline**. Setup now asks for the owner's first/last name and creates + links that contact; existing accounts link one on the **Account** page (`/[slug]/account`, "Account" button in the top bar).
-- **Email:** no email provider exists. Decision (owner's choice): **no email is sent.** Requesting a sync shows a one-time copyable link (`/invite/<token>`) for the owner to send themselves. Only a SHA-256 hash of the token is stored (`Sync.inviteTokenHash`); "Get a new link" replaces it and invalidates the old one. The invite email is only a label; whoever holds the link, from a logged-in household that is not the inviter, can answer it.
-- **Attachments:** not built (no storage). `Message.attachmentIds` exists and is always empty. Next step would be Vercel Blob.
-- **Scope/FK pairing** (HOUSEHOLD needs householdId; SYNCED needs syncId) and "one open sync per contact" are enforced in application code, not DB constraints (`prisma db push` would drop constraints Prisma cannot express).
-- **Visibility** is a single function, `conversationsVisibleTo(householdId)` in `lib/messaging.ts`: own HOUSEHOLD conversations, plus SYNCED ones whose Sync is ACTIVE and names the household on either side. Every messaging query and server action goes through it; a conversation the caller cannot see is reported as "not found".
-- A pre-sync private note thread is only offered for contacts **outside** the household that are **not currently synced**; starting one for the same contact again reuses the open thread.
-- Conversation view shows the latest 200 messages.
+Migrations 0017 (expand: new tables/columns and a backfill) and 0018 (contract: drop `scope`, `syncId`, `relatedContactId` and `senderContactId`) were split so the old code kept working until the new code was deployed. The backfill gave each household a General channel, turned old household conversations into channels of all their household's members (owners as managers), gave old synced conversations the members of both households, archived any private contact-note threads, and set `senderUserId` from each message's sender contact.

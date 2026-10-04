@@ -188,7 +188,7 @@ export const requestSyncSchema = z.object({
 });
 
 export const conversationNameSchema = z.object({
-  name: z.string().trim().min(1, "Give the conversation a name").max(100, "Names can be at most 100 characters"),
+  name: z.string().trim().min(1, "Give the channel a name").max(100, "Names can be at most 100 characters"),
 });
 
 export const messageSchema = z.object({

@@ -1,26 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { conversationsVisibleTo, previewText } from "@/lib/messaging";
+import { channelsFor, previewText } from "@/lib/messaging";
 import { conversationNameSchema, messageSchema } from "@/lib/validations";
 
-describe("conversationsVisibleTo", () => {
-  it("allows household conversations only for the owning household", () => {
-    const where = conversationsVisibleTo("h1") as any;
-    expect(where.OR[0]).toEqual({ scope: "HOUSEHOLD", householdId: "h1" });
-  });
-
-  it("allows synced conversations only when the sync is ACTIVE and names the household on either side", () => {
-    const where = conversationsVisibleTo("h1") as any;
-    expect(where.OR[1]).toEqual({
-      scope: "SYNCED",
-      sync: {
-        status: "ACTIVE",
-        OR: [{ initiatingHouseholdId: "h1" }, { counterpartHouseholdId: "h1" }],
-      },
-    });
-  });
-
-  it("offers exactly those two ways in and no others", () => {
-    expect((conversationsVisibleTo("h1") as any).OR).toHaveLength(2);
+describe("channelsFor", () => {
+  it("shows a channel only to its members, with no other way in", () => {
+    expect(channelsFor("u1")).toEqual({ members: { some: { userId: "u1" } } });
   });
 });
 
@@ -43,7 +27,7 @@ describe("previewText", () => {
 describe("messaging validation", () => {
   it("trims names and messages and rejects blanks", () => {
     expect(conversationNameSchema.safeParse({ name: "  Trip " }).data).toEqual({ name: "Trip" });
-    expect(conversationNameSchema.safeParse({ name: " " }).error?.issues[0].message).toBe("Give the conversation a name");
+    expect(conversationNameSchema.safeParse({ name: " " }).error?.issues[0].message).toBe("Give the channel a name");
     expect(messageSchema.safeParse({ text: " hi " }).data).toEqual({ text: "hi" });
     expect(messageSchema.safeParse({ text: "  " }).error?.issues[0].message).toBe("Write a message first");
   });

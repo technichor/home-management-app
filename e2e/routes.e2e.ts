@@ -50,9 +50,7 @@ test("no link anywhere in the app carries a household name", async ({ page }) =>
   await expect(page).toHaveURL(/\/lists\/[a-z0-9]+$/);
   const listPath = new URL(page.url()).pathname;
   await page.goto("/messages");
-  await page.getByRole("button", { name: "New group chat" }).click();
-  await page.getByPlaceholder("Name, e.g. Weekend plans").fill("Weekend plans");
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.getByText("General").first().click();
   await expect(page).toHaveURL(/\/messages\/[a-z0-9]+$/);
 
   const pages = [

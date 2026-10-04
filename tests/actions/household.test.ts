@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/auth", () => ({ requireOwner: vi.fn(), requireMember: vi.fn() }));
+vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     householdInvite: { create: vi.fn(), updateMany: vi.fn() },

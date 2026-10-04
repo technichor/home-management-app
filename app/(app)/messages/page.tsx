@@ -1,21 +1,19 @@
 import { prisma } from "@/lib/db";
-import { contactsOf } from "@/lib/scope";
-import { conversationsVisibleTo, previewText } from "@/lib/messaging";
+import { channelsFor, previewText } from "@/lib/messaging";
+import { candidatesFor } from "@/lib/channels";
+import { pageMember } from "@/lib/auth";
 import MessagesClient from "./MessagesClient";
-import { pageHouseholdId } from "@/lib/auth";
 
-export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ archived?: string }>; }) {
+export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ archived?: string }> }) {
   const { archived } = await searchParams;
   const showArchived = archived === "1";
-  const sessionHouseholdId = await pageHouseholdId();
-  const householdId = sessionHouseholdId;
+  const user = await pageMember();
 
-  const [conversations, outsiders, activeSyncs] = await Promise.all([
+  const [channels, candidates] = await Promise.all([
     prisma.conversation.findMany({
-      where: {
-        AND: [conversationsVisibleTo(householdId), { archivedAt: showArchived ? { not: null } : null }],
-      },
+      where: { AND: [channelsFor(user.id), { archivedAt: showArchived ? { not: null } : null }] },
       include: {
+        members: { select: { user: { select: { householdId: true } } } },
         messages: {
           where: { deletedAt: null },
           orderBy: { createdAt: "desc" },
@@ -24,41 +22,25 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         },
       },
     }),
-    // Contacts outside our household: the people a private note thread can be about.
-    prisma.contact.findMany({
-      where: { ...contactsOf(householdId), deletedAt: null, OR: [{ householdId: null }, { householdId: { not: householdId } }] },
-      select: { id: true, firstName: true, lastName: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    }),
-    prisma.sync.findMany({
-      where: { initiatingHouseholdId: householdId, status: "ACTIVE" },
-      select: { relatedContactId: true },
-    }),
+    candidatesFor(user),
   ]);
 
-  const syncedContactIds = new Set(activeSyncs.map((s) => s.relatedContactId));
-
-  const rows = conversations
+  const rows = channels
     .map((c) => {
       const last = c.messages[0];
       return {
         id: c.id,
         name: c.name,
-        kind: c.scope === "SYNCED" ? ("synced" as const) : c.relatedContactId ? ("private" as const) : ("group" as const),
+        general: c.kind === "GENERAL",
+        shared: new Set(c.members.map((m) => m.user.householdId)).size > 1,
+        memberCount: c.members.length,
         preview: last ? previewText(last.text) : null,
-        previewSender: last ? last.sender.firstName : null,
+        previewSender: last ? (last.sender?.firstName ?? "Former member") : null,
         lastActivity: (last ? last.createdAt : c.createdAt).toISOString(),
       };
     })
-    .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
+    // General first, then by latest activity.
+    .sort((a, b) => Number(b.general) - Number(a.general) || b.lastActivity.localeCompare(a.lastActivity));
 
-  return (
-    <MessagesClient
-      conversations={rows}
-      showArchived={showArchived}
-      contacts={outsiders
-        .filter((c) => !syncedContactIds.has(c.id))
-        .map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
-    />
-  );
+  return <MessagesClient channels={rows} candidates={candidates} showArchived={showArchived} />;
 }
