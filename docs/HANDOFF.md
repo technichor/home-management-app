@@ -4,7 +4,7 @@ Written 2026-10-01 (accounts section revised the same day, after the move to ind
 
 ## One-paragraph summary
 
-A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, tested and live in production: **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (group chats, private notes, and household-to-household "sync" with shared conversations). Production is https://home-management-app-tan.vercel.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
+A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, tested and live in production: **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (group chats, private notes, and household-to-household "sync" with shared conversations). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
 
 ## Stack and tooling
 
@@ -30,9 +30,13 @@ Set in Vercel (Production unless noted); locally in `.env` and `.env.local` (bot
 | `SESSION_SECRET` | Signs the iron-session cookie. |
 | `RESEND_API_KEY` | Sends verification and password-reset email via Resend. **Set in Vercel Production** (sensitive); verified working on 2026-10-02. Unset = the email is only printed to the server log (local dev). |
 | `EMAIL_FROM` | Sender. **Set in Vercel Production to `Home Management <noreply@domata.app>`**; `domata.app` is registered at Vercel (DNS on Vercel) and verified in Resend (records `send` MX + SPF TXT and `resend._domainkey` DKIM TXT, added to Vercel DNS automatically; verified 2026-10-04). A real send to a non-owner address was accepted that day (see `/admin/email`). Unset, it falls back to Resend's shared test sender `onboarding@resend.dev`, which only delivers to the Resend account owner (`corey.b.becker@gmail.com`) and refuses everything else with `403 You can only send testing emails to your own email address`. |
-| `APP_URL` | Public site URL used in emailed links (never taken from the request's Host header). **Set in Vercel Production** to `https://home-management-app-tan.vercel.app`; update it if a custom domain is added. Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost. |
+| `APP_URL` | Public site URL used in emailed links (never taken from the request's Host header). **Set in Vercel Production** to `https://domata.app`. Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost. |
 
 Vercel CLI: `npx vercel ...` (not installed globally). On a new machine run `! npx vercel login` in the Claude prompt (interactive). The repo's `.vercel/project.json` links it to the project.
+
+## Domain and hosting
+
+The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; the name is "not 100% final"). In the Vercel project's domain settings (changed through `vercel api /v9/projects/home-management-app/domains/<domain>`): `domata.app` serves the app directly; `www.domata.app` and the old `home-management-app-tan.vercel.app` both **308-redirect to `domata.app`**, keeping the path and query string, so old bookmarks and links still work. Sessions are cookies on one host, so anyone logged in on an old address had to log in again once. Email DNS (Resend): `send` MX + SPF TXT, `resend._domainkey` DKIM TXT, and `_dmarc` TXT `v=DMARC1; p=none;` (monitor only). Sender is `Home Management <noreply@domata.app>`. To change the domain later: add the new domain to the project and set its redirects, update `APP_URL` and `EMAIL_FROM` in Vercel (then redeploy; env changes only apply to new deployments), verify the new domain in Resend, and re-point the DNS records.
 
 ## Architecture in brief
 
