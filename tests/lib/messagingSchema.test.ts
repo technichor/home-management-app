@@ -10,7 +10,7 @@ describe("messaging schema", () => {
   });
 
   it("has the agreed sync statuses", () => {
-    expect(Object.values(SyncStatus).sort()).toEqual(["ACTIVE", "DECLINED", "PENDING", "REVOKED"]);
+    expect(Object.values(SyncStatus).sort()).toEqual(["ACTIVE", "DECLINED", "ENDED", "PENDING", "REVOKED"]);
   });
 
   it("has the agreed channel kinds and roles", () => {

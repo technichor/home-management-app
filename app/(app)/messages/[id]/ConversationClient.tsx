@@ -13,6 +13,7 @@ import {
   removeChannelMemberAction,
   leaveChannelAction,
   renameChannelAction,
+  markChannelReadAction,
   type ActionResult,
 } from "../actions";
 import MemberPicker from "../MemberPicker";
@@ -70,6 +71,14 @@ export default function ConversationClient({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
+
+  // Opening the channel, or a new message arriving while it is open, marks it read up to the newest message
+  // shown. (A tab in the background doesn't count as reading.)
+  const newest = messages.length > 0 ? messages[messages.length - 1].createdAt : null;
+  useEffect(() => {
+    if (!newest || document.hidden) return;
+    markChannelReadAction(conversation.id, newest).then(() => router.refresh());
+  }, [conversation.id, newest, router]);
 
   async function run(fn: () => Promise<ActionResult>) {
     const result = await fn();

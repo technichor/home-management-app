@@ -179,3 +179,19 @@ export async function unarchiveChannelAction(conversationId: string) {
     refresh(conversationId);
   });
 }
+
+/**
+ * Record that the user has seen the channel up to the given message time. The marker only moves forward,
+ * and never past what the page actually showed, so a message that arrives while reading stays unread.
+ */
+export async function markChannelReadAction(conversationId: string, upTo: string) {
+  const user = await requireMember();
+  const seen = new Date(upTo);
+  if (Number.isNaN(seen.getTime())) return { ok: false as const, error: "Invalid time." };
+  await prisma.conversationMember.updateMany({
+    where: { conversationId, userId: user.id, lastReadAt: { lt: seen } },
+    data: { lastReadAt: seen },
+  });
+  revalidatePath("/messages");
+  return { ok: true as const };
+}

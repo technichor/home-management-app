@@ -98,7 +98,9 @@ export default async function InvitePage({
           ? "This invite was already accepted."
           : sync.status === "DECLINED"
             ? "This invite was declined."
-            : "This invite was revoked.";
+            : sync.status === "ENDED"
+              ? "This sync was ended."
+              : "This invite was revoked.";
     return (
       <Shell>
         <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>

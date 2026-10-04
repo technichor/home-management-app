@@ -8,7 +8,7 @@ vi.mock("@/lib/channels", () => ({ checkChannelMembers: vi.fn(), leaveChannelTx:
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     conversation: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
-    conversationMember: { createMany: vi.fn() },
+    conversationMember: { createMany: vi.fn(), updateMany: vi.fn() },
     message: { create: vi.fn() },
   };
   prisma.$transaction = (fn: (tx: any) => unknown) => fn(prisma);
@@ -28,6 +28,7 @@ import {
   renameChannelAction,
   archiveChannelAction,
   unarchiveChannelAction,
+  markChannelReadAction,
 } from "@/app/(app)/messages/actions";
 
 // The signed-in user is "u1" (see fakeAuth). By default they manage a channel that u2 is also in.
@@ -64,6 +65,7 @@ describe("authentication", () => {
     ["renameChannelAction", () => renameChannelAction("cv1", "New")],
     ["archiveChannelAction", () => archiveChannelAction("cv1")],
     ["unarchiveChannelAction", () => unarchiveChannelAction("cv1")],
+    ["markChannelReadAction", () => markChannelReadAction("cv1", "2026-01-01T00:00:00.000Z")],
   ];
 
   it.each(calls)("%s refuses a caller with no session", async (_name, call) => {
@@ -221,5 +223,23 @@ describe("management", () => {
     vi.mocked(prisma.conversation.findFirst).mockResolvedValue(general() as any);
     await expect(archiveChannelAction("cv1")).resolves.toMatchObject({ ok: false, error: expect.stringContaining("General always includes everyone") });
     await expect(renameChannelAction("cv1", "X")).resolves.toMatchObject({ ok: false, error: expect.stringContaining("General always includes everyone") });
+  });
+});
+
+describe("markChannelReadAction", () => {
+  const upTo = "2026-01-02T03:04:05.000Z";
+
+  it("moves only the caller's own marker, and only forward", async () => {
+    expect(await markChannelReadAction("cv1", upTo)).toEqual({ ok: true });
+    expect(prisma.conversationMember.updateMany).toHaveBeenCalledWith({
+      where: { conversationId: "cv1", userId: "u1", lastReadAt: { lt: new Date(upTo) } },
+      data: { lastReadAt: new Date(upTo) },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/messages");
+  });
+
+  it("rejects a time that isn't one", async () => {
+    expect(await markChannelReadAction("cv1", "yesterday")).toEqual({ ok: false, error: "Invalid time." });
+    expect(prisma.conversationMember.updateMany).not.toHaveBeenCalled();
   });
 });

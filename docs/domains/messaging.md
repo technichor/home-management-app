@@ -17,16 +17,18 @@ Messaging works like Slack channels. A **channel** has an explicit list of membe
 - **Leaving a household** removes the person from every channel they were in (including channels shared with other households).
 - **Syncing creates no channel.** Accepting a sync only makes the two households eligible for each other's channels.
 - **Senders** are the signed-in user (`Message.senderUserId`). A linked contact is no longer needed to send. A message whose sender account was deleted shows "Former member".
+- **Ending a sync:** an owner of either household can end an active sync from `/household` ("Synced households"). Status becomes `ENDED` (`Sync.endedAt`), and in every channel that holds people from both households the household of the channel's creator stays and the other household's people are removed (`dropDisconnectedMembers`; if the creator is in neither or gone, the household that did *not* end the sync is the one removed). Messages stay. The two can sync again later via a fresh invite.
+- **Unread:** each membership has `lastReadAt`. Messages from other people newer than it are unread (`unreadCounts` in `lib/messaging.ts`, one query). Opening a channel (tab visible) marks it read up to the newest message shown (`markChannelReadAction`, only moves forward). Counts show on the Messages tab (layout) and per channel in the list; the list re-fetches every 10 s.
 - Messages are text only, soft-delete only and never edited. Attachments are not built (no file storage).
 - Email is only ever the sync/verification handshake; messages are never sent by email or SMS.
 
 ## Schema
 
-**Sync**: unchanged (`initiatingHouseholdId`, `counterpartHouseholdId`, `relatedContactId`, `counterpartEmail`, `status` PENDING | ACTIVE | DECLINED | REVOKED, ...). A contact's "synced" status is derived from an ACTIVE Sync row.
+**Sync**: (`initiatingHouseholdId`, `counterpartHouseholdId`, `relatedContactId`, `counterpartEmail`, `status` PENDING | ACTIVE | DECLINED | REVOKED | ENDED, `endedAt`, ...). A contact's "synced" status is derived from an ACTIVE Sync row.
 
 **Conversation** (a channel): `id`, `kind` (CHANNEL | GENERAL), `householdId` (set for GENERAL), `createdById`, `name`, `archivedAt`, `createdAt`, `updatedAt`.
 
-**ConversationMember**: `conversationId`, `userId`, `role` (MANAGER | MEMBER), `addedById`, `createdAt`; unique on (conversationId, userId).
+**ConversationMember**: `conversationId`, `userId`, `role` (MANAGER | MEMBER), `addedById`, `createdAt`, `lastReadAt`; unique on (conversationId, userId).
 
 **Message**: `id`, `conversationId`, `senderUserId` (nullable: set null if the account is deleted), `text`, `attachmentIds` (always empty), `deletedAt`, `createdAt`.
 
@@ -40,7 +42,6 @@ One General per household is enforced in code (`ensureGeneral`), not by a databa
 
 ## Explicitly out of scope
 
-- Ending an **active** sync, and what happens to shared channels and history when it ends. (Revoking a *pending* invite is built.)
 - Attachments, message editing, read receipts, typing indicators, reactions, @mentions, threading, search, push notifications.
 - Per-household archiving of a shared channel (archiving is global).
 - Messaging people without an account.

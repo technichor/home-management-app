@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { channelsFor, previewText } from "@/lib/messaging";
+import { channelsFor, previewText, unreadCounts } from "@/lib/messaging";
 import { candidatesFor } from "@/lib/channels";
 import { pageMember } from "@/lib/auth";
 import MessagesClient from "./MessagesClient";
@@ -9,7 +9,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const showArchived = archived === "1";
   const user = await pageMember();
 
-  const [channels, candidates] = await Promise.all([
+  const [channels, candidates, unread] = await Promise.all([
     prisma.conversation.findMany({
       where: { AND: [channelsFor(user.id), { archivedAt: showArchived ? { not: null } : null }] },
       include: {
@@ -23,6 +23,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
       },
     }),
     candidatesFor(user),
+    unreadCounts(user.id),
   ]);
 
   const rows = channels
@@ -34,6 +35,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         general: c.kind === "GENERAL",
         shared: new Set(c.members.map((m) => m.user.householdId)).size > 1,
         memberCount: c.members.length,
+        unread: unread.get(c.id) ?? 0,
         preview: last ? previewText(last.text) : null,
         previewSender: last ? (last.sender?.firstName ?? "Former member") : null,
         lastActivity: (last ? last.createdAt : c.createdAt).toISOString(),

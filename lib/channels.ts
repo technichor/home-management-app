@@ -131,3 +131,33 @@ export async function removeUserFromAllChannels(tx: Tx, userId: string): Promise
   });
   for (const m of memberships) await leaveChannelTx(tx, m.conversationId, userId, m.conversation.kind);
 }
+
+/**
+ * A sync between two households has ended, so no channel may keep people from both. In each such channel
+ * the household of the channel's creator stays and the other household's people are removed; when the
+ * creator is in neither (or is gone), the household that did not end the sync is the one removed.
+ * Their messages stay. Returns how many channels were affected.
+ */
+export async function dropDisconnectedMembers(tx: Tx, householdA: string, householdB: string, endedByHouseholdId: string): Promise<number> {
+  const channels = await tx.conversation.findMany({
+    where: {
+      kind: "CHANNEL",
+      AND: [{ members: { some: { user: { householdId: householdA } } } }, { members: { some: { user: { householdId: householdB } } } }],
+    },
+    select: {
+      id: true,
+      createdBy: { select: { householdId: true } },
+      members: { select: { userId: true, user: { select: { householdId: true } } } },
+    },
+  });
+  const otherThanEnder = endedByHouseholdId === householdA ? householdB : householdA;
+  for (const channel of channels) {
+    const creatorHousehold = channel.createdBy?.householdId;
+    const dropped =
+      creatorHousehold === householdA ? householdB : creatorHousehold === householdB ? householdA : otherThanEnder;
+    for (const m of channel.members) {
+      if (m.user.householdId === dropped) await leaveChannelTx(tx, channel.id, m.userId, "CHANNEL");
+    }
+  }
+  return channels.length;
+}

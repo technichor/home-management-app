@@ -7,11 +7,12 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 vi.mock("@/lib/auth", () => ({ requireOwner: vi.fn(), requireMember: vi.fn() }));
-vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn() }));
+vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn(), dropDisconnectedMembers: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     householdInvite: { create: vi.fn(), updateMany: vi.fn() },
     household: { update: vi.fn() },
+    sync: { findFirst: vi.fn(), updateMany: vi.fn() },
     joinRequest: { findFirst: vi.fn(), updateMany: vi.fn() },
     user: { updateMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn() },
     contact: { create: vi.fn() },
@@ -29,8 +30,10 @@ import {
   promoteMemberAction,
   removeMemberAction,
   leaveHouseholdAction,
+  endSyncAction,
 } from "@/app/(app)/household/actions";
 import { prisma } from "@/lib/db";
+import { dropDisconnectedMembers } from "@/lib/channels";
 import { requireOwner, requireMember } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
@@ -51,6 +54,7 @@ describe("owner-only actions", () => {
     ["decideJoinRequest", () => decideJoinRequestAction("r1", "approve")],
     ["promoteMember", () => promoteMemberAction("m1")],
     ["removeMember", () => removeMemberAction("m1")],
+    ["endSync", () => endSyncAction("s1")],
   ])("%s refuses a non-owner", async (_n, call) => {
     vi.mocked(requireOwner).mockRejectedValue(new Error("Only a household owner can do that."));
     await expect(call()).rejects.toThrow("Only a household owner");
@@ -214,5 +218,54 @@ describe("leaveHouseholdAction", () => {
   it("lets an owner leave when another owner remains", async () => {
     vi.mocked(prisma.user.count).mockResolvedValue(1);
     await expect(leaveHouseholdAction()).rejects.toThrow("REDIRECT:/onboarding");
+  });
+});
+
+describe("endSyncAction", () => {
+  const active = { id: "s1", initiatingHouseholdId: "h1", counterpartHouseholdId: "h2" };
+
+  beforeEach(() => {
+    vi.mocked(prisma.sync.findFirst).mockResolvedValue(active as any);
+    vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 1 } as any);
+  });
+
+  it("only finds an active sync that names the owner's household", async () => {
+    await endSyncAction("s1");
+    expect(prisma.sync.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "s1", status: "ACTIVE", OR: [{ initiatingHouseholdId: "h1" }, { counterpartHouseholdId: "h1" }] },
+      })
+    );
+  });
+
+  it("ends it, takes the people out of channels that now span both households, and refreshes", async () => {
+    expect(await endSyncAction("s1")).toEqual({ ok: true });
+    expect(prisma.sync.updateMany).toHaveBeenCalledWith({
+      where: { id: "s1", status: "ACTIVE" },
+      data: { status: "ENDED", endedAt: expect.any(Date) },
+    });
+    expect(dropDisconnectedMembers).toHaveBeenCalledWith(prisma, "h1", "h2", "h1");
+    expect(revalidatePath).toHaveBeenCalledWith("/household");
+    expect(revalidatePath).toHaveBeenCalledWith("/messages");
+  });
+
+  it("works from the other side too", async () => {
+    vi.mocked(requireOwner).mockResolvedValue({ ...owner, householdId: "h2" });
+    await endSyncAction("s1");
+    expect(dropDisconnectedMembers).toHaveBeenCalledWith(prisma, "h1", "h2", "h2");
+  });
+
+  it("refuses a sync that isn't active or isn't theirs", async () => {
+    vi.mocked(prisma.sync.findFirst).mockResolvedValue(null);
+    expect(await endSyncAction("s1")).toEqual({ ok: false, error: "That sync is no longer active." });
+    vi.mocked(prisma.sync.findFirst).mockResolvedValue({ ...active, counterpartHouseholdId: null } as any);
+    expect(await endSyncAction("s1")).toEqual({ ok: false, error: "That sync is no longer active." });
+    expect(prisma.sync.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing when the other side ended it a moment earlier", async () => {
+    vi.mocked(prisma.sync.updateMany).mockResolvedValue({ count: 0 } as any);
+    expect(await endSyncAction("s1")).toEqual({ ok: false, error: "That sync is no longer active." });
+    expect(dropDisconnectedMembers).not.toHaveBeenCalled();
   });
 });

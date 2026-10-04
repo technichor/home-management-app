@@ -21,6 +21,16 @@ beforeEach(() => {
 
 const selected = (el: HTMLElement) => el.style.fontWeight === "500";
 
+describe("AppNav unread badge", () => {
+  it("shows the unread count on Messages, and nothing when there are none", () => {
+    const { unmount } = render(<AppNav householdName="H" unreadMessages={3} logoutAction={vi.fn()} />);
+    expect(screen.getByLabelText("3 unread messages")).toBeInTheDocument();
+    unmount();
+    render(<AppNav householdName="H" logoutAction={vi.fn()} />);
+    expect(screen.queryByLabelText(/unread messages/)).toBeNull();
+  });
+});
+
 describe("AppNav", () => {
   const setup = () => {
     const logoutAction = vi.fn().mockResolvedValue(undefined);

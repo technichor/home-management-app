@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { App, Button, Empty, Input, Modal, Space, Tag, Typography } from "antd";
+import { App, Badge, Button, Empty, Input, Modal, Space, Tag, Typography } from "antd";
 import type { Candidate } from "@/lib/channels";
 import { createChannelAction } from "./actions";
 import MemberPicker from "./MemberPicker";
+
+// How often the list checks for new messages.
+export const LIST_POLL_INTERVAL_MS = 10000;
 
 export type ChannelRow = {
   id: string;
@@ -14,6 +17,7 @@ export type ChannelRow = {
   general: boolean;
   shared: boolean;
   memberCount: number;
+  unread: number;
   preview: string | null;
   previewSender: string | null;
   lastActivity: string;
@@ -34,6 +38,14 @@ export default function MessagesClient({
   const [name, setName] = useState("");
   const [members, setMembers] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // New messages arrive while the list is open: re-fetch it on a timer while the tab is visible.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!document.hidden) router.refresh();
+    }, LIST_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [router]);
 
   async function create() {
     setBusy(true);
@@ -78,8 +90,9 @@ export default function MessagesClient({
               style={{ display: "block", padding: "12px 16px", borderTop: i > 0 ? "1px solid #f0f0f0" : undefined, color: "inherit" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontWeight: 500 }}>
+                <span style={{ fontWeight: c.unread > 0 ? 700 : 500 }}>
                   {c.name}{" "}
+                  {c.unread > 0 && <Badge count={c.unread} overflowCount={99} aria-label={`${c.unread} unread`} style={{ marginRight: 6 }} />}
                   {c.general && <Tag color="blue">Everyone</Tag>}
                   {c.shared && <Tag color="green">Shared</Tag>}
                   <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12, fontWeight: 400 }}>

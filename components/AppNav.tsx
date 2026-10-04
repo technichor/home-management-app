@@ -1,11 +1,12 @@
 "use client";
 
-import { Button, Tag } from "antd";
+import { Badge, Button, Tag } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 
 interface AppNavProps {
   householdName: string;
   isSuperuser?: boolean;
+  unreadMessages?: number;
   logoutAction: () => Promise<void>;
 }
 
@@ -19,7 +20,7 @@ const MODULES = [
   { key: "schedules", label: "Schedules", href: undefined, active: false },
 ];
 
-export default function AppNav({ householdName, isSuperuser, logoutAction }: AppNavProps) {
+export default function AppNav({ householdName, isSuperuser, unreadMessages = 0, logoutAction }: AppNavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -78,6 +79,9 @@ export default function AppNav({ householdName, isSuperuser, logoutAction }: App
               }}
             >
               {mod.label}
+              {mod.key === "messages" && unreadMessages > 0 && (
+                <Badge count={unreadMessages} overflowCount={99} aria-label={`${unreadMessages} unread messages`} />
+              )}
               {!mod.active && (
                 <Tag variant="filled" style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px" }}>
                   soon

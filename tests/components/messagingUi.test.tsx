@@ -15,9 +15,10 @@ vi.mock("@/app/(app)/messages/actions", () => ({
   renameChannelAction: vi.fn(),
   archiveChannelAction: vi.fn(),
   unarchiveChannelAction: vi.fn(),
+  markChannelReadAction: vi.fn(),
 }));
 
-import MessagesClient, { ChannelRow } from "@/app/(app)/messages/MessagesClient";
+import MessagesClient, { ChannelRow, LIST_POLL_INTERVAL_MS } from "@/app/(app)/messages/MessagesClient";
 import ConversationClient, { MessageView, MemberView, POLL_INTERVAL_MS } from "@/app/(app)/messages/[id]/ConversationClient";
 import {
   createChannelAction,
@@ -28,6 +29,7 @@ import {
   renameChannelAction,
   archiveChannelAction,
   unarchiveChannelAction,
+  markChannelReadAction,
 } from "@/app/(app)/messages/actions";
 import type { Candidate } from "@/lib/channels";
 
@@ -41,10 +43,11 @@ beforeEach(() => {
   vi.mocked(renameChannelAction).mockResolvedValue({ ok: true });
   vi.mocked(archiveChannelAction).mockResolvedValue({ ok: true });
   vi.mocked(unarchiveChannelAction).mockResolvedValue({ ok: true });
+  vi.mocked(markChannelReadAction).mockResolvedValue({ ok: true });
 });
 
 const row = (over: Partial<ChannelRow> = {}): ChannelRow => ({
-  id: "cv1", name: "Trip", general: false, shared: false, memberCount: 3, preview: "see you there", previewSender: "Sam",
+  id: "cv1", name: "Trip", general: false, shared: false, memberCount: 3, unread: 0, preview: "see you there", previewSender: "Sam",
   lastActivity: "2026-01-02T00:00:00.000Z", ...over,
 });
 
@@ -76,6 +79,36 @@ describe("MessagesClient", () => {
     expect(screen.getByText("Shared")).toBeInTheDocument();
     expect(screen.getByText("1 person")).toBeInTheDocument();
     expect(screen.getAllByText("3 people")).toHaveLength(2);
+  });
+
+  it("shows the unread count on a channel that has some, and nothing on the others", () => {
+    setup([row({ unread: 3 }), row({ id: "cv2", name: "Quiet" })]);
+    expect(screen.getByLabelText("3 unread")).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/unread$/)).toHaveLength(1);
+  });
+
+  describe("polling", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("refreshes the list on a timer while the tab is visible, and stops when it closes", () => {
+      const { unmount } = setup();
+      router.refresh.mockClear();
+      act(() => vi.advanceTimersByTime(LIST_POLL_INTERVAL_MS * 2));
+      expect(router.refresh).toHaveBeenCalledTimes(2);
+      unmount();
+      act(() => vi.advanceTimersByTime(LIST_POLL_INTERVAL_MS * 2));
+      expect(router.refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it("skips refreshing while the tab is hidden", () => {
+      setup();
+      router.refresh.mockClear();
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+      act(() => vi.advanceTimersByTime(LIST_POLL_INTERVAL_MS * 2));
+      expect(router.refresh).not.toHaveBeenCalled();
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    });
   });
 
   it("shows an empty state, and a different one for the archive", () => {
@@ -185,6 +218,26 @@ describe("ConversationClient", () => {
   it("omits the household label when a sender has none", () => {
     setup({ conversation: { ...trip, shared: true }, messages: [{ ...msgs[0], householdName: null }] });
     expect(screen.queryByText(/·/)).not.toBeInTheDocument();
+  });
+
+  describe("read marker", () => {
+    it("marks the channel read up to the newest message shown, then refreshes", async () => {
+      setup();
+      await waitFor(() => expect(markChannelReadAction).toHaveBeenCalledWith("cv1", msgs[1].createdAt));
+      await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    });
+
+    it("does nothing in an empty channel", () => {
+      setup({ messages: [] });
+      expect(markChannelReadAction).not.toHaveBeenCalled();
+    });
+
+    it("does not count a background tab as reading", () => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+      setup();
+      expect(markChannelReadAction).not.toHaveBeenCalled();
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    });
   });
 
   it("shows an empty state", () => {

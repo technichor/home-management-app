@@ -21,6 +21,7 @@ vi.mock("@/lib/db", () => ({
     household: { findUnique: vi.fn() },
     householdInvite: { findMany: vi.fn(), findUnique: vi.fn() },
     joinRequest: { findMany: vi.fn() },
+    sync: { findMany: vi.fn() },
   },
 }));
 vi.mock("@/app/(app)/household/HouseholdClient", () => ({
@@ -42,6 +43,7 @@ beforeEach(() => {
   vi.mocked(prisma.householdInvite.findMany).mockResolvedValue([
     { id: "i1", createdAt: new Date("2026-01-02T00:00:00Z"), expiresAt: new Date("2026-01-09T00:00:00Z") },
   ] as any);
+  vi.mocked(prisma.sync.findMany).mockResolvedValue([]);
   vi.mocked(prisma.joinRequest.findMany).mockResolvedValue([
     { id: "r1", user: { firstName: "Pat", lastName: "Lee", email: "p@x.co" } },
   ] as any);
@@ -67,6 +69,25 @@ describe("HouseholdPage", () => {
     vi.mocked(prisma.household.findUnique).mockResolvedValue(null);
     render(await HouseholdPage());
     expect(JSON.parse(screen.getByTestId("client").textContent!).joinCode).toBeNull();
+  });
+
+  it("lists active syncs from either side by the other household's name", async () => {
+    vi.mocked(pageMember).mockResolvedValue({ id: "u1", role: "OWNER", householdId: "h1", household } as any);
+    vi.mocked(prisma.sync.findMany).mockResolvedValue([
+      { id: "s1", initiatingHouseholdId: "h1", initiatingHousehold: { displayName: "The Smiths" }, counterpartHousehold: { displayName: "The Joneses" } },
+      { id: "s2", initiatingHouseholdId: "h2", initiatingHousehold: { displayName: "The Lees" }, counterpartHousehold: { displayName: "The Smiths" } },
+      { id: "s3", initiatingHouseholdId: "h1", initiatingHousehold: { displayName: "The Smiths" }, counterpartHousehold: null },
+    ] as any);
+    render(await HouseholdPage());
+    expect(JSON.parse(screen.getByTestId("client").textContent!).syncs).toEqual([
+      { id: "s1", householdName: "The Joneses" },
+      { id: "s2", householdName: "The Lees" },
+      { id: "s3", householdName: "Another household" },
+    ]);
+    expect(vi.mocked(prisma.sync.findMany).mock.calls[0][0]!.where).toEqual({
+      status: "ACTIVE",
+      OR: [{ initiatingHouseholdId: "h1" }, { counterpartHouseholdId: "h1" }],
+    });
   });
 
   it("shows a plain member only the member list", async () => {

@@ -7,7 +7,7 @@ import { requestSyncAction, regenerateInviteAction, revokeInviteAction, SyncActi
 
 export type SyncInfo = {
   id: string;
-  status: "PENDING" | "ACTIVE" | "DECLINED" | "REVOKED";
+  status: "PENDING" | "ACTIVE" | "DECLINED" | "REVOKED" | "ENDED";
   counterpartEmail: string;
   counterpartHouseholdName: string | null;
 };
@@ -71,7 +71,7 @@ export default function SyncCard({
     }
   }
 
-  const canRequest = !sync || sync.status === "DECLINED" || sync.status === "REVOKED";
+  const canRequest = !sync || sync.status === "DECLINED" || sync.status === "REVOKED" || sync.status === "ENDED";
 
   return (
     <Card size="small" title="Messaging sync">
@@ -87,6 +87,7 @@ export default function SyncCard({
           </Typography.Text>
         )}
         {sync?.status === "DECLINED" && <Typography.Text type="secondary">They declined the last invite.</Typography.Text>}
+        {sync?.status === "ENDED" && <Typography.Text type="secondary">The sync with this household was ended.</Typography.Text>}
         {sync?.status === "REVOKED" && <Typography.Text type="secondary">The last sync was revoked.</Typography.Text>}
 
         {canRequest && (

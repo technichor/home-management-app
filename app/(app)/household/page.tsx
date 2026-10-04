@@ -6,7 +6,7 @@ export default async function HouseholdPage() {
   const user = await pageMember();
   const householdId = user.householdId;
   const isOwner = user.role === "OWNER";
-  const [members, household, invites, requests] = await Promise.all([
+  const [members, household, invites, requests, syncRows] = await Promise.all([
     prisma.user.findMany({
       where: { householdId },
       select: { id: true, firstName: true, lastName: true, email: true, role: true },
@@ -27,7 +27,21 @@ export default async function HouseholdPage() {
           orderBy: { createdAt: "asc" },
         })
       : [],
+    prisma.sync.findMany({
+      where: { status: "ACTIVE", OR: [{ initiatingHouseholdId: householdId }, { counterpartHouseholdId: householdId }] },
+      select: {
+        id: true,
+        initiatingHouseholdId: true,
+        initiatingHousehold: { select: { displayName: true } },
+        counterpartHousehold: { select: { displayName: true } },
+      },
+      orderBy: { respondedAt: "asc" },
+    }),
   ]);
+  const syncs = syncRows.map((s) => ({
+    id: s.id,
+    householdName: (s.initiatingHouseholdId === householdId ? s.counterpartHousehold : s.initiatingHousehold)?.displayName ?? "Another household",
+  }));
 
   return (
     <HouseholdClient
@@ -36,6 +50,7 @@ export default async function HouseholdPage() {
       isOwner={isOwner}
       joinCode={isOwner ? (household?.joinCode ?? null) : null}
       members={members}
+      syncs={syncs}
       invites={invites.map((i) => ({
         id: i.id,
         createdAt: i.createdAt.toISOString(),

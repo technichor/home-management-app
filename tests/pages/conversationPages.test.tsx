@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { conversation: { findMany: vi.fn(), findFirst: vi.fn() } },
 }));
 vi.mock("@/lib/channels", () => ({ candidatesFor: vi.fn() }));
+vi.mock("@/lib/messaging", async (orig) => ({ ...(await orig<typeof import("@/lib/messaging")>()), unreadCounts: vi.fn() }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/messages/MessagesClient", () => ({
   default: (p: any) => ((seen.list = p), <div>messages client</div>),
@@ -26,7 +27,7 @@ vi.mock("@/app/(app)/messages/[id]/ConversationClient", () => ({
 
 import { prisma } from "@/lib/db";
 import { candidatesFor } from "@/lib/channels";
-import { channelsFor } from "@/lib/messaging";
+import { channelsFor, unreadCounts } from "@/lib/messaging";
 import MessagesPage from "@/app/(app)/messages/page";
 import ConversationPage from "@/app/(app)/messages/[id]/page";
 
@@ -48,6 +49,7 @@ beforeEach(() => {
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(prisma.conversation.findMany).mockResolvedValue([]);
   vi.mocked(candidatesFor).mockResolvedValue([]);
+  vi.mocked(unreadCounts).mockResolvedValue(new Map());
 });
 
 describe("MessagesPage", () => {
@@ -65,6 +67,15 @@ describe("MessagesPage", () => {
     await run({ archived: "1" });
     expect(whereOf()).toEqual({ AND: [channelsFor("u1"), { archivedAt: { not: null } }] });
     expect(seen.list.showArchived).toBe(true);
+  });
+
+  it("passes each channel's unread count (zero when it has none)", async () => {
+    vi.mocked(prisma.conversation.findMany).mockResolvedValue([dbChannel({ id: "a" }), dbChannel({ id: "b" })] as any);
+    vi.mocked(unreadCounts).mockResolvedValue(new Map([["a", 3]]));
+    await run();
+    const byId = Object.fromEntries(seen.list.channels.map((c: any) => [c.id, c.unread]));
+    expect(byId).toEqual({ a: 3, b: 0 });
+    expect(unreadCounts).toHaveBeenCalledWith("u1");
   });
 
   it("hands over the people the user may add, from the channel library", async () => {

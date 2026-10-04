@@ -6,6 +6,7 @@ import { Alert, Button, Card, Input, Space, Tag, Typography, Popconfirm } from "
 import {
   createInviteAction,
   decideJoinRequestAction,
+  endSyncAction,
   leaveHouseholdAction,
   promoteMemberAction,
   removeMemberAction,
@@ -28,13 +29,14 @@ interface Props {
   isOwner: boolean;
   joinCode: string | null;
   members: Member[];
+  syncs: { id: string; householdName: string }[];
   invites: { id: string; createdAt: string; expiresAt: string }[];
   requests: { id: string; name: string; email: string }[];
 }
 
 const dateOnly = (iso: string) => iso.slice(0, 10);
 
-export default function HouseholdClient({ householdName, currentUserId, isOwner, joinCode, members, invites, requests }: Props) {
+export default function HouseholdClient({ householdName, currentUserId, isOwner, joinCode, members, syncs, invites, requests }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [newLink, setNewLink] = useState<string | null>(null);
@@ -111,6 +113,33 @@ export default function HouseholdClient({ householdName, currentUserId, isOwner,
           >
             <Button disabled={busy}>Leave household</Button>
           </Popconfirm>
+        </Space>
+      </Card>
+
+      <Card title="Synced households">
+        <Space orientation="vertical" style={{ width: "100%" }}>
+          {syncs.length === 0 && (
+            <Typography.Text type="secondary">
+              Not synced with any household. Request a sync from a contact&apos;s page to put their people in your channels.
+            </Typography.Text>
+          )}
+          {syncs.map((s) => (
+            <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span>{s.householdName}</span>
+              {isOwner && (
+                <Popconfirm
+                  title={`End the sync with ${s.householdName}?`}
+                  description="Neither household can add the other's people to channels. In channels that have both, the people from the household that didn't create the channel are removed. Messages stay."
+                  okText="End sync"
+                  onConfirm={() => run(() => endSyncAction(s.id))}
+                >
+                  <Button size="small" danger disabled={busy}>
+                    End sync
+                  </Button>
+                </Popconfirm>
+              )}
+            </div>
+          ))}
         </Space>
       </Card>
 

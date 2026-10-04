@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireMember, requireOwner } from "@/lib/auth";
 import { generateInviteToken } from "@/lib/syncToken";
 import { generateJoinCode } from "@/lib/joinCode";
+import { dropDisconnectedMembers } from "@/lib/channels";
 import { detachUser, INVITE_TTL_MS, joinHouseholdTx, MembershipError } from "@/lib/membership";
 
 export type HouseholdActionResult = { ok: true } | { ok: false; error: string };
@@ -134,4 +135,38 @@ export async function leaveHouseholdAction(): Promise<HouseholdActionResult> {
   await prisma.$transaction((tx) => detachUser(tx, user.id));
 
   redirect("/onboarding");
+}
+
+/**
+ * End an active sync with another household (either side may, owners only). The two households can no
+ * longer put each other's people in channels, and the other household's people leave any channel that
+ * had both (see dropDisconnectedMembers). Messages already sent stay. They can sync again later.
+ */
+export async function endSyncAction(syncId: string): Promise<HouseholdActionResult> {
+  const owner = await requireOwner();
+  const sync = await prisma.sync.findFirst({
+    where: {
+      id: syncId,
+      status: "ACTIVE",
+      OR: [{ initiatingHouseholdId: owner.householdId }, { counterpartHouseholdId: owner.householdId }],
+    },
+    select: { id: true, initiatingHouseholdId: true, counterpartHouseholdId: true },
+  });
+  if (!sync || !sync.counterpartHouseholdId) return { ok: false, error: "That sync is no longer active." };
+  const { initiatingHouseholdId, counterpartHouseholdId } = sync;
+
+  const ended = await prisma.$transaction(async (tx) => {
+    // The status check makes a double click or both sides ending at once harmless.
+    const claimed = await tx.sync.updateMany({
+      where: { id: sync.id, status: "ACTIVE" },
+      data: { status: "ENDED", endedAt: new Date() },
+    });
+    if (claimed.count === 0) return false;
+    await dropDisconnectedMembers(tx, initiatingHouseholdId, counterpartHouseholdId, owner.householdId);
+    return true;
+  });
+  if (!ended) return { ok: false, error: "That sync is no longer active." };
+  refresh();
+  revalidatePath("/messages");
+  return { ok: true };
 }

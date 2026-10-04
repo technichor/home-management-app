@@ -24,6 +24,8 @@ enum SyncStatus {
   ACTIVE
   DECLINED
   REVOKED
+  // An ACTIVE sync that one household later ended.
+  ENDED
 }
 
 enum EntityType {
@@ -186,6 +188,7 @@ model Sync {
   status                 SyncStatus @default(PENDING)
   createdAt              DateTime   @default(now())
   respondedAt            DateTime?
+  endedAt                DateTime?
 
   @@index([initiatingHouseholdId])
   @@index([counterpartHouseholdId])
@@ -233,6 +236,8 @@ model ConversationMember {
   role           ConversationRole @default(MEMBER)
   addedById      String?
   createdAt      DateTime         @default(now())
+  // Messages after this (from other people) count as unread for this member.
+  lastReadAt     DateTime         @default(now())
 
   @@unique([conversationId, userId])
   @@index([userId])

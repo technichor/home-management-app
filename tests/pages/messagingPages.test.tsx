@@ -89,6 +89,7 @@ describe("InvitePage", () => {
     ["ACTIVE", "someone-else", "This invite was already accepted."],
     ["DECLINED", null, "This invite was declined."],
     ["REVOKED", null, "This invite was revoked."],
+    ["ENDED", null, "This sync was ended."],
   ])("shows a %s invite (counterpart %s) as already answered", async (status, counterpart, text) => {
     vi.mocked(prisma.sync.findUnique).mockResolvedValue(sync({ status, counterpartHouseholdId: counterpart }) as any);
     render(await run());

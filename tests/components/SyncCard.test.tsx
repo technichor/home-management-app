@@ -184,6 +184,12 @@ describe("SyncCard: existing sync", () => {
     expect(screen.getByRole("button", { name: "Request sync" })).toBeInTheDocument();
   });
 
+  it("lets you sync again after the sync was ended", () => {
+    setup(sync({ status: "ENDED" }));
+    expect(screen.getByText("The sync with this household was ended.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Request sync" })).toBeInTheDocument();
+  });
+
   it("lets you ask again after a revoke", () => {
     setup(sync({ status: "REVOKED" }));
     expect(screen.getByText("The last sync was revoked.")).toBeInTheDocument();

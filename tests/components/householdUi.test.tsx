@@ -13,6 +13,7 @@ vi.mock("@/app/(app)/household/actions", () => ({
   promoteMemberAction: vi.fn(),
   removeMemberAction: vi.fn(),
   leaveHouseholdAction: vi.fn(),
+  endSyncAction: vi.fn(),
 }));
 vi.mock("@/app/join/[token]/actions", () => ({ acceptHouseholdInviteAction: vi.fn() }));
 vi.mock("@/app/onboarding/actions", () => ({ requestJoinAction: vi.fn() }));
@@ -35,13 +36,14 @@ const base = {
   isOwner: true,
   joinCode: null as string | null,
   members,
+  syncs: [{ id: "s1", householdName: "The Joneses" }],
   invites: [{ id: "i1", createdAt: "2026-01-02T00:00:00.000Z", expiresAt: "2026-01-09T00:00:00.000Z" }],
   requests: [{ id: "r1", name: "Ann Ray", email: "ann@x.co" }],
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  for (const fn of [actions.revokeInviteAction, actions.decideJoinRequestAction, actions.promoteMemberAction, actions.removeMemberAction, actions.leaveHouseholdAction]) {
+  for (const fn of [actions.revokeInviteAction, actions.decideJoinRequestAction, actions.promoteMemberAction, actions.removeMemberAction, actions.leaveHouseholdAction, actions.endSyncAction]) {
     vi.mocked(fn as any).mockResolvedValue({ ok: true });
   }
   vi.mocked(actions.setJoinCodeAction).mockResolvedValue({ ok: true, joinCode: "ABCD2345" });
@@ -143,6 +145,36 @@ describe("HouseholdClient as owner", () => {
     await userEvent.click(screen.getByRole("button", { name: "Leave household" }));
     await userEvent.click(await screen.findByRole("button", { name: "Leave" }));
     await waitFor(() => expect(actions.leaveHouseholdAction).toHaveBeenCalled());
+  });
+});
+
+describe("synced households", () => {
+  it("lists them, and an owner can end a sync after confirming", async () => {
+    render(<HouseholdClient {...base} />);
+    expect(screen.getByText("The Joneses")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "End sync" }));
+    await userEvent.click((await screen.findAllByRole("button", { name: "End sync" })).pop() as HTMLElement);
+    await waitFor(() => expect(actions.endSyncAction).toHaveBeenCalledWith("s1"));
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows the reason when ending fails", async () => {
+    vi.mocked(actions.endSyncAction).mockResolvedValueOnce({ ok: false, error: "That sync is no longer active." });
+    render(<HouseholdClient {...base} />);
+    await userEvent.click(screen.getByRole("button", { name: "End sync" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "End sync" }).pop() as HTMLElement);
+    expect(await screen.findByText("That sync is no longer active.")).toBeInTheDocument();
+  });
+
+  it("gives a plain member the list but no End button", () => {
+    render(<HouseholdClient {...base} isOwner={false} />);
+    expect(screen.getByText("The Joneses")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "End sync" })).not.toBeInTheDocument();
+  });
+
+  it("says so when there are none", () => {
+    render(<HouseholdClient {...base} syncs={[]} />);
+    expect(screen.getByText(/Not synced with any household/)).toBeInTheDocument();
   });
 });
 

@@ -21,8 +21,10 @@ vi.mock("@/app/(app)/contacts/import/ImportClient", () => ({
   default: () => <div>import client</div>,
 }));
 vi.mock("@/app/login/actions", () => ({ logoutAction: vi.fn() }));
+vi.mock("@/lib/messaging", () => ({ totalUnread: vi.fn().mockResolvedValue(0) }));
 
 import { getSessionUser } from "@/lib/auth";
+import { totalUnread } from "@/lib/messaging";
 import RootLayout, { metadata } from "@/app/layout";
 import RootPage from "@/app/page";
 import AppLayout from "@/app/(app)/layout";
@@ -85,6 +87,14 @@ describe("AppLayout", () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household, isSuperuser: false } as any);
     render(await AppLayout({ children: null }));
     expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+  });
+
+  it("shows the user's unread message count on the nav", async () => {
+    vi.mocked(getSessionUser).mockResolvedValue({ id: "u9", household } as any);
+    vi.mocked(totalUnread).mockResolvedValueOnce(4);
+    render(await AppLayout({ children: null }));
+    expect(totalUnread).toHaveBeenCalledWith("u9");
+    expect(screen.getByLabelText("4 unread messages")).toBeInTheDocument();
   });
 
   it("renders the nav and children for a member", async () => {

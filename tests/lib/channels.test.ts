@@ -12,6 +12,7 @@ import {
   candidatesFor,
   checkChannelMembers,
   connectedHouseholdIds,
+  dropDisconnectedMembers,
   ensureGeneral,
   leaveChannelTx,
   removeUserFromAllChannels,
@@ -184,5 +185,48 @@ describe("removeUserFromAllChannels", () => {
     await removeUserFromAllChannels(tx, "u1");
     expect(tx.conversationMember.deleteMany).toHaveBeenCalledTimes(2);
     expect(tx.conversationMember.deleteMany).toHaveBeenCalledWith({ where: { conversationId: "c1", userId: "u1" } });
+  });
+});
+
+describe("dropDisconnectedMembers", () => {
+  const channel = (id: string, creator: string | null, members: [string, string][]) => ({
+    id,
+    createdBy: creator ? { householdId: creator } : null,
+    members: members.map(([userId, householdId]) => ({ userId, user: { householdId } })),
+  });
+
+  function txWith(channels: any[]) {
+    const tx = fakeTx();
+    tx.conversation.findMany = vi.fn().mockResolvedValue(channels);
+    tx.conversationMember.findMany.mockResolvedValue([{ id: "m", role: "MANAGER" }]);
+    return tx;
+  }
+  const left = (tx: any) => tx.conversationMember.deleteMany.mock.calls.map((c: any) => c[0].where.userId);
+
+  it("looks only at channels that hold people from both households", async () => {
+    const tx = txWith([]);
+    expect(await dropDisconnectedMembers(tx, "hA", "hB", "hA")).toBe(0);
+    expect(tx.conversation.findMany.mock.calls[0][0].where).toEqual({
+      kind: "CHANNEL",
+      AND: [{ members: { some: { user: { householdId: "hA" } } } }, { members: { some: { user: { householdId: "hB" } } } }],
+    });
+  });
+
+  it("keeps the creator's household and removes the other's people", async () => {
+    const tx = txWith([
+      channel("c1", "hA", [["a1", "hA"], ["b1", "hB"], ["b2", "hB"]]),
+      channel("c2", "hB", [["a1", "hA"], ["b1", "hB"]]),
+    ]);
+    expect(await dropDisconnectedMembers(tx, "hA", "hB", "hA")).toBe(2);
+    expect(left(tx)).toEqual(["b1", "b2", "a1"]);
+  });
+
+  it("removes the household that did not end the sync when the creator is in neither or gone", async () => {
+    const tx = txWith([channel("c1", "hC", [["a1", "hA"], ["b1", "hB"], ["c1", "hC"]]), channel("c2", null, [["a1", "hA"], ["b1", "hB"]])]);
+    await dropDisconnectedMembers(tx, "hA", "hB", "hA");
+    expect(left(tx)).toEqual(["b1", "b1"]);
+    const tx2 = txWith([channel("c1", null, [["a1", "hA"], ["b1", "hB"]])]);
+    await dropDisconnectedMembers(tx2, "hA", "hB", "hB");
+    expect(left(tx2)).toEqual(["a1"]);
   });
 });
