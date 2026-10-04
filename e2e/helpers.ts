@@ -167,3 +167,13 @@ export async function onlySuperusers(emails: string[]) {
     await prisma.$disconnect();
   }
 }
+
+/** Put a failed-send entry in the email log (a real failure can't happen against the test outbox). */
+export async function seedFailedEmail(to: string, error: string) {
+  const prisma = new PrismaClient();
+  try {
+    await prisma.emailLogEntry.create({ data: { toAddress: to, subject: "Reset your Home Management password", status: "FAILED", error } });
+  } finally {
+    await prisma.$disconnect();
+  }
+}

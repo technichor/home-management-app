@@ -14,6 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className="app-nav-title">Admin</span>
           <div className="app-nav-links">
             <Link href="/admin">Users</Link>
+            <Link href="/admin/email">Email</Link>
             <Link href="/home">Back to the app</Link>
             <form action={logoutAction} style={{ display: "inline" }}>
               <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>

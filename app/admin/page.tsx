@@ -8,7 +8,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function AdminPage() {
   await pageSuperuser(); // the layout checks too; a page must never rely on that alone
-  const [users, households, audit] = await Promise.all([
+  const [users, households, audit, failedEmails] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       take: 1000,
@@ -24,6 +24,7 @@ export default async function AdminPage() {
       take: 15,
       include: { actor: { select: { email: true } }, targetUser: { select: { email: true } } },
     }),
+    prisma.emailLogEntry.count({ where: { status: "FAILED", createdAt: { gte: new Date(new Date().getTime() - DAY_MS) } } }),
   ]);
 
   const weekAgo = new Date().getTime() - 7 * DAY_MS;
@@ -33,6 +34,7 @@ export default async function AdminPage() {
     ["Active households", households],
     ["Seen in the last 7 days", users.filter((u) => u.lastSeenAt && u.lastSeenAt.getTime() >= weekAgo).length],
     ["Superusers", users.filter((u) => u.isSuperuser).length],
+    ["Emails failed (24h)", failedEmails],
   ] as const;
 
   return (

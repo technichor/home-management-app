@@ -9,6 +9,7 @@ import {
   newOwner,
   newSession,
   onlySuperusers,
+  seedFailedEmail,
   signUp,
   test,
   uniqueEmail,
@@ -25,7 +26,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 test("the admin area does not exist for anyone who isn't a superuser", async ({ page, browser }) => {
   // Signed out: the plain 404 page. Not a redirect to log in, which would give the address away.
-  for (const path of ["/admin", "/admin/users/anything"]) {
+  for (const path of ["/admin", "/admin/users/anything", "/admin/email"]) {
     await gotoMissing(page, path);
     await expect(page.getByText(/could not be found/i), path).toBeVisible();
     expect(new URL(page.url()).pathname, "no redirect").toBe(path);
@@ -35,7 +36,7 @@ test("the admin area does not exist for anyone who isn't a superuser", async ({ 
   // A signed-in ordinary user: the same, and no Admin link anywhere.
   const { email } = await newOwner(page, "ordinary", "The Ordinaries");
   await expect(page.getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
-  for (const path of ["/admin", "/admin/users/anything"]) {
+  for (const path of ["/admin", "/admin/users/anything", "/admin/email"]) {
     await gotoMissing(page, path);
     await expect(page.getByText(/could not be found/i), path).toBeVisible();
     expect(await page.content()).not.toContain("Recent admin activity");
@@ -47,7 +48,7 @@ test("the admin area does not exist for anyone who isn't a superuser", async ({ 
   // Raw requests (as a script or the app's own data fetches would make them) learn nothing either.
   const variants: Record<string, string>[] = [{}, { RSC: "1" }, { RSC: "1", "Next-Router-Prefetch": "1" }];
   for (const headers of variants) {
-    for (const path of ["/admin", "/admin/users/anything"]) {
+    for (const path of ["/admin", "/admin/users/anything", "/admin/email"]) {
       const res = await page.request.get(path, { headers });
       const body = await res.text();
       // A plain request gets a real 404. Next's data requests stream the not-found page with a 200,
@@ -61,7 +62,7 @@ test("the admin area does not exist for anyone who isn't a superuser", async ({ 
     }
   }
   const signedOut = await newSession(browser);
-  for (const path of ["/admin", "/admin/users/anything"]) {
+  for (const path of ["/admin", "/admin/users/anything", "/admin/email"]) {
     const res = await signedOut.page.request.get(path);
     expect(res.status(), path).toBe(404);
   }
@@ -255,6 +256,46 @@ test("granting and revoking superuser access: needs your password, and never rem
   await target.context.close();
 });
 
+test("the email log shows every attempt and its outcome, and can send a test", async ({ page, browser }) => {
+  await newSuperuser(page, "mailwatch");
+
+  // Real app emails land in the log: a new signup sends a confirmation message.
+  const newcomer = await newSession(browser);
+  const newcomerEmail = uniqueEmail("logged");
+  await signUp(newcomer.page, { first: "Nell", last: "Newcomer", email: newcomerEmail });
+  await latestEmail(newcomerEmail, "Confirm your email");
+
+  await page.goto("/admin/email");
+  await expect(page.getByRole("heading", { name: "Email" })).toBeVisible();
+  const row = page.locator("tr", { hasText: newcomerEmail });
+  await expect(row).toContainText("Sent");
+  await expect(row).toContainText("Confirm your email for Home Management");
+  await expect(row).toContainText(today());
+  // Only the recipient and subject are kept: the link in the body never appears.
+  expect(await page.content()).not.toContain("/verify-email/");
+
+  // A failed attempt shows the provider's own words, and counts in the overview.
+  const failedTo = uniqueEmail("refused");
+  await seedFailedEmail(failedTo, "Email send failed (403): You can only send testing emails to your own email address");
+  await page.reload();
+  const failedRow = page.locator("tr", { hasText: failedTo });
+  await expect(failedRow).toContainText("Failed");
+  await expect(failedRow).toContainText("You can only send testing emails to your own email address");
+  await page.goto("/admin");
+  await expect(page.getByText("Emails failed (24h)", { exact: true }).locator("xpath=preceding-sibling::div")).not.toHaveText("0");
+
+  // The test-send tool: bad address, then a good one that arrives and is logged.
+  await page.goto("/admin/email");
+  const to = uniqueEmail("testsend");
+  await page.getByLabel("Send the test to").fill(to);
+  await page.getByRole("button", { name: "Send test" }).click();
+  await expect(page.getByText(`The provider accepted the test email for ${to}.`)).toBeVisible();
+  const mail = await latestEmail(to, "test email");
+  expect(mail.text).toContain("email delivery works");
+  await expect(page.locator("tr", { hasText: to })).toContainText("Home Management test email");
+  await newcomer.context.close();
+});
+
 test.describe("on a phone", () => {
   test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
 
@@ -272,5 +313,9 @@ test.describe("on a phone", () => {
     // The row summary shows when they were last around even though the wider columns are hidden.
     await page.goto("/admin");
     await expect(page.getByText(/^Last seen \d{4}-\d{2}-\d{2}/).first()).toBeVisible();
+    await page.goto("/admin/email");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "Email" })).toBeVisible();
+    expect(await fits(), "/admin/email fits").toBe(true);
   });
 });

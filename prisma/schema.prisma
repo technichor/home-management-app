@@ -395,3 +395,19 @@ model AdminAuditEntry {
 
   @@index([createdAt])
 }
+
+// One row per attempt to send an email, so a delivery problem can be seen (in /admin/email) after the
+// fact. Never holds the message body: the links inside are secrets.
+model EmailLogEntry {
+  id         String   @id @default(cuid())
+  toAddress  String
+  subject    String
+  // SENT, FAILED, or NOT_SENT (no provider configured, as in local development)
+  status     String
+  // The provider's id for the message when it was accepted, for looking it up in their dashboard.
+  providerId String?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}

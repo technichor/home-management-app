@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("bcryptjs", () => ({ default: { compare: vi.fn() } }));
 vi.mock("@/lib/auth", () => ({ requireSuperuser: vi.fn() }));
+vi.mock("@/lib/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
@@ -20,7 +21,8 @@ vi.mock("@/lib/rateLimit", () => ({
   recordFailedLogin: vi.fn(),
 }));
 
-import { createResetLinkAction, emailResetLinkAction, setSuperuserAction } from "@/app/admin/actions";
+import { createResetLinkAction, emailResetLinkAction, sendTestEmailAction, setSuperuserAction } from "@/app/admin/actions";
+import { sendEmail } from "@/lib/email";
 import { prisma } from "@/lib/db";
 import { requireSuperuser } from "@/lib/auth";
 import { ADMIN_RESET_TTL_MS, createPasswordResetToken, sendPasswordResetEmail } from "@/lib/passwordReset";
@@ -46,6 +48,7 @@ describe("every admin action is for superusers only", () => {
     ["createResetLink", () => createResetLinkAction("t1")],
     ["emailResetLink", () => emailResetLinkAction("t1")],
     ["setSuperuser", () => setSuperuserAction("t1", true, "pw")],
+    ["sendTestEmail", () => sendTestEmailAction("a@b.co")],
   ])("%s refuses anyone else before touching anything", async (_n, call) => {
     vi.mocked(requireSuperuser).mockRejectedValue(new Error("Not found"));
     await expect(call()).rejects.toThrow("Not found");
@@ -53,6 +56,7 @@ describe("every admin action is for superusers only", () => {
     expect(createPasswordResetToken).not.toHaveBeenCalled();
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.adminAuditEntry.create).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 });
 
@@ -152,5 +156,23 @@ describe("setSuperuserAction", () => {
     expect(await setSuperuserAction("t1", false, "pw")).toEqual({ ok: false, error: "There must always be at least one superuser." });
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.user.count).toHaveBeenCalledWith({ where: { isSuperuser: true } });
+  });
+});
+
+describe("sendTestEmailAction", () => {
+  it("rejects an invalid address", async () => {
+    expect(await sendTestEmailAction("nope")).toEqual({ ok: false, error: "Enter a valid email address." });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("sends a plain test message to the normalized address", async () => {
+    expect(await sendTestEmailAction(" Pat@X.co ")).toEqual({ ok: true });
+    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({ to: "pat@x.co", subject: "Home Management test email" });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/email");
+  });
+
+  it("reports exactly what the provider said when it refuses", async () => {
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("Email send failed (403): only your own address"));
+    expect(await sendTestEmailAction("pat@x.co")).toEqual({ ok: false, error: "Email send failed (403): only your own address" });
   });
 });

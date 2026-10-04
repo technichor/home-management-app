@@ -14,14 +14,17 @@ vi.mock("@/lib/db", () => ({
     user: { findMany: vi.fn(), findUnique: vi.fn() },
     household: { count: vi.fn() },
     adminAuditEntry: { findMany: vi.fn() },
+    emailLogEntry: { count: vi.fn(), findMany: vi.fn() },
   },
 }));
 const seen: Record<string, any> = {};
 vi.mock("@/components/AdminUsersTable", () => ({ default: (p: any) => ((seen.table = p), <div>users table</div>) }));
+vi.mock("@/components/AdminEmailPanel", () => ({ default: (p: any) => ((seen.email = p), <div>email panel</div>) }));
 vi.mock("@/components/AdminUserActions", () => ({ default: (p: any) => ((seen.actions = p), <div>user actions</div>) }));
 
 import AdminLayout from "@/app/admin/layout";
 import AdminPage from "@/app/admin/page";
+import AdminEmailPage from "@/app/admin/email/page";
 import AdminUserPage from "@/app/admin/users/[id]/page";
 import { prisma } from "@/lib/db";
 import { pageSuperuser } from "@/lib/auth";
@@ -38,6 +41,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(pageSuperuser).mockResolvedValue({ id: "me" } as any);
   vi.mocked(prisma.adminAuditEntry.findMany).mockResolvedValue([]);
+  vi.mocked(prisma.emailLogEntry.count).mockResolvedValue(0);
+  vi.mocked(prisma.emailLogEntry.findMany).mockResolvedValue([]);
 });
 
 describe("every admin page checks for a superuser itself", () => {
@@ -45,11 +50,13 @@ describe("every admin page checks for a superuser itself", () => {
     ["the layout", () => AdminLayout({ children: null })],
     ["the users page", () => AdminPage()],
     ["a user's page", () => AdminUserPage({ params: Promise.resolve({ id: "u1" }) })],
+    ["the email page", () => AdminEmailPage()],
   ])("%s shows the plain 404 to anyone else, before reading any data", async (_n, call) => {
     vi.mocked(pageSuperuser).mockRejectedValue(new Error("NOT_FOUND"));
     await expect(call()).rejects.toThrow("NOT_FOUND");
     expect(prisma.user.findMany).not.toHaveBeenCalled();
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.emailLogEntry.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -58,6 +65,7 @@ describe("AdminLayout", () => {
     render(await AdminLayout({ children: <p>page body</p> }));
     expect(screen.getByText("Admin")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: "Email" })).toHaveAttribute("href", "/admin/email");
     expect(screen.getByRole("link", { name: "Back to the app" })).toHaveAttribute("href", "/home");
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
     expect(screen.getByText("page body")).toBeInTheDocument();
@@ -76,7 +84,7 @@ describe("AdminPage", () => {
 
   it("summarizes the accounts and passes serializable rows to the table", async () => {
     render(await AdminPage());
-    for (const [label, value] of [["Users", "3"], ["Email confirmed", "2"], ["Active households", "1"], ["Seen in the last 7 days", "1"], ["Superusers", "1"]]) {
+    for (const [label, value] of [["Users", "3"], ["Email confirmed", "2"], ["Active households", "1"], ["Seen in the last 7 days", "1"], ["Superusers", "1"], ["Emails failed (24h)", "0"]]) {
       expect(screen.getByText(label, { selector: "div" }).previousElementSibling).toHaveTextContent(value);
     }
     expect(seen.table.users).toEqual([
@@ -100,6 +108,15 @@ describe("AdminPage", () => {
     expect(screen.getByText("kim@x.co")).toBeInTheDocument();
     expect(screen.getByText(/SOMETHING_NEW/)).toBeInTheDocument();
     expect(screen.getAllByText("a deleted user")).toHaveLength(2);
+  });
+
+  it("counts emails that failed in the last day", async () => {
+    vi.mocked(prisma.emailLogEntry.count).mockResolvedValue(4);
+    render(await AdminPage());
+    expect(screen.getByText("Emails failed (24h)", { selector: "div" }).previousElementSibling).toHaveTextContent("4");
+    const where = vi.mocked(prisma.emailLogEntry.count).mock.calls[0][0]!.where as any;
+    expect(where.status).toBe("FAILED");
+    expect(Date.now() - where.createdAt.gte.getTime()).toBeGreaterThan(23 * 3600_000);
   });
 
   it("says when nothing has been done yet", async () => {
@@ -177,5 +194,19 @@ describe("AdminUserPage", () => {
     expect(vi.mocked(prisma.adminAuditEntry.findMany).mock.calls[0][0]!.where).toEqual({
       OR: [{ targetUserId: "u1" }, { actorId: "u1" }],
     });
+  });
+});
+
+describe("AdminEmailPage", () => {
+  it("passes the latest attempts, newest first, as plain data", async () => {
+    vi.mocked(prisma.emailLogEntry.findMany).mockResolvedValue([
+      { id: "e1", toAddress: "a@b.co", subject: "Hi", status: "FAILED", providerId: null, error: "403 only your own address", createdAt: new Date("2026-10-04T12:00:00Z") },
+    ] as any);
+    render(await AdminEmailPage());
+    expect(screen.getByRole("heading", { name: "Email" })).toBeInTheDocument();
+    expect(seen.email.entries).toEqual([
+      { id: "e1", to: "a@b.co", subject: "Hi", status: "FAILED", providerId: null, error: "403 only your own address", createdAt: "2026-10-04T12:00:00.000Z" },
+    ]);
+    expect(vi.mocked(prisma.emailLogEntry.findMany).mock.calls[0][0]).toMatchObject({ orderBy: { createdAt: "desc" }, take: 100 });
   });
 });

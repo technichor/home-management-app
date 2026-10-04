@@ -5,7 +5,9 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireSuperuser } from "@/lib/auth";
 import { ADMIN_RESET_TTL_MS, createPasswordResetToken, sendPasswordResetEmail } from "@/lib/passwordReset";
+import { sendEmail } from "@/lib/email";
 import { getClientIp, loginRetryAfterMinutes, recordFailedLogin } from "@/lib/rateLimit";
+import { testEmailSchema } from "@/lib/validations";
 
 export type AdminLinkResult = { ok: true; path: string } | { ok: false; error: string };
 export type AdminResult = { ok: true } | { ok: false; error: string };
@@ -86,5 +88,28 @@ export async function setSuperuserAction(userId: string, makeSuperuser: boolean,
   await prisma.user.update({ where: { id: target.id }, data: { isSuperuser: makeSuperuser } });
   await audit(admin.id, target.id, makeSuperuser ? "SUPERUSER_GRANTED" : "SUPERUSER_REVOKED", target.email);
   refresh(target.id);
+  return { ok: true };
+}
+
+/**
+ * Send a plain test email to an address and report exactly what the provider said, so delivery
+ * problems (like Resend refusing every address but the account owner's) can be seen and fixed.
+ * The attempt also lands in the email log.
+ */
+export async function sendTestEmailAction(to: string): Promise<AdminResult> {
+  await requireSuperuser();
+  const parsed = testEmailSchema.safeParse({ to });
+  if (!parsed.success) return { ok: false, error: "Enter a valid email address." };
+
+  try {
+    await sendEmail({
+      to: parsed.data.to,
+      subject: "Home Management test email",
+      text: "This is a test email from the Home Management admin area. If you can read it, email delivery works.",
+    });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  revalidatePath("/admin/email");
   return { ok: true };
 }

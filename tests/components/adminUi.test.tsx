@@ -13,7 +13,10 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const refresh = vi.fn();
 vi.mock("@/app/admin/actions", () => ({
+  sendTestEmailAction: vi.fn(),
   createResetLinkAction: vi.fn(),
   emailResetLinkAction: vi.fn(),
   setSuperuserAction: vi.fn(),
@@ -21,7 +24,8 @@ vi.mock("@/app/admin/actions", () => ({
 
 import AdminUsersTable, { type AdminUserRow } from "@/components/AdminUsersTable";
 import AdminUserActions from "@/components/AdminUserActions";
-import { createResetLinkAction, emailResetLinkAction, setSuperuserAction } from "@/app/admin/actions";
+import AdminEmailPanel, { type EmailLogRow } from "@/components/AdminEmailPanel";
+import { createResetLinkAction, emailResetLinkAction, sendTestEmailAction, setSuperuserAction } from "@/app/admin/actions";
 
 const row = (over: Partial<AdminUserRow> = {}): AdminUserRow => ({
   id: "u1", email: "sam@x.co", name: "Sam Smith", role: "OWNER", householdName: "The Smiths", isSuperuser: false,
@@ -180,5 +184,62 @@ describe("AdminUserActions", () => {
     await userEvent.click(screen.getByRole("button", { name: "Grant superuser access" }));
     await confirm("Grant");
     expect(await screen.findByText("Superuser access granted")).toBeInTheDocument();
+  });
+});
+
+describe("AdminEmailPanel", () => {
+  const entry = (over: Partial<EmailLogRow> = {}): EmailLogRow => ({
+    id: "e1", to: "a@b.co", subject: "Reset your password", status: "SENT", providerId: "msg_1", error: null,
+    createdAt: "2026-10-04T12:00:00.000Z", ...over,
+  });
+
+  it("lists attempts with their outcome, the provider's error and message id", () => {
+    render(
+      <AdminEmailPanel
+        entries={[
+          entry(),
+          entry({ id: "e2", to: "c@d.co", status: "FAILED", providerId: null, error: "Email send failed (403): only your own address" }),
+          entry({ id: "e3", to: "e@f.co", status: "NOT_SENT", providerId: null, error: "No RESEND_API_KEY is configured." }),
+          entry({ id: "e4", to: "g@h.co", status: "WEIRD", providerId: null }),
+        ]}
+      />
+    );
+    expect(screen.getByText("Sent")).toBeInTheDocument();
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    expect(screen.getByText("Not sent")).toBeInTheDocument();
+    expect(screen.getByText("WEIRD")).toBeInTheDocument();
+    expect(screen.getByText("Email send failed (403): only your own address")).toBeInTheDocument();
+    expect(screen.getByText("msg_1")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-10-04 12:00 UTC").length).toBeGreaterThan(0);
+  });
+
+  it("says when nothing has been sent", () => {
+    render(<AdminEmailPanel entries={[]} />);
+    expect(screen.getByText("No email has been sent yet.")).toBeInTheDocument();
+  });
+
+  it("pages a long log", () => {
+    render(<AdminEmailPanel entries={Array.from({ length: 30 }, (_, i) => entry({ id: `x${i}`, to: `u${i}@x.co` }))} />);
+    expect(screen.getAllByText(/@x\.co/)).toHaveLength(25);
+  });
+
+  it("sends a test email and says the provider accepted it", async () => {
+    vi.mocked(sendTestEmailAction).mockResolvedValue({ ok: true });
+    render(<AdminEmailPanel entries={[]} />);
+    const send = screen.getByRole("button", { name: "Send test" });
+    expect(send).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Send the test to"), "pat@x.co");
+    await userEvent.click(send);
+    await waitFor(() => expect(sendTestEmailAction).toHaveBeenCalledWith("pat@x.co"));
+    expect(await screen.findByText("The provider accepted the test email for pat@x.co.")).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows exactly why a test email failed, and sends on Enter", async () => {
+    vi.mocked(sendTestEmailAction).mockResolvedValue({ ok: false, error: "Email send failed (403): only your own address" });
+    render(<AdminEmailPanel entries={[]} />);
+    await userEvent.type(screen.getByLabelText("Send the test to"), "pat@x.co{Enter}");
+    expect(await screen.findByText("The email was not sent")).toBeInTheDocument();
+    expect(screen.getByText("Email send failed (403): only your own address")).toBeInTheDocument();
   });
 });
