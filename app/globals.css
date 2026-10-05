@@ -620,3 +620,13 @@ html[data-pending] body {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* A toggle that is on but can't be turned off (the planner's last visible meal): still reads as selected, in a
+   pale tint of the accent with muted text, and clearly not clickable. Beats Ant Design's grey disabled style. */
+.ant-btn.toggle-locked.toggle-locked:disabled {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  opacity: 0.75;
+  cursor: not-allowed;
+}

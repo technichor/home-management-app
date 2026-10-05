@@ -103,13 +103,17 @@ export default function PlannerClient({
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {SLOTS.map((slot) => {
             const shown = settings[SHOW_KEY[slot]];
+            // The only meal still on can't be switched off: show it as on, but pale and not clickable.
+            const locked = shown && slots.length === 1;
             return (
               <Button
                 key={slot}
                 size="small"
                 type={shown ? "primary" : "default"}
+                className={locked ? "toggle-locked" : undefined}
+                title={locked ? "At least one meal has to stay on" : undefined}
                 aria-pressed={shown}
-                disabled={shown && slots.length === 1}
+                disabled={locked}
                 onClick={() => change({ [SHOW_KEY[slot]]: !shown })}
               >
                 {SLOT_LABELS[slot]}

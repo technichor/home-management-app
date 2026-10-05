@@ -176,10 +176,22 @@ describe("meal toggles and settings", () => {
     expect(updateMealPlanSettingsAction).toHaveBeenCalledWith({ showLunch: false });
   });
 
-  it("won't let the last visible meal be switched off", () => {
+  it("won't let the last visible meal be switched off, and shows it as locked rather than plainly disabled", () => {
     setup({ settings: { ...settings, showLunch: false } });
-    expect(screen.getByRole("button", { name: "Dinner" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Lunch" })).toBeEnabled();
+    const dinner = screen.getByRole("button", { name: "Dinner" });
+    expect(dinner).toBeDisabled();
+    expect(dinner).toHaveAttribute("aria-pressed", "true");
+    expect(dinner).toHaveClass("toggle-locked");
+    expect(dinner).toHaveAttribute("title", "At least one meal has to stay on");
+    const lunch = screen.getByRole("button", { name: "Lunch" });
+    expect(lunch).toBeEnabled();
+    expect(lunch).not.toHaveClass("toggle-locked");
+    expect(lunch).not.toHaveAttribute("title");
+  });
+
+  it("does not lock a meal while another is also on", () => {
+    setup();
+    for (const name of ["Lunch", "Dinner"]) expect(screen.getByRole("button", { name })).not.toHaveClass("toggle-locked");
   });
 
   it("shows the reason and doesn't refresh when the server refuses", async () => {
