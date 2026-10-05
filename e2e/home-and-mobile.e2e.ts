@@ -143,6 +143,9 @@ test.describe("on a phone", () => {
       `/meals/library`,
       `/meals/library/new`,
       `/meals/shopping`,
+      `/calendar`,
+      `/calendar?view=month`,
+      `/calendar?view=day`,
       `/account`,
       `/household`,
     ];

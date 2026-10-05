@@ -799,3 +799,353 @@ a.brief-row:hover {
     font-size: 26px;
   }
 }
+
+/* ---- Calendar (app/(app)/calendar) ---- */
+
+.cal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cal-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cal-header .subnav {
+  margin-bottom: 0;
+}
+.cal-filters {
+  justify-content: flex-start;
+}
+.cal-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cal-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.cal-quickadd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cal-quickadd .ant-input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.cal-quickadd .cal-quickadd-date,
+.cal-quickadd .cal-quickadd-time {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.cal-overdue {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+.cal-overdue-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.cal-overdue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.cal-overdue-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Entries */
+.cal-entry,
+.cal-entry:hover {
+  text-decoration: none;
+}
+.cal-entry {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.cal-entry-button {
+  border: 0;
+  background: var(--hover);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-entry-button:hover {
+  background: var(--accent-soft);
+}
+.cal-time {
+  color: var(--muted);
+  font-size: 12px;
+}
+.cal-entry-contact {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.cal-entry-meal {
+  background: none;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+}
+.cal-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-task .cal-entry-button {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: none;
+  padding: 0;
+}
+.cal-task[data-done] .cal-entry-title,
+.cal-entry-button.cal-task[data-done] {
+  text-decoration: line-through;
+  color: var(--faint);
+}
+.cal-task[data-overdue] .cal-entry-title,
+.cal-entry-button.cal-task[data-overdue] {
+  color: var(--danger);
+}
+.cal-overdue-flag {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Week */
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cal-day {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+.cal-day:last-child {
+  border-right: 0;
+}
+.cal-day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+.cal-day-link,
+.cal-day-link:hover {
+  color: inherit;
+  text-decoration: none;
+}
+.cal-day-link strong {
+  color: var(--text);
+}
+.cal-day[data-today] .cal-day-head {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cal-day[data-today] .cal-day-link strong {
+  color: var(--accent);
+}
+.cal-day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+}
+.cal-add {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.cal-add:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+
+/* Day */
+.cal-dayview-head {
+  display: flex;
+  justify-content: flex-end;
+}
+.cal-section {
+  margin-bottom: 16px;
+}
+.cal-section-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cal-section .cal-entry {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+/* Month */
+.cal-month {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cal-month-head,
+.cal-month-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.cal-month-head div {
+  padding: 6px 8px;
+  background: var(--subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.cal-cell {
+  min-height: 112px;
+  padding: 4px 6px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.cal-month-week .cal-cell:last-child {
+  border-right: 0;
+}
+.cal-cell[data-outside] {
+  background: var(--subtle);
+  opacity: 0.55;
+}
+.cal-cell[data-today] .cal-cell-number {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 12px;
+  padding: 0 7px;
+}
+.cal-cell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cal-cell-number,
+.cal-cell-number:hover {
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+}
+.cal-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cal-chip {
+  display: block;
+  width: 100%;
+  padding: 1px 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-more {
+  font-size: 12px;
+  color: var(--muted);
+}
+.cal-dots {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .cal-week {
+    display: block;
+  }
+  .cal-day {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cal-day:last-child {
+    border-bottom: 0;
+  }
+  .cal-add {
+    width: 36px;
+    height: 36px;
+  }
+  /* The month becomes a compact grid: a count on each day that has something, and tapping a day opens it. */
+  .cal-cell {
+    min-height: 56px;
+    padding: 3px 4px;
+  }
+  .cal-chips,
+  .cal-cell .cal-add {
+    display: none;
+  }
+  .cal-dots {
+    display: inline-block;
+    margin-top: 4px;
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    text-align: center;
+    text-decoration: none;
+  }
+}
