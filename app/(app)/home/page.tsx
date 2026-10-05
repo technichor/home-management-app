@@ -69,11 +69,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <div className="brief-date">Week of {formatWeekRange(weekStart)}</div>
           <h1 className="brief-headline">{brief.headline}</h1>
           <WeekDrawing drawing={brief.drawing} description={description} />
-          <div className="brief-groups">
-            {brief.groups.map((g) => (
-              <div key={g.range} className="brief-group">
-                <strong>{g.range}</strong>
-                <p>{g.text}</p>
+          <div className="brief-strip">
+            {brief.days.map((d) => (
+              <div key={d.date} className="brief-day" data-today={d.isToday || undefined} data-open={d.load === 0 || undefined}>
+                <strong className="brief-day-name">
+                  <span className="brief-day-full">{d.weekday}</span>
+                  <span className="brief-day-initial" aria-hidden="true">
+                    {d.weekday[0]}
+                  </span>
+                </strong>
+                <span className="brief-day-title">{d.title}</span>
+                {d.more && <span className="brief-day-more">{d.more}</span>}
               </div>
             ))}
           </div>

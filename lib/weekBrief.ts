@@ -21,6 +21,8 @@ export type BriefDay = {
   load: number;
   /** The day's main thing, or "Open". */
   title: string;
+  /** "+2 more" when there is more on the day than its title, else empty. (For the narrow strip under the drawing.) */
+  more: string;
   support: string;
 };
 
@@ -31,11 +33,11 @@ export type Brief = {
   days: BriefDay[];
   total: number;
   headline: string;
-  groups: { range: string; text: string }[];
   drawing: Drawing;
 };
 
-export const DRAWING = { width: 840, height: 170, baseline: 128, amplitude: 92 } as const;
+// The day names sit in a strip of their own under the drawing (see the home page), so the drawing has no labels.
+export const DRAWING = { width: 840, height: 140, baseline: 124, amplitude: 92 } as const;
 
 const round = (n: number) => Math.round(n * 10) / 10;
 
@@ -74,8 +76,6 @@ export function buildDrawing(loads: number[], labels: string[], todayIndex: numb
   return { width, height, baseline, path, points };
 }
 
-const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-
 const possessive = (name: string) => `${name}'s`;
 
 function headlineFor(firstName: string, loads: number[], days: BriefDay[]): string {
@@ -87,30 +87,6 @@ function headlineFor(firstName: string, loads: number[], days: BriefDay[]): stri
   if (busiest.length === days.length) return `${adjective}, ${firstName}, planned evenly across the days.`;
   if (busiest.length > 3) return `${adjective}, ${firstName}, with plans spread across the week.`;
   return `${adjective}, ${firstName}, with the most planned on ${joinList(busiest.map((d) => d.weekdayLong))}.`;
-}
-
-/** The week split into three stretches (first two days, middle three, last two), each with one observation. */
-function groupSummaries(days: BriefDay[], entries: BriefEntry[], dates: BriefDate[], slots: MealSlot[]) {
-  const spans = [days.slice(0, 2), days.slice(2, 5), days.slice(5)];
-  return spans.map((span) => {
-    const inSpan = new Set(span.map((d) => d.date));
-    const meals = entries.filter((e) => inSpan.has(e.date)).length;
-    const events = dates.filter((d) => inSpan.has(d.date));
-    const range = span.length === 1 ? span[0].weekday : `${span[0].weekday} – ${span[span.length - 1].weekday}`;
-    if (meals === 0 && events.length === 0) return { range, text: "Nothing planned." };
-
-    const sentences: string[] = [];
-    if (meals > 0) sentences.push(`${count(meals, "meal")} planned.`);
-    if (slots.includes("DINNER")) {
-      const withoutDinner = span.filter((d) => !entries.some((e) => e.date === d.date && e.slot === "DINNER"));
-      if (meals > 0 && withoutDinner.length > 0) sentences.push(`Dinner is open on ${joinList(withoutDinner.map((d) => d.weekday))}.`);
-    }
-    for (const e of events.slice(0, 2)) {
-      sentences.push(`${possessive(e.name)} ${e.label.toLowerCase()} is on ${days.find((d) => d.date === e.date)!.weekday}.`);
-    }
-    if (events.length > 2) sentences.push(`${count(events.length - 2, "more date")} ${events.length === 3 ? "follows" : "follow"}.`);
-    return { range, text: sentences.join(" ") };
-  });
 }
 
 export function buildBrief(input: {
@@ -142,6 +118,7 @@ export function buildBrief(input: {
       isToday: date === today,
       load: meals.length + events.length,
       title: main ?? "Open",
+      more: meals.length + events.length > 1 ? `+${meals.length + events.length - 1} more` : "",
       support: main ? [...lines, ...eventLines].join(" ") : "Nothing planned.",
     };
   });
@@ -152,7 +129,6 @@ export function buildBrief(input: {
     days,
     total: loads.reduce((a, b) => a + b, 0),
     headline: headlineFor(firstName, loads, days),
-    groups: groupSummaries(days, entries, dates, slots),
     drawing: buildDrawing(loads, days.map((d) => d.weekday), todayIndex),
   };
 }

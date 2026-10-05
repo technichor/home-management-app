@@ -650,7 +650,6 @@ html[data-pending] body {
   position: absolute;
   inset: 0 -100vw;
   z-index: -1;
-  background: var(--subtle);
   border-bottom: 1px solid var(--border);
 }
 .brief-inner {
@@ -675,31 +674,47 @@ html[data-pending] body {
   height: auto;
   margin-bottom: 16px;
 }
-.brief-drawing text {
-  font-size: 12px;
-}
-.brief-groups {
+/* The day names under the drawing: seven equal columns, so each sits right under its dot. */
+.brief-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-top: 4px;
 }
-.brief-group {
-  padding: 0 20px;
-  border-left: 1px solid var(--border);
-  font-size: 14px;
-}
-.brief-group:first-child {
-  padding-left: 0;
-  border-left: 0;
-}
-.brief-group strong {
-  display: block;
-  margin-bottom: 4px;
+.brief-day {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 6px;
+  text-align: center;
   font-size: 13px;
 }
-.brief-group p {
-  margin: 0;
+.brief-day-name {
+  font-size: 13px;
+  font-weight: 500;
   color: var(--muted);
-  line-height: 1.5;
+}
+.brief-day-initial {
+  display: none;
+}
+.brief-day-title {
+  color: var(--text);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.brief-day-more {
+  color: var(--muted);
+  font-size: 12px;
+}
+.brief-day[data-open] .brief-day-title {
+  color: var(--faint);
+}
+.brief-day[data-today] .brief-day-name {
+  color: var(--accent);
+  font-weight: 700;
 }
 .brief-lists {
   padding-top: 32px;
@@ -768,23 +783,19 @@ a.brief-row:hover {
 }
 
 @media (max-width: 640px) {
-  /* The drawing shrinks with the screen, so its day names grow to stay readable. */
-  .brief-drawing text {
-    font-size: 22px;
+  /* On a phone the strip is just seven initials under the drawing; the day-by-day list has the detail. */
+  .brief-day {
+    padding: 0;
+  }
+  .brief-day-full,
+  .brief-day-title,
+  .brief-day-more {
+    display: none;
+  }
+  .brief-day-initial {
+    display: inline;
   }
   .brief-headline {
     font-size: 26px;
-  }
-  .brief-groups {
-    grid-template-columns: 1fr;
-  }
-  .brief-group,
-  .brief-group:first-child {
-    padding: 12px 0;
-    border-left: 0;
-    border-top: 1px solid var(--border);
-  }
-  .brief-group:first-child {
-    border-top: 0;
   }
 }

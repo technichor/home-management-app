@@ -48,7 +48,8 @@ export async function loadAttention(user: { id: string; role: string; householdI
   const items: AttentionItem[] = [];
 
   // Most recently active channel first.
-  const byRecent = [...channels].sort((a, b) => (b.messages[0]?.createdAt.getTime() ?? 0) - (a.messages[0]?.createdAt.getTime() ?? 0));
+  const latest = (c: (typeof channels)[number]) => c.messages[0]?.createdAt.getTime() ?? 0;
+  const byRecent = [...channels].sort((a, b) => latest(b) - latest(a));
   for (const c of byRecent.slice(0, MAX_UNREAD_CHANNELS)) {
     const n = unread.get(c.id) ?? 0;
     const last = c.messages[0];

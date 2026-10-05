@@ -100,47 +100,15 @@ describe("the headline", () => {
   });
 });
 
-describe("the three stretches", () => {
-  it("splits the week into the first two days, the middle three and the last two", () => {
-    expect(brief().groups.map((g) => g.range)).toEqual(["Sun – Mon", "Tue – Thu", "Fri – Sat"]);
-    expect(brief({ weekStart: "2026-10-05" }).groups.map((g) => g.range)).toEqual(["Mon – Tue", "Wed – Fri", "Sat – Sun"]);
-  });
-
-  it("says nothing planned for a stretch with nothing", () => {
-    expect(brief().groups.map((g) => g.text)).toEqual(["Nothing planned.", "Nothing planned.", "Nothing planned."]);
-  });
-
-  it("counts the meals and names the days with no dinner", () => {
-    const { groups } = brief({ entries: [dinner("2026-10-05", "A"), lunch("2026-10-05", "B"), dinner("2026-10-07", "C")] });
-    expect(groups[0].text).toBe("2 meals planned. Dinner is open on Sun.");
-    expect(groups[1].text).toBe("1 meal planned. Dinner is open on Tue and Thu.");
-    expect(groups[2].text).toBe("Nothing planned.");
-  });
-
-  it("doesn't mention dinners when dinner isn't shown, or when every day has one", () => {
-    const hidden = brief({ slots: ["LUNCH"], entries: [lunch("2026-10-05", "B")] });
-    expect(hidden.groups[0].text).toBe("1 meal planned.");
-    const full = brief({ entries: [dinner("2026-10-04", "A"), dinner("2026-10-05", "B")] });
-    expect(full.groups[0].text).toBe("2 meals planned.");
-  });
-
-  it("mentions important dates, and counts any beyond two", () => {
-    const dates = [
-      { date: "2026-10-08", name: "Jo", label: "Birthday" },
-      { date: "2026-10-08", name: "Sam", label: "Anniversary" },
-      { date: "2026-10-09", name: "Lee", label: "Birthday" },
-      { date: "2026-10-09", name: "Kim", label: "Birthday" },
-    ];
-    const { groups } = brief({ dates: dates.slice(0, 1) });
-    expect(groups[1].text).toBe("Jo's birthday is on Thu.");
-    const many = brief({ dates: [dates[0], dates[1], { date: "2026-10-06", name: "Al", label: "Name day" }] });
-    expect(many.groups[1].text).toBe("Jo's birthday is on Thu. Sam's anniversary is on Thu. 1 more date follows.");
-  });
-
-  it("pluralises the leftover dates", () => {
-    const dates = [4, 5, 6, 7].map((d, i) => ({ date: `2026-10-0${d}`, name: `P${i}`, label: "Birthday" })).filter((d) => ["2026-10-06", "2026-10-07"].includes(d.date));
-    const extra = [...dates, { date: "2026-10-08", name: "Q", label: "Birthday" }, { date: "2026-10-08", name: "R", label: "Birthday" }];
-    expect(brief({ dates: extra }).groups[1].text).toContain("2 more dates follow.");
+describe("the strip under the drawing", () => {
+  it("says what is more on a day than its title", () => {
+    const { days } = brief({
+      entries: [dinner("2026-10-05", "Tacos"), lunch("2026-10-05", "Soup"), dinner("2026-10-06", "Pasta")],
+      dates: [{ date: "2026-10-05", name: "Jo", label: "Birthday" }],
+    });
+    expect(days[1].more).toBe("+2 more"); // 2 meals and a birthday
+    expect(days[2].more).toBe(""); // just its title
+    expect(days[0].more).toBe(""); // an open day
   });
 });
 
@@ -177,6 +145,11 @@ describe("the drawing", () => {
     expect(d.path.endsWith(`${DRAWING.width} ${DRAWING.baseline}`)).toBe(true);
     expect(d.path.match(/C /g)).toHaveLength(8); // 7 days + the two ends = 8 joins
     expect(d.path).not.toMatch(/NaN/);
+  });
+
+  it("has no day names of its own (the page names the days under it)", () => {
+    expect(DRAWING.height).toBe(140);
+    expect(DRAWING.baseline).toBeLessThan(DRAWING.height);
   });
 
   it("is built into the brief from the days' loads", () => {

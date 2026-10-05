@@ -50,6 +50,16 @@ describe("loadAttention", () => {
     expect((await loadAttention(owner))[0]).toMatchObject({ title: "Empty has 2 unread messages", support: "In Messages." });
   });
 
+  it("puts a channel whose latest message can't be found after the ones that have one", async () => {
+    vi.mocked(unreadCounts).mockResolvedValue(new Map([["e1", 1], ["c1", 1], ["e2", 1]]));
+    vi.mocked(prisma.conversation.findMany).mockResolvedValue([
+      { id: "e1", name: "Empty one", messages: [] },
+      channel("c1", "Has one", "2026-10-01T00:00:00Z"),
+      { id: "e2", name: "Empty two", messages: [] },
+    ] as any);
+    expect((await loadAttention(owner))[0].key).toBe("channel-c1");
+  });
+
   it("reads a missing unread count as zero", async () => {
     vi.mocked(unreadCounts).mockResolvedValue(new Map([["c1", 1]]));
     vi.mocked(prisma.conversation.findMany).mockResolvedValue([channel("c1", "A", "2026-10-01T00:00:00Z"), channel("other", "B", "2026-10-02T00:00:00Z")] as any);

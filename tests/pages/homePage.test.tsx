@@ -42,7 +42,8 @@ describe("HomePage", () => {
     expect(screen.getByText("Week of Oct 4 – 10, 2026")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Nothing is planned this week yet, Sam.");
     expect(screen.getByText("Nothing needs attention")).toBeInTheDocument();
-    expect(screen.getAllByText("Open")).toHaveLength(7);
+    expect(document.querySelectorAll("a.brief-row[data-open]")).toHaveLength(7);
+    expect(document.querySelectorAll(".brief-day[data-open]")).toHaveLength(7);
     expect(screen.getByRole("img")).toHaveAttribute("aria-label", expect.stringContaining("Sunday: open"));
     expect(screen.queryByText("Coming up")).toBeNull();
     expect(vi.mocked(weekEntries)).toHaveBeenCalledWith("h1", "2026-10-04");
@@ -55,7 +56,7 @@ describe("HomePage", () => {
     expect(screen.getByText("Week of Sep 28 – Oct 4, 2026")).toBeInTheDocument();
   });
 
-  it("builds the headline, stretches and day rows from the household's meals, in the shown slots only", async () => {
+  it("builds the headline and day rows from the household's meals, in the shown slots only", async () => {
     vi.mocked(weekEntries).mockResolvedValue([
       entry("2026-10-05", "DINNER", "Tacos"),
       entry("2026-10-05", "LUNCH", "Soup"),
@@ -68,12 +69,31 @@ describe("HomePage", () => {
     expect(within(rows[0]).getByText("Tacos")).toBeInTheDocument();
     expect(screen.getByText("Lunch: Soup. Dinner: Tacos.")).toBeInTheDocument();
     expect(screen.queryByText(/Eggs/)).toBeNull();
-    expect(screen.getByText("Tue – Thu")).toBeInTheDocument();
+  });
+
+  it("breaks every day of the week out under the drawing, naming its main item and what else is on", async () => {
+    vi.mocked(weekEntries).mockResolvedValue([
+      entry("2026-10-05", "DINNER", "Tacos"),
+      entry("2026-10-05", "LUNCH", "Soup"),
+    ] as any);
+    await run();
+    const strip = document.querySelector(".brief-strip") as HTMLElement;
+    const days = [...strip.querySelectorAll(".brief-day")];
+    expect(days).toHaveLength(7);
+    expect(days.map((d) => d.querySelector(".brief-day-full")!.textContent)).toEqual(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+    expect(days.map((d) => d.querySelector(".brief-day-initial")!.textContent)).toEqual(["S", "M", "T", "W", "T", "F", "S"]);
+    expect(days[1].querySelector(".brief-day-title")).toHaveTextContent("Tacos");
+    expect(days[1].querySelector(".brief-day-more")).toHaveTextContent("+1 more");
+    expect(days[0].querySelector(".brief-day-title")).toHaveTextContent("Open");
+    expect(days[0]).toHaveAttribute("data-open");
+    expect(days[0].querySelector(".brief-day-more")).toBeNull();
+    expect(days[3]).toHaveAttribute("data-today");
+    expect(days.filter((d) => d.hasAttribute("data-today"))).toHaveLength(1);
   });
 
   it("marks today's row, and links each day to that week's planner carrying the date", async () => {
     await run();
-    const today = document.querySelector('[data-today]') as HTMLElement;
+    const today = document.querySelector("a[data-today]") as HTMLElement;
     expect(today).toHaveTextContent("Wed");
     expect(today).toHaveTextContent("(today)");
     expect(today).toHaveAttribute("href", "/meals?week=2026-10-04&today=2026-10-07");
@@ -84,7 +104,7 @@ describe("HomePage", () => {
       { id: "c1", firstName: "Jo", lastName: "Jones", importantDate1: "1990-10-08", importantDate1Label: "Birthday", importantDate2: null, importantDate2Label: null },
     ] as any);
     await run();
-    expect(screen.getByText("Jo Jones's birthday")).toBeInTheDocument();
+    expect(screen.getAllByText("Jo Jones's birthday")).toHaveLength(2); // in the strip, and as the day row's title
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("most planned on Thursday");
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.where).toMatchObject({ deletedAt: null });
   });

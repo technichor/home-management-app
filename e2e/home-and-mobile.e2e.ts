@@ -9,6 +9,10 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   await expect(page.getByText("Nothing needs attention")).toBeVisible();
   await expect(page.getByRole("img", { name: /Sunday: open/ })).toBeVisible();
   await expect(page.locator(".brief-row[data-open]")).toHaveCount(7);
+  // Every day is broken out under the drawing, today marked.
+  await expect(page.locator(".brief-day")).toHaveCount(7);
+  await expect(page.locator(".brief-day[data-today]")).toHaveCount(1);
+  await expect(page.locator(".brief-day-title").first()).toHaveText("Open");
 
   // Meals planned this week appear in the headline, the drawing and the day-by-day list.
   await page.goto("/meals");
@@ -21,6 +25,7 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   await expect(page.locator(".brief-row", { hasText: "Dinner: Tacos." })).toHaveCount(1);
   await expect(page.locator(".brief-row[data-today]")).toHaveCount(1);
   await expect(page.locator(".brief-drawing circle")).toHaveCount(1);
+  await expect(page.locator(".brief-day", { hasText: "Tacos" }).locator(".brief-day-title")).toHaveText("Tacos");
   // A day links to that week in the planner.
   await page.locator(".brief-row", { hasText: "Dinner: Tacos." }).click();
   await expect(page).toHaveURL(/\/meals\?week=\d{4}-\d{2}-\d{2}/);
@@ -154,6 +159,17 @@ test.describe("on a phone", () => {
       await page.goto(path);
       await expectFitsScreen(page, path);
     }
+  });
+
+  test("the home page's week strip is just day initials on a phone, with the detail in the list below", async ({ page }) => {
+    await newOwner(page, "homephone", "The Homephones");
+    await page.goto("/home");
+    await expect(page.locator(".brief-day")).toHaveCount(7);
+    await expect(page.locator(".brief-day-initial")).toHaveText(["S", "M", "T", "W", "T", "F", "S"]);
+    await expect(page.locator(".brief-day-full").first()).toBeHidden();
+    await expect(page.locator(".brief-day-title").first()).toBeHidden();
+    await expect(page.locator(".brief-row", { hasText: "Nothing planned." }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   });
 
   test("navigation stays usable: a tab bar at the bottom with every module, and the rest under More", async ({ page }) => {
