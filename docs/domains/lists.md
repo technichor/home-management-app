@@ -1,5 +1,7 @@
 # Domain: Lists
 
+> **Meal Planning extension:** a list now has a `kind` (STANDARD or GROCERY). The household's shopping list is a GROCERY list owned by the Meal Planning module; it is excluded from everything described below (index, archive, rename, delete, reorder, ranking, assignment, CSV import). See `docs/domains/meal-planning.md`.
+
 Status: **Draft — shaped through structured Q&A, ready for a final look before handing to Claude Code.**
 
 ## Why this domain, and why it matters

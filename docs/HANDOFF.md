@@ -1,10 +1,10 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** the individual-user-accounts work (everything about `User`, `/login`, `/signup`, invites, directory scoping below) lives on branch `user-accounts` and is **not yet merged or deployed**; `main` (production) still runs the old shared-household-password login. Migrations 0006–0018 are applied to the shared database (they are additive, so the old code keeps working). Merge `user-accounts` to `main` after the manual check below.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything through Messaging, the admin area, the rebrand and the UI refresh is merged and live. **Meal Planning (stages 1-5) is on branch `meal-planning`, not yet merged or deployed, and its migrations 0020-0022 are not yet applied to the production database** (see `docs/domains/meal-planning.md`, which also lists what still needs a manual browser check).
 
 ## One-paragraph summary
 
-A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, tested and live in production: **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (Slack-style channels with explicit members, a General channel per household, and household-to-household "sync" so channels can include people from synced households). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
+A Next.js 16 / Prisma / Postgres app for a household. Four modules are built and tested (the first three live in production, **Meal Planning on a branch awaiting deploy**): **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (Slack-style channels with explicit members, a General channel per household, and household-to-household "sync" so channels can include people from synced households), and **Meal Planning** (meal library, a week planner, one shared shopping list, rules-based suggestions). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
 
 ## Stack and tooling
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Three modules are built, t
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `user-accounts`: 70 test files, 990 unit tests plus 47 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `meal-planning`: 1,257 unit tests plus 65 browser tests, all passing.
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -66,14 +66,15 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
                                /api/export?file=households|contacts
 /lists                  active lists; /archived; /[id] items; /[id]/compare (pairwise ranking)
 /messages               channel list (?archived=1) and New channel; /[id] channel view with People panel
+/meals                  week planner (?week=&today=); /library (+ /new, /[id], /[id]/edit); /shopping (the shopping list)
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0019 in prisma/migrations)
-User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
+### Data model (prisma/schema.prisma; migrations 0001–0022 in prisma/migrations; 0020-0022 are Meal Planning and not yet applied to production)
+User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY), `ListItem.category`, Meal, MealPlanEntry, MealPlanSettings (Meal Planning). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
-- `lib/csv.ts`, `lib/listCsv.ts` CSV parse/export/diff · `lib/elo.ts` Elo + pair selection · `lib/messaging.ts` **`channelsFor`** (the one messaging access rule: membership) · `lib/channels.ts` (who can be added, General, leaving) · `lib/syncToken.ts` invite-token hashing · `lib/validations.ts` all Zod schemas.
-- Server actions: `app/(app)/{lists,messages,account}/actions.ts`, `contacts/import/actions.ts`, `contacts/removed/actions.ts`, `contacts/[id]/syncActions.ts`, `app/invite/[token]/actions.ts`, `app/join/[token]/actions.ts`, `app/onboarding/actions.ts`, `app/signup/actions.ts`, `app/login/actions.ts`, `app/(app)/household/actions.ts`.
+- `lib/csv.ts`, `lib/listCsv.ts` CSV parse/export/diff · `lib/elo.ts` Elo + pair selection · `lib/messaging.ts` **`channelsFor`** (the one messaging access rule: membership) · `lib/channels.ts` (who can be added, General, leaving) · `lib/dates.ts` calendar-date + week math, `lib/meals.ts`/`lib/mealPlan.ts`/`lib/shopping.ts`/`lib/suggestions.ts`/`lib/groceryCategories.ts` (Meal Planning) · `lib/syncToken.ts` invite-token hashing · `lib/validations.ts` all Zod schemas.
+- Server actions: `app/(app)/{lists,messages,account,meals,meals/shopping}/actions.ts`, `contacts/import/actions.ts`, `contacts/removed/actions.ts`, `contacts/[id]/syncActions.ts`, `app/invite/[token]/actions.ts`, `app/join/[token]/actions.ts`, `app/onboarding/actions.ts`, `app/signup/actions.ts`, `app/login/actions.ts`, `app/(app)/household/actions.ts`.
 
 ## What is built, and what is not
 
@@ -82,6 +83,8 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 **Lists**: complete per `docs/domains/lists.md`, including the pairwise Elo mode (a list is either manually sorted or pairwise, set per list; switching to pairwise keeps the order and resets all ratings to 1500). Not built: single-list CSV export (nice-to-have).
 
 **Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), (a *pending* invite can be revoked from the sync card on the contact page; an *active* sync can be ended by an owner on `/household`, see `docs/domains/messaging.md`).
+
+**Meal Planning**: stages 1-5 done per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions), on branch `meal-planning`. **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
 
 ## Known gaps and suggestions for next work
 
@@ -101,6 +104,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 3a. **Households**: Add household, edit its name/address/tags/notes, remove and restore a passive one; your own household has no Remove.
 3b. **Contacts**: Add contact (Family & Friend needs a household; others show an Address field), edit it, check the activity log shows the change, remove it and restore it from Removed; a household member's own profile can't be removed.
 4. **Messages**: New channel with a household member, send a message (shows your own name), People panel (add/remove/rename/archive/leave), General.
+5a. **Meal Planning**: the checklist is at the end of `docs/domains/meal-planning.md` (real phone, evening "today", slow connection on the shopping list, two devices, dark mode, a long pasted recipe).
 5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Syncing creates no channel; start one with a person from the other household and messages arrive within ~5s labelled with their household.
 
 ## Mobile / responsive
@@ -108,6 +112,11 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 The shell is responsive through classes in `app/globals.css` (not inline styles, so media queries work): `.app-nav` / `.app-nav-top` (top bar wraps; the household name hides under 480px), `.tab-strip` (a horizontally scrolling, never-wrapping tab row used by the main nav and the Contacts/Lists sub-navs; "coming soon" tabs get `.tab-soon` and are hidden under 640px), `.app-container` (padding 24px, 16/12px on phones), `.fill-on-mobile` (filter controls fill the row), `.mobile-only` (extra summary line under a contact's name where table columns are hidden), `.home-grid` (cards: 1 column on a phone). On phones inputs are forced to 16px so iOS Safari doesn't zoom on focus, and `pointer: coarse` devices get 40px buttons / 44px tabs. The drag handle in lists has `touch-action: none`. `e2e/home-and-mobile.e2e.ts` loads every screen at 375px and fails if any is wider than the screen; keep that green when adding pages (add the new path to its list).
 
 ## Gotchas and workflow notes (hard-won)
+- **Browser-local "today" (Meal Planning)**: the server runs in UTC, so anything that depends on the user's date reads `?today=YYYY-MM-DD`, which `components/LocalToday.tsx` puts in the URL; use `dateOr(searchParams.today, utcDateString())` and never `new Date()` on the server for what a user sees. The planner renders nothing until it has it. Dates are plain `YYYY-MM-DD` strings (`lib/dates.ts`); store them with `stringToDate` and read them with `dateToString` (UTC midnight), never through local-time `Date` methods.
+- **Server-action errors**: production builds hide the message of an error thrown from a server action. New actions return `{ ok: false, error }` via `lib/actionResult.ts` (`attempt` / `UserError`) for expected failures; only a missing session or a database failure throws.
+- **Ant Design Select in browser tests**: its dropdown is virtualized, so options scrolled out of view aren't in the DOM. Give a short fixed list a `listHeight` big enough to show every option (the shopping section picker does).
+- **Ant Design modals/drawers in jsdom**: their close animation never finishes, so the closed content stays in the DOM. Assert on the handler's effect (an action not called, a state reset by re-rendering with a different `key`) rather than on the content disappearing.
+- **Playwright**: emails are lowercased on signup, so use lowercase tags in `newOwner`/`addMember`; `getByRole("button", { name })` matches substrings (add `exact: true` when two buttons share a word); `context.clock.setFixedTime` plus `timezoneId` tests the browser-local date. `e2e/screens.e2e.ts` is a local-only screenshot spec (git-excluded).
 
 - **Migrations on Windows/Node 24**: `prisma migrate dev` and `prisma init` fail. The working method used for migrations 0003–0005: edit `schema.prisma`, run `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/NNNN_name/migration.sql` (this compares the live DB to the schema and prints the SQL), review it, apply with `npx prisma db execute --file <that file> --schema prisma/schema.prisma`, then re-run the diff to confirm it prints "empty migration". Remember the database is production.
 - **`prisma generate` fails with `EPERM ... query_engine-windows.dll.node`** while `next dev` (or anything) holds the engine file. Stop the dev server first. Types may still regenerate even when this error prints.
