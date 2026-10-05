@@ -217,3 +217,29 @@ export async function newChannel(page: Page, name: string, people: string[]) {
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page).toHaveURL(/\/messages\/[a-z0-9]+$/);
 }
+
+/** Put a library meal on the plan by writing to the test database directly (the planner itself is tested separately). */
+export async function seedPlanEntry(email: string, mealName: string, date: string, slot: "BREAKFAST" | "LUNCH" | "DINNER" = "DINNER") {
+  const prisma = new PrismaClient();
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const meal = await prisma.meal.findFirstOrThrow({ where: { householdId: user.householdId!, name: mealName } });
+    await prisma.mealPlanEntry.create({
+      data: { householdId: user.householdId!, mealId: meal.id, date: new Date(`${date}T00:00:00Z`), slot },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/** The household's plan entries as stored, for checking what a delete left behind. */
+export async function planEntries(email: string) {
+  const prisma = new PrismaClient();
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const rows = await prisma.mealPlanEntry.findMany({ where: { householdId: user.householdId! }, orderBy: { date: "asc" } });
+    return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), slot: r.slot, mealId: r.mealId, text: r.text }));
+  } finally {
+    await prisma.$disconnect();
+  }
+}

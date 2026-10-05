@@ -39,12 +39,12 @@ describe("AppNav", () => {
   it("shows no coming-soon placeholders", () => {
     setup();
     expect(screen.queryByText("soon")).toBeNull();
-    expect(screen.queryByText(/Meal/)).toBeNull();
+    expect(screen.queryByText(/Maintenance|Schedules|Meal planning/)).toBeNull();
   });
 
   it("links each module in the sidebar and the tab bar", () => {
     setup();
-    for (const [name, href] of [["Home", "/home"], ["Contacts", "/contacts"], ["Lists", "/lists"], ["Messages", "/messages"]]) {
+    for (const [name, href] of [["Home", "/home"], ["Contacts", "/contacts"], ["Lists", "/lists"], ["Messages", "/messages"], ["Meals", "/meals"]]) {
       expect(sidebar().getByRole("link", { name })).toHaveAttribute("href", href);
       expect(tabbar().getByRole("link", { name })).toHaveAttribute("href", href);
     }

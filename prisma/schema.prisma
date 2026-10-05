@@ -76,9 +76,11 @@ model Household {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  contacts       Contact[]       @relation("HouseholdContacts")
-  importVersions ImportVersion[]
-  lists          List[]
+  contacts        Contact[]       @relation("HouseholdContacts")
+  importVersions  ImportVersion[]
+  lists           List[]
+  meals           Meal[]
+  mealPlanEntries MealPlanEntry[]
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -456,4 +458,46 @@ model EmailLogEntry {
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---- Meal Planning ----
+
+enum MealSlot {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+// A library entry: a meal the household has eaten or might. Names are unique per household, ignoring case
+// (nameKey is the lowercased, trimmed name). Hard-deleted; see deleteMealAction for what happens to the plan.
+model Meal {
+  id          String          @id @default(cuid())
+  householdId String
+  household   Household       @relation(fields: [householdId], references: [id])
+  name        String
+  nameKey     String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  entries     MealPlanEntry[]
+
+  @@unique([householdId, nameKey])
+}
+
+// A meal (or a one-off text such as "leftovers") on a calendar date and slot. `date` is a plain calendar date.
+// Exactly one of mealId / text is set (enforced in the app).
+model MealPlanEntry {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  date        DateTime  @db.Date
+  slot        MealSlot
+  mealId      String?
+  meal        Meal?     @relation(fields: [mealId], references: [id], onDelete: SetNull)
+  text        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([householdId, date])
+  @@index([mealId])
 }

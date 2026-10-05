@@ -194,3 +194,16 @@ export const conversationNameSchema = z.object({
 export const messageSchema = z.object({
   text: z.string().trim().min(1, "Write a message first").max(MAX_MESSAGE_LENGTH, `Messages can be at most ${MAX_MESSAGE_LENGTH} characters`),
 });
+
+export const MAX_MEAL_DESCRIPTION = 20000;
+
+/** A meal in the library: a name, and a long free-text description (a place to paste a whole recipe). */
+export const mealSchema = z.object({
+  name: z.string().trim().min(1, "Give the meal a name").max(120, "Names can be at most 120 characters"),
+  description: z
+    .string()
+    .max(MAX_MEAL_DESCRIPTION, `The description can be at most ${MAX_MEAL_DESCRIPTION.toLocaleString("en-US")} characters`)
+    .nullish()
+    // Text is kept exactly as pasted (line breaks and indentation); only an empty or blank one becomes null.
+    .transform((v) => (v && v.trim() ? v : null)),
+});

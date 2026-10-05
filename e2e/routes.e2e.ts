@@ -3,7 +3,7 @@ import { addServiceProvider, gotoMissing, newOwner, newSession, test } from "./h
 
 // URLs are the same for every household (the data comes from who you're signed in as): there is
 // no per-household segment in any path.
-const APP_PREFIXES = ["home", "contacts", "lists", "messages", "account", "household", "invite", "join"];
+const APP_PREFIXES = ["home", "contacts", "lists", "messages", "meals", "account", "household", "invite", "join"];
 
 async function hrefs(page: Page): Promise<string[]> {
   return page.locator("a[href]").evaluateAll((els) =>
@@ -23,6 +23,9 @@ test("signed-out visitors are sent to log in from every app page", async ({ page
     "/lists",
     "/lists/archived",
     "/messages",
+    "/meals",
+    "/meals/library",
+    "/meals/library/new",
     "/account",
     "/household",
   ]) {
@@ -64,6 +67,8 @@ test("no link anywhere in the app carries a household name", async ({ page }) =>
     "/lists",
     listPath,
     "/messages",
+    "/meals/library",
+    "/meals/library/new",
     "/account",
     "/household",
   ];
