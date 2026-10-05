@@ -28,7 +28,7 @@ beforeEach(() => {
 
 describe("renameListAction: name validation", () => {
   it("trims the new name and rejects a blank one", async () => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", kind: "STANDARD" } as any);
     await renameListAction("l1", "  New  ");
     expect(prisma.list.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { name: "New" } });
     await expect(renameListAction("l1", " ")).rejects.toThrow("List name is required");
@@ -45,7 +45,7 @@ describe("list actions: household ownership", () => {
   ];
 
   it.each(calls)("%s works on the logged-in household's list", async (_name, call) => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", kind: "STANDARD" } as any);
     await expect(call()).resolves.toBeUndefined();
   });
 

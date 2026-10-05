@@ -36,7 +36,7 @@ import {
 } from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
-const myList = { id: "l1", householdId: "h1", sortMode: "MANUAL" };
+const myList = { id: "l1", householdId: "h1", sortMode: "MANUAL", kind: "STANDARD" };
 
 beforeEach(() => {
   vi.clearAllMocks();

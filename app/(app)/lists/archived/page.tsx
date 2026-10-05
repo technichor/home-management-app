@@ -7,7 +7,7 @@ export default async function ArchivedListsPage() {
   const sessionHouseholdId = await pageHouseholdId();
 
   const lists = await prisma.list.findMany({
-    where: { householdId: sessionHouseholdId, archivedAt: { not: null } },
+    where: { householdId: sessionHouseholdId, archivedAt: { not: null }, kind: "STANDARD" },
     include: { items: { select: { id: true, checked: true } } },
     orderBy: { archivedAt: "desc" },
   });

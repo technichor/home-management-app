@@ -14,6 +14,27 @@ enum ContactCategory {
   HOUSEHOLD_ADMIN
 }
 
+// A STANDARD list is the freeform kind. A GROCERY list is the household's shopping list (Meal Planning): its
+// items are grouped by store section (ListItem.category) and it can't be renamed, archived, deleted, ranked,
+// reordered, assigned or imported through the Lists module. One per household is enforced in the app only.
+enum ListKind {
+  STANDARD
+  GROCERY
+}
+
+enum GroceryCategory {
+  PRODUCE
+  MEAT_SEAFOOD
+  DAIRY_EGGS
+  BAKERY
+  PANTRY
+  FROZEN
+  BEVERAGES
+  SNACKS
+  HOUSEHOLD
+  OTHER
+}
+
 enum ListSortMode {
   MANUAL
   PAIRWISE
@@ -145,6 +166,7 @@ model List {
   tags        String[]
   archivedAt  DateTime?
   sortMode    ListSortMode @default(MANUAL)
+  kind        ListKind     @default(STANDARD)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -152,21 +174,23 @@ model List {
 }
 
 model ListItem {
-  id                  String    @id @default(cuid())
+  id                  String           @id @default(cuid())
   listId              String
-  list                List      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list                List             @relation(fields: [listId], references: [id], onDelete: Cascade)
   text                String
   quantity            String?
   assignedToContactId String?
-  assignedToContact   Contact?  @relation(fields: [assignedToContactId], references: [id], onDelete: SetNull)
+  assignedToContact   Contact?         @relation(fields: [assignedToContactId], references: [id], onDelete: SetNull)
   notes               String?
-  checked             Boolean   @default(false)
+  checked             Boolean          @default(false)
   checkedAt           DateTime?
   position            Int
-  rating              Float     @default(1500)
-  comparisonCount     Int       @default(0)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  // The store section, for items of a GROCERY list (null in STANDARD lists).
+  category            GroceryCategory?
+  rating              Float            @default(1500)
+  comparisonCount     Int              @default(0)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 }
 
 // A household-to-household handshake, attached to the Contact it was started from.

@@ -7,7 +7,7 @@ export default async function ListsPage() {
   const sessionHouseholdId = await pageHouseholdId();
 
   const lists = await prisma.list.findMany({
-    where: { householdId: sessionHouseholdId, archivedAt: null },
+    where: { householdId: sessionHouseholdId, archivedAt: null, kind: "STANDARD" },
     include: { items: { select: { id: true, checked: true } } },
     orderBy: { createdAt: "desc" },
   });

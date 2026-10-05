@@ -62,7 +62,7 @@ describe("HomePage", () => {
     await run();
     const convoQuery = vi.mocked(prisma.conversation.findMany).mock.calls[0][0]!;
     expect(convoQuery.where).toEqual({ AND: [channelsFor("u1"), { archivedAt: null }] });
-    expect(vi.mocked(prisma.list.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1", archivedAt: null });
+    expect(vi.mocked(prisma.list.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1", archivedAt: null, kind: "STANDARD" });
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.where).toMatchObject({ ownerHouseholdId: "h1", deletedAt: null });
     expect(vi.mocked(prisma.contact.count).mock.calls[0][0]!.where).toEqual({ ownerHouseholdId: "h1", deletedAt: null });
     expect(vi.mocked(prisma.household.count).mock.calls[0][0]!.where).toEqual({

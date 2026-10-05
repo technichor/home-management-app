@@ -27,7 +27,7 @@ const item = (id: string, rating: number, position: number, listId = "l1") => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", sortMode: "PAIRWISE" } as any);
+  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", sortMode: "PAIRWISE", kind: "STANDARD" } as any);
   vi.mocked(prisma.listItem.update).mockResolvedValue({} as any);
 });
 

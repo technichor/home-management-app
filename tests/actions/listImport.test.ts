@@ -18,7 +18,7 @@ import { prisma } from "@/lib/db";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1" } as any);
+  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", kind: "STANDARD" } as any);
   vi.mocked(prisma.listItem.aggregate).mockResolvedValue({ _max: { position: 4 } } as any);
   vi.mocked(prisma.listItem.createMany).mockResolvedValue({ count: 0 } as any);
 });

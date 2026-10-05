@@ -60,6 +60,7 @@ const dbList = (over: object = {}) => ({
   name: "Groceries",
   tags: ["a"],
   sortMode: "MANUAL",
+  kind: "STANDARD",
   archivedAt: null,
   items: [item()],
   ...over,
@@ -77,7 +78,7 @@ describe("ListsPage", () => {
     ] as any);
     render(await ListsPage());
     expect(prisma.list.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { householdId: "h1", archivedAt: null } })
+      expect.objectContaining({ where: { householdId: "h1", archivedAt: null, kind: "STANDARD" } })
     );
     expect(seen.lists).toEqual({
       lists: [{ id: "l1", name: "Groceries", tags: ["a"], totalItems: 2, checkedItems: 1 }],
@@ -93,7 +94,7 @@ describe("ArchivedListsPage", () => {
     ] as any);
     render(await ArchivedListsPage());
     expect(prisma.list.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { householdId: "h1", archivedAt: { not: null } } })
+      expect.objectContaining({ where: { householdId: "h1", archivedAt: { not: null }, kind: "STANDARD" } })
     );
     expect(seen.archived.lists[1]).toMatchObject({ id: "l2", totalItems: 2, checkedItems: 1 });
     expect(seen.archived.lists[0]).toMatchObject({
@@ -152,6 +153,13 @@ describe("ListDetailPage", () => {
       ListDetailPage({ params: idParams, searchParams: Promise.resolve({}) })
     ).rejects.toThrow("NOT_FOUND");
   });
+
+  it("404s for the shopping list, which has its own page", async () => {
+    vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ kind: "GROCERY" }) as any);
+    await expect(
+      ListDetailPage({ params: idParams, searchParams: Promise.resolve({}) })
+    ).rejects.toThrow("NOT_FOUND");
+  });
 });
 
 describe("ComparePage", () => {
@@ -168,6 +176,11 @@ describe("ComparePage", () => {
   it("sends manually sorted lists back to the list", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ sortMode: "MANUAL" }) as any);
     await expect(ComparePage({ params: idParams })).rejects.toThrow("REDIRECT:/lists/l1");
+  });
+
+  it("404s for the shopping list", async () => {
+    vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ kind: "GROCERY", sortMode: "PAIRWISE" }) as any);
+    await expect(ComparePage({ params: idParams })).rejects.toThrow("NOT_FOUND");
   });
 
   it("404s for a missing list or another household's list", async () => {

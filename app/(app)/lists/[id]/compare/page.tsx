@@ -17,7 +17,7 @@ export default async function ComparePage({
     where: { id },
     include: { items: { where: { checked: false }, orderBy: { position: "asc" } } },
   });
-  if (!list || list.householdId !== sessionHouseholdId) notFound();
+  if (!list || list.householdId !== sessionHouseholdId || list.kind !== "STANDARD") notFound();
   if (list.sortMode !== "PAIRWISE") redirect(`/lists/${id}`);
 
   return (

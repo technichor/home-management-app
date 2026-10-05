@@ -7,6 +7,8 @@ import { parseListItemsCSV } from "@/lib/listCsv";
 import type { ListSortMode } from "@prisma/client";
 import { updateRatings, ComparisonOutcome, DEFAULT_RATING } from "@/lib/elo";
 import { requireHouseholdId } from "@/lib/auth";
+import { DEFAULT_GROCERY_CATEGORY, isGroceryCategory } from "@/lib/groceryCategories";
+import type { GroceryCategory } from "@prisma/client";
 
 export async function createListAction(name: string, tags: string[]) {
   const householdId = await requireHouseholdId();
@@ -22,7 +24,7 @@ export async function createListAction(name: string, tags: string[]) {
 }
 
 export async function renameListAction(id: string, name: string) {
-  await requireList(id);
+  await requireStandardList(id);
   const cleanName = name.trim();
   if (!cleanName) throw new Error("List name is required");
   await prisma.list.update({ where: { id }, data: { name: cleanName } });
@@ -32,21 +34,21 @@ export async function renameListAction(id: string, name: string) {
 }
 
 export async function archiveListAction(id: string) {
-  await requireList(id);
+  await requireStandardList(id);
   await prisma.list.update({ where: { id }, data: { archivedAt: new Date() } });
   revalidatePath("/lists");
   revalidatePath("/lists/archived");
 }
 
 export async function unarchiveListAction(id: string) {
-  await requireList(id);
+  await requireStandardList(id);
   await prisma.list.update({ where: { id }, data: { archivedAt: null } });
   revalidatePath("/lists");
   revalidatePath("/lists/archived");
 }
 
 export async function deleteListAction(id: string) {
-  await requireList(id);
+  await requireStandardList(id);
   await prisma.list.delete({ where: { id } });
   revalidatePath("/lists");
   revalidatePath("/lists/archived");
@@ -61,21 +63,38 @@ async function requireList(listId: string) {
   return list;
 }
 
+/**
+ * A list that is the household's and an ordinary one. The shopping (GROCERY) list belongs to Meal Planning and
+ * can't be renamed, archived, deleted, ranked, reordered, assigned or imported through these actions.
+ */
+async function requireStandardList(listId: string) {
+  const list = await requireList(listId);
+  if (list.kind !== "STANDARD") throw new Error("The shopping list can't be changed this way");
+  return list;
+}
+
 async function requireItem(itemId: string) {
   const item = await prisma.listItem.findUnique({ where: { id: itemId } });
   if (!item) throw new Error("Item not found");
-  await requireList(item.listId);
-  return item;
+  const list = await requireList(item.listId);
+  return { ...item, listKind: list.kind };
 }
 
-export async function addItemsAction(listId: string, texts: string[]) {
-  await requireList(listId);
+export async function addItemsAction(listId: string, texts: string[], category?: GroceryCategory) {
+  const list = await requireList(listId);
+  // Items of a grocery list always have a section (Other by default); items of an ordinary list never do.
+  if (list.kind === "GROCERY") {
+    if (category !== undefined && !isGroceryCategory(category)) throw new Error("Invalid section");
+  } else if (category !== undefined) {
+    throw new Error("Only the shopping list has sections");
+  }
+  const itemCategory = list.kind === "GROCERY" ? (category ?? DEFAULT_GROCERY_CATEGORY) : null;
   const clean = texts.map((t) => t.trim()).filter(Boolean);
   if (clean.length === 0) return;
   const last = await prisma.listItem.aggregate({ where: { listId }, _max: { position: true } });
   const start = (last._max.position ?? -1) + 1;
   await prisma.listItem.createMany({
-    data: clean.map((text, i) => ({ listId, text, position: start + i })),
+    data: clean.map((text, i) => ({ listId, text, position: start + i, ...(itemCategory && { category: itemCategory }) })),
   });
   revalidatePath(`/lists/${listId}`);
 }
@@ -95,6 +114,9 @@ export async function updateItemAction(
 ) {
   const item = await requireItem(itemId);
   if (data.text !== undefined && !data.text.trim()) throw new Error("Item text is required");
+  if (data.assignedToContactId !== undefined && item.listKind === "GROCERY") {
+    throw new Error("Items on the shopping list can't be assigned");
+  }
   if (data.assignedToContactId) {
     const contact = await prisma.contact.findUnique({ where: { id: data.assignedToContactId } });
     if (!contact || contact.deletedAt || !contactIsIn(contact, await requireHouseholdId())) {
@@ -120,7 +142,7 @@ export async function deleteItemAction(itemId: string) {
 }
 
 export async function reorderItemsAction(listId: string, orderedIds: string[]) {
-  const list = await requireList(listId);
+  const list = await requireStandardList(listId);
   if (list.sortMode !== "MANUAL") {
     throw new Error("This list is ranked by pairwise comparison. Switch it to manual sorting to drag items.");
   }
@@ -140,7 +162,7 @@ export async function reorderItemsAction(listId: string, orderedIds: string[]) {
 }
 
 export async function importItemsAction(listId: string, csvText: string) {
-  await requireList(listId);
+  await requireStandardList(listId);
   const { items, errors } = parseListItemsCSV(csvText);
   if (errors.length > 0) return { added: 0, errors };
 
@@ -161,7 +183,7 @@ export async function recordComparisonAction(
   itemBId: string,
   outcome: ComparisonOutcome
 ) {
-  const list = await requireList(listId);
+  const list = await requireStandardList(listId);
   if (list.sortMode !== "PAIRWISE") {
     throw new Error("This list is sorted manually. Switch it to pairwise ranking to compare items.");
   }
@@ -201,7 +223,7 @@ export async function recordComparisonAction(
 }
 
 export async function setSortModeAction(listId: string, mode: ListSortMode) {
-  const list = await requireList(listId);
+  const list = await requireStandardList(listId);
   if (mode !== "MANUAL" && mode !== "PAIRWISE") throw new Error("Invalid sort mode");
   if (list.sortMode === mode) return;
 

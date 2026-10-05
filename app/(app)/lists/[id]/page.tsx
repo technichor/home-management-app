@@ -21,7 +21,8 @@ export default async function ListDetailPage({
     where: { id },
     include: { items: { orderBy: { position: "asc" } } },
   });
-  if (!list || list.householdId !== sessionHouseholdId) notFound();
+  // The shopping list (kind GROCERY) has its own page under Meal Planning, not this one.
+  if (!list || list.householdId !== sessionHouseholdId || list.kind !== "STANDARD") notFound();
 
   const contacts = await prisma.contact.findMany({
     where: { ...contactsOf(sessionHouseholdId), deletedAt: null },

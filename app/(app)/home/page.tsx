@@ -30,7 +30,7 @@ export default async function HomePage() {
       },
     }),
     prisma.list.findMany({
-      where: { householdId, archivedAt: null },
+      where: { householdId, archivedAt: null, kind: "STANDARD" },
       orderBy: { createdAt: "desc" },
       take: 4,
       include: { items: { select: { checked: true } } },
