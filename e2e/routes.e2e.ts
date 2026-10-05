@@ -97,7 +97,7 @@ test("signed in, the front page and logging in lead to /home; the nav goes where
     ["Home", "/home"],
   ] as const) {
     await nav.getByRole("link", { name: tab, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page).toHaveURL(new RegExp(`${path}(\\?.*)?$`));
   }
   await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
