@@ -237,6 +237,10 @@ export async function applyImportAction(
           importantDate1Label: c.importantDate1Label,
           importantDate2: c.importantDate2,
           importantDate2Label: c.importantDate2Label,
+          // A birthday only if the file had a birthday column with a value in it.
+          birthdayMonth: c.birthdayMonth ?? null,
+          birthdayDay: c.birthdayDay ?? null,
+          birthdayYear: c.birthdayYear ?? null,
           notes: c.notes,
         },
       });
@@ -272,6 +276,12 @@ export async function applyImportAction(
           importantDate1Label: after.importantDate1Label ?? null,
           importantDate2: after.importantDate2 ?? null,
           importantDate2Label: after.importantDate2Label ?? null,
+          // Only when the file had a birthday column: without one, birthdays are left exactly as they are.
+          ...(after.birthdayMonth !== undefined && {
+            birthdayMonth: after.birthdayMonth,
+            birthdayDay: after.birthdayDay ?? null,
+            birthdayYear: after.birthdayYear ?? null,
+          }),
           notes: after.notes ?? null,
         },
       });

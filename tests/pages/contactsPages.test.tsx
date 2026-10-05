@@ -65,7 +65,7 @@ const contact = (over: object = {}) => ({
   id: "c1", ownerHouseholdId: "mine", householdId: null, firstName: "Jane", lastName: "Smith", nickname: null,
   category: "SERVICE_PROVIDER", address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
   emailPrimary: null, emailSecondary: null, tags: [], favorite: false, relationshipNotes: null,
-  linkedFamilyMember: null, importantDate1: null, importantDate1Label: null,
+  linkedFamilyMember: null, birthdayMonth: null, birthdayDay: null, birthdayYear: null, importantDate1: null, importantDate1Label: null,
   importantDate2: null, importantDate2Label: null, notes: null, deletedAt: null,
   household: null, ...over,
 });
@@ -187,6 +187,18 @@ describe("ContactDetailPage", () => {
     for (const l of ["Birthday", "Anniversary", "Mobile", "Home phone", "Work phone", "Primary email", "Secondary email", "Linked family member", "Tags", "Relationship notes", "Notes"]) {
       expect(screen.getByText(l)).toBeInTheDocument();
     }
+  });
+
+  it("shows a birthday as 'March 4' or 'March 4, 1985', and nothing without one", async () => {
+    const { unmount } = await run(contact({ birthdayMonth: 3, birthdayDay: 4 }));
+    expect(screen.getByText("Birthday")).toBeInTheDocument();
+    expect(screen.getByText("March 4")).toBeInTheDocument();
+    unmount();
+    const second = await run(contact({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 }));
+    expect(screen.getByText("March 4, 1985")).toBeInTheDocument();
+    second.unmount();
+    await run(contact());
+    expect(screen.queryByText("Birthday")).toBeNull();
   });
 
   it("falls back to generic labels for unlabelled dates and omits empty fields", async () => {

@@ -115,3 +115,76 @@ test("CSV export and re-import round-trips through the real app", async ({ page 
   await page.getByRole("button", { name: /Validate|Upload|Review|Check/i }).first().click();
   await expect(page.getByText(/No changes detected/)).toBeVisible();
 });
+
+test("a contact's birthday: in the form, on the detail page, and through CSV export and import", async ({ page }) => {
+  await newOwner(page, "bday", "The Birthdays");
+
+  // Add with a birthday and year, then without a year.
+  async function add(first: string, month: string, day: string, year?: string) {
+    await page.goto(`/contacts/new`);
+    await page.getByLabel("First name").fill(first);
+    await page.getByLabel("Last name").fill("Person");
+    await choose(page, "Category", "Service Provider");
+    await choose(page, "Birthday month", month);
+    await page.getByLabel("Birthday day").fill(day);
+    if (year) await page.getByLabel("Birthday year").fill(year);
+    await page.getByRole("button", { name: "Add contact" }).click();
+  }
+  await add("Withyear", "March", "4", "1985");
+  await expect(page.getByText("March 4, 1985")).toBeVisible();
+  await add("Noyear", "February", "29");
+  await expect(page.getByText("February 29", { exact: true })).toBeVisible();
+
+  // A bad one is explained on the form and nothing is saved.
+  await add("Bad", "February", "30");
+  await expect(page.getByText("February doesn't have 30 days").first()).toBeVisible();
+
+  // Export writes the two formats.
+  const households = await (await page.request.get(`/contacts/api/export?file=households`)).text();
+  const contacts = await (await page.request.get(`/contacts/api/export?file=contacts`)).text();
+  expect(contacts.split("\n")[0]).toContain(",birthday,");
+  expect(contacts).toContain("1985-03-04");
+  expect(contacts).toContain("02-29");
+
+  const upload = async (h: string, c: string) => {
+    await page.goto(`/contacts/import`);
+    await page.locator('input[name="householdsFile"]').setInputFiles({ name: "households.csv", mimeType: "text/csv", buffer: Buffer.from(h) });
+    await page.locator('input[name="contactsFile"]').setInputFiles({ name: "contacts.csv", mimeType: "text/csv", buffer: Buffer.from(c) });
+    await page.getByRole("button", { name: /Validate|Upload|Review|Check/i }).first().click();
+  };
+
+  // The unchanged export imports as no changes.
+  await upload(households, contacts);
+  await expect(page.getByText(/No changes detected/)).toBeVisible();
+
+  // An older export (no birthday column) leaves birthdays alone, even with other edits.
+  const rows = contacts.trim().split("\n");
+  const headers = rows[0].split(",");
+  const drop = headers.indexOf("birthday");
+  const old = rows.map((r) => {
+    const cells = r.split(",");
+    cells.splice(drop, 1);
+    return cells.join(",");
+  });
+  await upload(households, old.join("\n") + "\n");
+  await expect(page.getByText(/No changes detected/)).toBeVisible();
+
+  // A bad birthday is reported against its row and column.
+  const bad = rows.map((r) => r.replace("1985-03-04", "March 4")).join("\n");
+  await upload(households, bad);
+  await expect(page.getByText(/birthday.*isn't in a recognised format/).first()).toBeVisible();
+
+  // Changing and clearing birthdays is shown in plain language, and applied.
+  const edited = rows
+    .map((r) => r.replace("1985-03-04", "1985-03-09"))
+    .map((r) => r.replace(/,02-29(,|$)/, ",$1"))
+    .join("\n");
+  await upload(households, edited);
+  await expect(page.getByText(/birthday changed from March 4, 1985 to March 9, 1985/)).toBeVisible();
+  await expect(page.getByText(/birthday removed \(was February 29\)/)).toBeVisible();
+  await page.getByRole("button", { name: /Apply/ }).click();
+  await expect(page.getByText(/import|applied|success/i).first()).toBeVisible();
+  await page.goto(`/contacts`);
+  await page.getByRole("link", { name: /Withyear/ }).click();
+  await expect(page.getByText("March 9, 1985")).toBeVisible();
+});

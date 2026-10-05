@@ -58,6 +58,9 @@ async function buildContactData(
       importantDate1Label: f.importantDate1Label ?? null,
       importantDate2: f.importantDate2 ?? null,
       importantDate2Label: f.importantDate2Label ?? null,
+      birthdayMonth: f.birthdayMonth,
+      birthdayDay: f.birthdayDay,
+      birthdayYear: f.birthdayYear,
       notes: f.notes ?? null,
     },
   };

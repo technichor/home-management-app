@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_MESSAGE_LENGTH } from "./messaging";
 import { isDateString } from "./dates";
+import { birthdayProblem } from "./birthday";
 
 export const ContactCategoryEnum = z.enum([
   "FAMILY_FRIEND",
@@ -34,6 +35,10 @@ export const contactSchema = z
     importantDate1Label: z.string().optional(),
     importantDate2: z.string().optional(),
     importantDate2Label: z.string().optional(),
+    // undefined: not given (an import file with no birthday column leaves it alone). null: no birthday / no year.
+    birthdayMonth: z.number().int().nullable().optional(),
+    birthdayDay: z.number().int().nullable().optional(),
+    birthdayYear: z.number().int().nullable().optional(),
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -44,6 +49,8 @@ export const contactSchema = z
         path: ["householdId"],
       });
     }
+    const problem = birthdayProblem({ month: data.birthdayMonth, day: data.birthdayDay, year: data.birthdayYear });
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ["birthday"] });
   });
 
 export type ContactInput = z.infer<typeof contactSchema>;
@@ -58,6 +65,7 @@ const optionalEmail = z
   .optional()
   .transform(blankToUndefined)
   .refine((v) => !v || z.string().email().safeParse(v).success, "Enter a valid email address");
+const optionalInt = z.number().int().nullish().transform((v) => v ?? null);
 const optionalDate = z
   .string()
   .trim()
@@ -89,6 +97,10 @@ export const contactFormSchema = z
     importantDate1Label: optionalText,
     importantDate2: optionalDate,
     importantDate2Label: optionalText,
+    // The birthday is three fields; an empty one is null.
+    birthdayMonth: optionalInt,
+    birthdayDay: optionalInt,
+    birthdayYear: optionalInt,
     notes: optionalText,
   })
   .superRefine((data, ctx) => {
@@ -99,6 +111,8 @@ export const contactFormSchema = z
         path: ["householdId"],
       });
     }
+    const problem = birthdayProblem({ month: data.birthdayMonth, day: data.birthdayDay, year: data.birthdayYear });
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem, path: ["birthday"] });
   });
 
 export type ContactFormInput = z.input<typeof contactFormSchema>;

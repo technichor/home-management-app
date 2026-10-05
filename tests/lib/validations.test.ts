@@ -194,3 +194,60 @@ describe("householdFormSchema", () => {
     expect(householdFormSchema.safeParse({ displayName: "x".repeat(101) }).success).toBe(false);
   });
 });
+
+describe("birthday in the contact schemas", () => {
+  const base = { firstName: "Jo", lastName: "Jones", category: "SERVICE_PROVIDER" as const };
+
+  describe("contactSchema (CSV)", () => {
+    it("accepts no birthday, a month and day, or all three", () => {
+      expect(contactSchema.safeParse(base).success).toBe(true);
+      expect(contactSchema.safeParse({ ...base, birthdayMonth: 3, birthdayDay: 4 }).success).toBe(true);
+      expect(contactSchema.safeParse({ ...base, birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 }).success).toBe(true);
+      expect(contactSchema.safeParse({ ...base, birthdayMonth: null, birthdayDay: null, birthdayYear: null }).success).toBe(true);
+    });
+
+    it("keeps an absent birthday absent (undefined), distinct from null", () => {
+      const r = contactSchema.parse(base);
+      expect(r.birthdayMonth).toBeUndefined();
+      expect(contactSchema.parse({ ...base, birthdayMonth: null, birthdayDay: null }).birthdayMonth).toBeNull();
+    });
+
+    it("reports a problem against the birthday column", () => {
+      const r = contactSchema.safeParse({ ...base, birthdayMonth: 2, birthdayDay: 30 });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.issues[0]).toMatchObject({ path: ["birthday"], message: "February doesn't have 30 days" });
+      expect(contactSchema.safeParse({ ...base, birthdayYear: 1985 }).success).toBe(false);
+    });
+  });
+
+  describe("contactFormSchema (in-app)", () => {
+    it("turns empty birthday fields into null", () => {
+      const r = contactFormSchema.parse(base);
+      expect([r.birthdayMonth, r.birthdayDay, r.birthdayYear]).toEqual([null, null, null]);
+      const blank = contactFormSchema.parse({ ...base, birthdayMonth: null, birthdayDay: null, birthdayYear: null });
+      expect([blank.birthdayMonth, blank.birthdayDay, blank.birthdayYear]).toEqual([null, null, null]);
+    });
+
+    it("accepts a birthday with or without a year, including Feb 29", () => {
+      expect(contactFormSchema.parse({ ...base, birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 })).toMatchObject({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      expect(contactFormSchema.parse({ ...base, birthdayMonth: 2, birthdayDay: 29 })).toMatchObject({ birthdayYear: null });
+      expect(contactFormSchema.parse({ ...base, birthdayMonth: 2, birthdayDay: 29, birthdayYear: 2000 }).birthdayYear).toBe(2000);
+    });
+
+    it("explains a bad birthday under one field name", () => {
+      const cases: [object, string][] = [
+        [{ birthdayMonth: 3 }, "Enter both a month and a day for the birthday"],
+        [{ birthdayYear: 1985 }, "Enter both a month and a day for the birthday"],
+        [{ birthdayMonth: 2, birthdayDay: 29, birthdayYear: 2023 }, "2023 isn't a leap year, so February doesn't have 29 days"],
+        [{ birthdayMonth: 4, birthdayDay: 31 }, "April doesn't have 31 days"],
+        [{ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1899 }, expect.stringContaining("The birth year must be from 1900")],
+        [{ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 2999 }, expect.stringContaining("The birth year must be from 1900")],
+      ];
+      for (const [extra, message] of cases) {
+        const r = contactFormSchema.safeParse({ ...base, ...extra });
+        expect(r.success).toBe(false);
+        if (!r.success) expect(r.error.issues[0]).toMatchObject({ path: ["birthday"], message });
+      }
+    });
+  });
+});

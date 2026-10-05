@@ -53,6 +53,9 @@ export default async function EditContactPage({ params }: { params: Promise<{ id
             importantDate1Label: contact.importantDate1Label ?? undefined,
             importantDate2: contact.importantDate2 ?? undefined,
             importantDate2Label: contact.importantDate2Label ?? undefined,
+            birthdayMonth: contact.birthdayMonth,
+            birthdayDay: contact.birthdayDay,
+            birthdayYear: contact.birthdayYear,
             notes: contact.notes ?? undefined,
           },
         }}

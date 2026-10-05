@@ -81,7 +81,7 @@ const dbContact = (over: object = {}) =>
     id: "c1", firstName: "Old", lastName: "Contact", category: "SERVICE_PROVIDER", householdId: null,
     nickname: null, address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
     emailPrimary: null, emailSecondary: null, tags: [], favorite: false,
-    relationshipNotes: null, linkedFamilyMember: null,
+    relationshipNotes: null, linkedFamilyMember: null, birthdayMonth: null, birthdayDay: null, birthdayYear: null,
     importantDate1: null, importantDate1Label: null, importantDate2: null, importantDate2Label: null,
     notes: null, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, ...over,
   }) as any;
@@ -324,6 +324,85 @@ describe("applyImportAction", () => {
     expect(version.summary.contacts).toMatchObject({ added: 1, updated: 1, removed: 1 });
     expect(version.contactsSnapshot).toHaveLength(2);
     expect(version.householdsSnapshot).toHaveLength(2);
+  });
+
+  describe("birthdays", () => {
+    const household = "id,*display_name,mailing_address,tags,notes\n";
+    const withBirthdays = (...rows: string[]) => `id,first_name,last_name,*category,birthday\n${rows.join("\n")}\n`;
+    const old = "id,first_name,last_name,*category\nc1,Old,Contact,SERVICE_PROVIDER\n";
+    const had = () => dbContact({ id: "c1", birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+    const updateData = () => vi.mocked(prisma.contact.update).mock.calls.find((c) => (c[0] as any).where.id === "c1")?.[0].data as any;
+
+    it("leaves birthdays alone when the contacts file has no birthday column (an older export)", async () => {
+      allowTransaction();
+      vi.mocked(prisma.contact.findMany).mockResolvedValue([had(), dbContact({ id: "c2", firstName: "Two", birthdayMonth: 5, birthdayDay: 6 })]);
+      const csv = `id,first_name,last_name,*category\nc1,Old,Renamed,SERVICE_PROVIDER\nc2,Two,Contact,SERVICE_PROVIDER\n`;
+      expect(await applyImportAction({ householdsCSV: household, contactsCSV: csv })).toEqual({ ok: true });
+      const data = updateData();
+      expect(data.lastName).toBe("Renamed");
+      expect(data).not.toHaveProperty("birthdayMonth");
+      expect(data).not.toHaveProperty("birthdayDay");
+      expect(data).not.toHaveProperty("birthdayYear");
+      // c2 had no other change, so it isn't touched at all.
+      expect(vi.mocked(prisma.contact.update).mock.calls.some((c) => (c[0] as any).where.id === "c2")).toBe(false);
+      const version = vi.mocked(prisma.importVersion.create).mock.calls[0]?.[0]?.data as any;
+      expect(version.contactsSnapshot[0]).not.toHaveProperty("birthdayMonth");
+    });
+
+    it("sees nothing to change in an old-format file that matches the database", async () => {
+      vi.mocked(prisma.household.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.contact.findMany).mockResolvedValue([dbContact({ id: "c1", firstName: "Old", lastName: "Contact", birthdayMonth: 3, birthdayDay: 4 })]);
+      const result = await validateImportAction(makeFormData(household, old));
+      expect(result).toMatchObject({ ok: true, diff: { contacts: { updated: [], unchanged: 1 } } });
+    });
+
+    it("clears a birthday when the column is there and the cell is blank", async () => {
+      allowTransaction();
+      vi.mocked(prisma.contact.findMany).mockResolvedValue([had()]);
+      await applyImportAction({ householdsCSV: household, contactsCSV: withBirthdays("c1,Old,Contact,SERVICE_PROVIDER,") });
+      expect(updateData()).toMatchObject({ birthdayMonth: null, birthdayDay: null, birthdayYear: null });
+    });
+
+    it("sets or changes a birthday from either format, and logs and snapshots it", async () => {
+      allowTransaction();
+      vi.mocked(prisma.contact.findMany).mockResolvedValue([had()]);
+      await applyImportAction({ householdsCSV: household, contactsCSV: withBirthdays("c1,Old,Contact,SERVICE_PROVIDER,03-05") });
+      expect(updateData()).toMatchObject({ birthdayMonth: 3, birthdayDay: 5, birthdayYear: null });
+
+      const entries = vi.mocked(prisma.activityLogEntry.createMany).mock.calls[0]?.[0]?.data as any[];
+      const update = entries.find((e) => e.action === "UPDATED");
+      expect(update.changedFields.before).toMatchObject({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      expect(update.changedFields.after).toMatchObject({ birthdayMonth: 3, birthdayDay: 5, birthdayYear: null });
+      const version = vi.mocked(prisma.importVersion.create).mock.calls[0]?.[0]?.data as any;
+      expect(version.contactsSnapshot[0]).toMatchObject({ birthdayMonth: 3, birthdayDay: 5, birthdayYear: null });
+    });
+
+    it("gives a new contact its birthday, or none when the file had no column", async () => {
+      allowTransaction();
+      await applyImportAction({ householdsCSV: household, contactsCSV: withBirthdays(",New,Person,SERVICE_PROVIDER,1990-07-08") });
+      expect(vi.mocked(prisma.contact.create).mock.calls[0][0].data).toMatchObject({ birthdayMonth: 7, birthdayDay: 8, birthdayYear: 1990 });
+      vi.mocked(prisma.contact.create).mockClear();
+      await applyImportAction({ householdsCSV: household, contactsCSV: "id,first_name,last_name,*category\n,New,Person,SERVICE_PROVIDER\n" });
+      expect(vi.mocked(prisma.contact.create).mock.calls[0][0].data).toMatchObject({ birthdayMonth: null, birthdayDay: null, birthdayYear: null });
+    });
+
+    it("rejects a bad birthday with the row and column, writing nothing", async () => {
+      allowTransaction();
+      const result = await applyImportAction({ householdsCSV: household, contactsCSV: withBirthdays("c1,Old,Contact,SERVICE_PROVIDER,02-30") });
+      expect(result.ok).toBe(false);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      const validation = await validateImportAction(makeFormData(household, withBirthdays("c1,Old,Contact,SERVICE_PROVIDER,02-30")));
+      expect(validation).toMatchObject({ ok: false, errors: [{ row: 2, column: "birthday" }] });
+    });
+
+    it("shows a birthday change in the diff, with the before and after", async () => {
+      vi.mocked(prisma.contact.findMany).mockResolvedValue([had()]);
+      const result = await validateImportAction(makeFormData(household, withBirthdays("c1,Old,Contact,SERVICE_PROVIDER,1985-03-09")));
+      expect(result).toMatchObject({ ok: true });
+      const [change] = (result as any).diff.contacts.updated;
+      expect(change.before).toMatchObject({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      expect(change.after).toMatchObject({ birthdayMonth: 3, birthdayDay: 9, birthdayYear: 1985 });
+    });
   });
 
   it("clears a household's address and notes when they are blanked in the CSV", async () => {

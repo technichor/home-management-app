@@ -82,6 +82,8 @@ model Household {
   meals            Meal[]
   mealPlanEntries  MealPlanEntry[]
   mealPlanSettings MealPlanSettings?
+  calendarItems    CalendarItem[]
+  calendarSettings CalendarSettings?
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -123,6 +125,11 @@ model Contact {
   importantDate1Label String?
   importantDate2      String?
   importantDate2Label String?
+  // A dedicated birthday. The year is optional (people often know the day but not the year). Month and day are both
+  // set or both null; the rules are in lib/birthday.ts.
+  birthdayMonth       Int?
+  birthdayDay         Int?
+  birthdayYear        Int?
   notes               String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
@@ -131,10 +138,11 @@ model Contact {
   assignedListItems ListItem[]
 
   syncs            Sync[]
+  calendarItems    CalendarItem[]
   user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
   ownerHouseholdId String?
-  ownerHousehold   Household? @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+  ownerHousehold   Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
 
   @@index([ownerHouseholdId])
 }
@@ -518,4 +526,44 @@ model MealPlanSettings {
   showLunch     Boolean      @default(true)
   showDinner    Boolean      @default(true)
   updatedAt     DateTime     @updatedAt
+}
+
+// ---- Scheduling & Reminders ----
+
+enum CalendarKind {
+  EVENT
+  TASK
+}
+
+// Something the household chose to track on its calendar: an event (or reminder: an event with no time) or a
+// task. One item, one calendar date; times are plain wall-clock "HH:mm" with no time zone. Kind never changes.
+// Rules enforced in the app (Zod + service): a TASK has no times; an EVENT has no completedAt; endTime needs
+// startTime and must be after it. assigneeContactId null means the whole household.
+model CalendarItem {
+  id                String       @id @default(cuid())
+  householdId       String
+  household         Household    @relation(fields: [householdId], references: [id])
+  kind              CalendarKind
+  title             String
+  notes             String?
+  date              DateTime     @db.Date
+  startTime         String?
+  endTime           String?
+  assigneeContactId String?
+  assignee          Contact?     @relation(fields: [assigneeContactId], references: [id], onDelete: SetNull)
+  completedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([householdId, date])
+  @@index([assigneeContactId])
+}
+
+// Household-wide calendar settings, created with these defaults the first time they are read. (The week's first day
+// is not here: the calendar shares MealPlanSettings.weekStartsOn.)
+model CalendarSettings {
+  householdId String    @id
+  household   Household @relation(fields: [householdId], references: [id])
+  showMeals   Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
 }

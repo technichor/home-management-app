@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Form, Input, Popconfirm, Select, Space, Switch } from "antd";
+import { Alert, Button, Form, Input, InputNumber, Popconfirm, Select, Space, Switch } from "antd";
 import {
   createContactAction,
   deleteContactAction,
@@ -10,6 +10,7 @@ import {
   type ContactResult,
 } from "./contactActions";
 import type { ContactFormInput } from "@/lib/validations";
+import { MONTH_NAMES } from "@/lib/birthday";
 
 const CATEGORY_OPTIONS = [
   { value: "FAMILY_FRIEND", label: "Family & Friend" },
@@ -31,10 +32,12 @@ export default function ContactForm({ households, contact }: Props) {
   const [saving, setSaving] = useState(false);
   const category = Form.useWatch("category", form);
   const isFamilyFriend = category === "FAMILY_FRIEND";
+  const [birthdayError, setBirthdayError] = useState<string | null>(null);
 
   async function onFinish(values: ContactFormInput) {
     setSaving(true);
     setError(null);
+    setBirthdayError(null);
     const result: ContactResult = contact
       ? await updateContactAction(contact.id, values)
       : await createContactAction(values);
@@ -45,7 +48,9 @@ export default function ContactForm({ households, contact }: Props) {
     }
     setError(result.error);
     if (result.fieldErrors) {
-      form.setFields(Object.entries(result.fieldErrors).map(([name, message]) => ({ name, errors: [message] })));
+      const { birthday, ...others } = result.fieldErrors;
+      setBirthdayError(birthday ?? null);
+      form.setFields(Object.entries(others).map(([name, message]) => ({ name, errors: [message] })));
     }
   }
 
@@ -138,6 +143,30 @@ export default function ContactForm({ households, contact }: Props) {
 
       <Form.Item label="Linked family member" name="linkedFamilyMember" extra="Which of your own household this contact is most associated with.">
         <Input autoComplete="off" />
+      </Form.Item>
+
+      <Form.Item
+        label="Birthday"
+        validateStatus={birthdayError ? "error" : undefined}
+        help={birthdayError ?? "The year is optional."}
+      >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Form.Item name="birthdayMonth" noStyle>
+            <Select
+              allowClear
+              placeholder="Month"
+              aria-label="Birthday month"
+              style={{ width: 150 }}
+              options={MONTH_NAMES.map((name, i) => ({ value: i + 1, label: name }))}
+            />
+          </Form.Item>
+          <Form.Item name="birthdayDay" noStyle>
+            <InputNumber min={1} max={31} placeholder="Day" aria-label="Birthday day" style={{ width: 90 }} />
+          </Form.Item>
+          <Form.Item name="birthdayYear" noStyle>
+            <InputNumber min={1900} placeholder="Year" aria-label="Birthday year" style={{ width: 110 }} />
+          </Form.Item>
+        </div>
       </Form.Item>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

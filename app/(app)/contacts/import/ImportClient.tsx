@@ -9,6 +9,7 @@ import {
   ValidateSuccess,
 } from "./actions";
 import { ImportDiff, ParseError } from "@/lib/csv";
+import { describeBirthdayChange, formatBirthday } from "@/lib/birthday";
 import {
   Steps,
   Button,
@@ -167,6 +168,10 @@ function UploadStep({
               with an unknown id) are added as new.
             </li>
             <li>Active records not in the uploaded files will be soft-deleted.</li>
+            <li>
+              The optional <code>birthday</code> column is <code>YYYY-MM-DD</code> or <code>MM-DD</code> (no year). Leave a cell
+              blank to clear that birthday. A contacts file with no birthday column (an older export) leaves birthdays as they are.
+            </li>
             <li>You&apos;ll see a full diff before anything is committed.</li>
           </ul>
         }
@@ -340,12 +345,21 @@ function DiffStep({
       />
       <DiffSection
         title="Contacts added"
-        items={diff.contacts.added.map((c) => `${c.firstName} ${c.lastName} (${c.category})`)}
+        items={diff.contacts.added.map((c) => {
+          const birthday = formatBirthday({ birthdayMonth: c.birthdayMonth, birthdayDay: c.birthdayDay, birthdayYear: c.birthdayYear });
+          return `${c.firstName} ${c.lastName} (${c.category})${birthday ? `, birthday ${birthday}` : ""}`;
+        })}
         color="success"
       />
       <DiffSection
         title="Contacts updated"
-        items={diff.contacts.updated.map(({ before }) => `${before.firstName} ${before.lastName}`)}
+        items={diff.contacts.updated.map(({ before, after }) => {
+          const change = describeBirthdayChange(
+            { birthdayMonth: before.birthdayMonth, birthdayDay: before.birthdayDay, birthdayYear: before.birthdayYear },
+            { birthdayMonth: after.birthdayMonth, birthdayDay: after.birthdayDay, birthdayYear: after.birthdayYear }
+          );
+          return `${before.firstName} ${before.lastName}${change ? `: ${change}` : ""}`;
+        })}
         color="processing"
       />
       <DiffSection

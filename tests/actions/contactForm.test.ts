@@ -24,7 +24,7 @@ const existing = (over: object = {}) => ({
   nickname: null, category: "SERVICE_PROVIDER", address: null, phoneMobile: null, phoneHome: null, phoneWork: null,
   emailPrimary: null, emailSecondary: null, tags: [], favorite: false, relationshipNotes: null,
   linkedFamilyMember: null, importantDate1: null, importantDate1Label: null, importantDate2: null,
-  importantDate2Label: null, notes: null, ...over,
+  importantDate2Label: null, birthdayMonth: null, birthdayDay: null, birthdayYear: null, notes: null, ...over,
 });
 
 beforeEach(() => {
@@ -159,5 +159,37 @@ describe("deleteContactAction", () => {
       data: { entityType: "CONTACT", entityId: "c1", action: "DELETED", source: "MANUAL" },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/contacts/removed");
+  });
+});
+
+describe("birthdays in the add and edit actions", () => {
+  it("stores a birthday with a year, with only a month and day, or none", async () => {
+    vi.mocked(prisma.contact.create).mockResolvedValue({ id: "n1" } as any);
+    for (const [input, expected] of [
+      [{ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 }, [3, 4, 1985]],
+      [{ birthdayMonth: 3, birthdayDay: 4 }, [3, 4, null]],
+      [{}, [null, null, null]],
+    ] as const) {
+      vi.mocked(prisma.contact.create).mockClear();
+      expect((await createContactAction({ ...valid, ...input })).ok).toBe(true);
+      const data = vi.mocked(prisma.contact.create).mock.calls[0][0].data as any;
+      expect([data.birthdayMonth, data.birthdayDay, data.birthdayYear]).toEqual(expected);
+    }
+  });
+
+  it("returns a bad birthday as an error on the birthday field, saving nothing", async () => {
+    const result = await createContactAction({ ...valid, birthdayMonth: 2, birthdayDay: 30 });
+    expect(result).toMatchObject({ ok: false, fieldErrors: { birthday: "February doesn't have 30 days" } });
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+  });
+
+  it("logs a changed birthday, before and after, when editing", async () => {
+    vi.mocked(prisma.contact.findUnique).mockResolvedValue(existing({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 }) as any);
+    const result = await updateContactAction("c1", { ...valid, birthdayMonth: 3, birthdayDay: 5, birthdayYear: 1985 });
+    expect(result.ok).toBe(true);
+    const log = vi.mocked(prisma.activityLogEntry.create).mock.calls.at(-1)![0].data as any;
+    expect(log.changedFields.before).toMatchObject({ birthdayDay: 4 });
+    expect(log.changedFields.after).toMatchObject({ birthdayDay: 5 });
+    expect(log.changedFields.after).not.toHaveProperty("birthdayMonth");
   });
 });

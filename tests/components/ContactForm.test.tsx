@@ -85,6 +85,34 @@ describe("ContactForm (adding)", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("takes a birthday with an optional year, and sends it with the contact", async () => {
+    vi.mocked(createContactAction).mockResolvedValue({ ok: true, id: "new1" });
+    render(<ContactForm households={households} />);
+    expect(screen.getByText("The year is optional.")).toBeInTheDocument();
+    await type("First name", "Jane");
+    await type("Last name", "Smith");
+    await choose("Household", "The Smiths");
+    await choose("Birthday month", "March");
+    await type("Birthday day", "4");
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await waitFor(() => expect(createContactAction).toHaveBeenCalled());
+    expect(vi.mocked(createContactAction).mock.calls[0][0]).toMatchObject({ birthdayMonth: 3, birthdayDay: 4 });
+  });
+
+  it("shows a birthday problem under the birthday, and clears it on the next try", async () => {
+    vi.mocked(createContactAction)
+      .mockResolvedValueOnce({ ok: false, error: "February doesn't have 30 days", fieldErrors: { birthday: "February doesn't have 30 days" } })
+      .mockResolvedValueOnce({ ok: true, id: "new1" });
+    render(<ContactForm households={households} />);
+    await type("First name", "Jane");
+    await type("Last name", "Smith");
+    await choose("Household", "The Smiths");
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await waitFor(() => expect(screen.getAllByText("February doesn't have 30 days").length).toBe(2));
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/contacts/new1"));
+  });
+
   it("shows a server error that has no field", async () => {
     vi.mocked(createContactAction).mockResolvedValue({ ok: false, error: "Something went wrong" });
     render(<ContactForm households={households} />);

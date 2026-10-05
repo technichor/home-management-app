@@ -65,6 +65,12 @@ const stat = (title: string) =>
   screen.getByText(title, { selector: ".ant-statistic-title" }).closest(".ant-statistic") as HTMLElement;
 
 describe("upload step", () => {
+  it("explains the optional birthday column and what leaving it out does", () => {
+    render(<ImportClient />);
+    expect(screen.getByText(/YYYY-MM-DD/, { selector: "code" })).toBeInTheDocument();
+    expect(screen.getByText(/A contacts file with no birthday column/)).toBeInTheDocument();
+  });
+
   it("explains how importing works and links the export files", () => {
     render(<ImportClient />);
     expect(screen.getByText("How importing works")).toBeInTheDocument();
@@ -153,6 +159,31 @@ describe("diff step", () => {
     expect(screen.getByText("Joe Plumber (SERVICE_PROVIDER)")).toBeInTheDocument();
     expect(screen.getByText("Jane Smith")).toBeInTheDocument();
     expect(screen.getByText("Old Contact")).toBeInTheDocument();
+  });
+
+  it("says in plain words what happens to birthdays", async () => {
+    const none = { birthdayMonth: null, birthdayDay: null, birthdayYear: null };
+    const march4 = { birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 };
+    await toDiff({
+      ...richDiff,
+      contacts: {
+        added: [{ ...person(), firstName: "New", lastName: "Kid", ...march4 }, { ...person(), firstName: "No", lastName: "Birthday", ...none }],
+        updated: [
+          { before: { firstName: "Al", lastName: "Added", ...none }, after: { ...person(), ...march4 } },
+          { before: { firstName: "Cy", lastName: "Changed", ...march4 }, after: { ...person(), birthdayMonth: 3, birthdayDay: 5, birthdayYear: null } },
+          { before: { firstName: "Rem", lastName: "Oved", ...march4 }, after: { ...person(), ...none } },
+          { before: { firstName: "Old", lastName: "File", ...march4 }, after: { ...person() } },
+        ],
+        removed: [],
+        unchanged: 0,
+      },
+    });
+    expect(screen.getByText("New Kid (SERVICE_PROVIDER), birthday March 4, 1985")).toBeInTheDocument();
+    expect(screen.getByText("No Birthday (SERVICE_PROVIDER)")).toBeInTheDocument();
+    expect(screen.getByText("Al Added: birthday added (March 4, 1985)")).toBeInTheDocument();
+    expect(screen.getByText("Cy Changed: birthday changed from March 4, 1985 to March 5")).toBeInTheDocument();
+    expect(screen.getByText("Rem Oved: birthday removed (was March 4, 1985)")).toBeInTheDocument();
+    expect(screen.getByText("Old File")).toBeInTheDocument(); // an older file: no birthday note
   });
 
   it("warns about removing households that have Family & Friend contacts", async () => {

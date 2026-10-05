@@ -14,6 +14,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { pageHouseholdId } from "@/lib/auth";
+import { formatBirthday } from "@/lib/birthday";
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   FAMILY_FRIEND: "Family & Friend",
@@ -149,6 +150,7 @@ export default async function ContactDetailPage({
     ...(contact.linkedFamilyMember
       ? [{ key: "linkedMember", label: "Linked family member", children: contact.linkedFamilyMember }]
       : []),
+    ...(formatBirthday(contact) ? [{ key: "birthday", label: "Birthday", children: formatBirthday(contact) }] : []),
     ...(contact.importantDate1
       ? [{ key: "date1", label: contact.importantDate1Label ?? "Important date 1", children: contact.importantDate1 }]
       : []),

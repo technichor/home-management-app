@@ -44,6 +44,9 @@ function makeContact(overrides: Record<string, unknown> = {}) {
     favorite: false,
     relationshipNotes: null,
     linkedFamilyMember: null,
+    birthdayMonth: null,
+    birthdayDay: null,
+    birthdayYear: null,
     importantDate1: null,
     importantDate1Label: null,
     importantDate2: null,
@@ -375,3 +378,136 @@ describe("header variants", () => {
     expect(errors.map((e) => e.column).sort()).toEqual(["category", "firstName", "lastName"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Birthdays
+// ---------------------------------------------------------------------------
+
+describe("birthday in contacts.csv", () => {
+  const HEAD = "id,first_name,last_name,*category";
+  const parse = (csv: string) => parseContactsCSV(csv, new Set());
+  const withColumn = (...cells: string[]) => `${HEAD},birthday\n${cells.map((c, i) => `c${i + 1},Jo${i},Jones,SERVICE_PROVIDER,${c}`).join("\n")}`;
+  const noColumn = `${HEAD}\nc1,Jo,Jones,SERVICE_PROVIDER`;
+
+  describe("export", () => {
+    it("has an optional birthday column (no leading star), before the important dates", () => {
+      const header = contactsToCSV([makeContact()]).split("\n")[0].split(",");
+      expect(header).toContain("birthday");
+      expect(header).not.toContain("*birthday");
+      expect(header.indexOf("birthday")).toBeLessThan(header.indexOf("important_date_1"));
+    });
+
+    it("writes YYYY-MM-DD with a year and MM-DD without one", () => {
+      const rows = contactsToCSV([
+        makeContact({ id: "a", birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 }),
+        makeContact({ id: "b", birthdayMonth: 3, birthdayDay: 4, birthdayYear: null }),
+        makeContact({ id: "c" }),
+      ]);
+      const { data } = parseContactsCSVRaw(rows);
+      expect(data.map((r) => r.birthday)).toEqual(["1985-03-04", "03-04", ""]);
+    });
+  });
+
+  describe("import", () => {
+    it("reads both formats", () => {
+      const { contacts, errors } = parse(withColumn("1985-03-04", "03-04"));
+      expect(errors).toEqual([]);
+      expect(contacts.map((c) => [c.birthdayMonth, c.birthdayDay, c.birthdayYear])).toEqual([
+        [3, 4, 1985],
+        [3, 4, null],
+      ]);
+    });
+
+    it("round-trips an export", () => {
+      const exported = contactsToCSV([
+        makeContact({ id: "a", birthdayMonth: 2, birthdayDay: 29, birthdayYear: 2000 }),
+        makeContact({ id: "b", birthdayMonth: 12, birthdayDay: 25, birthdayYear: null }),
+      ]);
+      const { contacts, errors } = parse(exported);
+      expect(errors).toEqual([]);
+      expect(contacts.map((c) => [c.id, c.birthdayMonth, c.birthdayDay, c.birthdayYear])).toEqual([
+        ["a", 2, 29, 2000],
+        ["b", 12, 25, null],
+      ]);
+    });
+
+    it("a blank cell under the birthday header means no birthday (clear it)", () => {
+      const { contacts } = parse(withColumn(""));
+      expect(contacts[0]).toMatchObject({ birthdayMonth: null, birthdayDay: null, birthdayYear: null });
+    });
+
+    it("a file with no birthday column leaves birthdays untouched (undefined, not cleared)", () => {
+      const { contacts, errors } = parse(noColumn);
+      expect(errors).toEqual([]);
+      expect(contacts[0].birthdayMonth).toBeUndefined();
+      expect(contacts[0].birthdayDay).toBeUndefined();
+      expect(contacts[0].birthdayYear).toBeUndefined();
+    });
+
+    it("names the row, column and the problem for a bad birthday", () => {
+      const { contacts, errors } = parse(withColumn("1985-03-04", "March 4", "02-30", "2023-02-29", "2099-01-01"));
+      expect(contacts).toHaveLength(1);
+      expect(errors).toHaveLength(4);
+      expect(errors.map((e) => [e.row, e.column])).toEqual([[3, "birthday"], [4, "birthday"], [5, "birthday"], [6, "birthday"]]);
+      expect(errors[0].message).toContain('birthday "March 4" isn\'t in a recognised format');
+      expect(errors[1].message).toBe('birthday "02-30" is not valid: February doesn\'t have 30 days');
+      expect(errors[2].message).toContain("2023 isn't a leap year");
+      expect(errors[3].message).toContain("The birth year must be from 1900");
+    });
+
+    it("reports a bad birthday alongside the row's other problems, once each", () => {
+      const { errors } = parse(`${HEAD},birthday\nc1,,Jones,SERVICE_PROVIDER,nope`);
+      expect(errors.map((e) => e.column).sort()).toEqual(["birthday", "firstName"]);
+    });
+
+    it("treats a row that stops before the birthday cell as blank", () => {
+      const { contacts, errors } = parse(`${HEAD},birthday\nc1,Jo,Jones,SERVICE_PROVIDER`);
+      expect(errors).toEqual([]);
+      expect(contacts[0]).toMatchObject({ birthdayMonth: null, birthdayDay: null, birthdayYear: null });
+    });
+
+    it("copes with an empty file", () => {
+      expect(parse("")).toEqual({ contacts: [], errors: [] });
+    });
+
+    it("allows Feb 29 with no year", () => {
+      expect(parse(withColumn("02-29")).errors).toEqual([]);
+    });
+  });
+
+  describe("diff", () => {
+    const incoming = (over: object = {}) => ({ id: "c1", firstName: "Jane", lastName: "Smith", category: "SERVICE_PROVIDER" as const, tags: [], favorite: false, ...over });
+
+    it("is unchanged when the file had no birthday column, whatever the contact has", () => {
+      const diff = computeContactDiff([incoming()], [makeContact({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 })]);
+      expect(diff.unchanged).toBe(1);
+      expect(diff.updated).toHaveLength(0);
+    });
+
+    it("is an update when a birthday is added, changed or cleared", () => {
+      const had = makeContact({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      const cleared = computeContactDiff([incoming({ birthdayMonth: null, birthdayDay: null, birthdayYear: null })], [had]);
+      expect(cleared.updated).toHaveLength(1);
+      expect(cleared.updated[0].before).toMatchObject({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      expect(cleared.updated[0].after).toMatchObject({ birthdayMonth: null });
+
+      const added = computeContactDiff([incoming({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: null })], [makeContact()]);
+      expect(added.updated).toHaveLength(1);
+
+      const changed = computeContactDiff([incoming({ birthdayMonth: 3, birthdayDay: 5, birthdayYear: 1985 })], [had]);
+      expect(changed.updated).toHaveLength(1);
+    });
+
+    it("is unchanged when the birthday matches", () => {
+      const had = makeContact({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 });
+      const diff = computeContactDiff([incoming({ birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985 })], [had]);
+      expect(diff.unchanged).toBe(1);
+    });
+  });
+});
+
+// Reads an exported CSV back as plain rows.
+import Papa from "papaparse";
+function parseContactsCSVRaw(csv: string) {
+  return Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+}

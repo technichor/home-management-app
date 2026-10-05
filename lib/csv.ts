@@ -1,6 +1,7 @@
 import Papa from "papaparse";
 import { contactSchema, householdSchema, ContactInput, HouseholdInput } from "./validations";
 import { Contact, Household } from "@prisma/client";
+import { birthdayToCell, birthdayWouldChange, parseBirthdayCell } from "./birthday";
 
 // ---------------------------------------------------------------------------
 // Column definitions
@@ -32,6 +33,7 @@ export const CONTACT_COLUMNS = [
   "favorite",
   "relationship_notes",
   "linked_family_member",
+  "birthday",
   "important_date_1",
   "important_date_1_label",
   "important_date_2",
@@ -78,6 +80,9 @@ export function contactsToCSV(
     | "favorite"
     | "relationshipNotes"
     | "linkedFamilyMember"
+    | "birthdayMonth"
+    | "birthdayDay"
+    | "birthdayYear"
     | "importantDate1"
     | "importantDate1Label"
     | "importantDate2"
@@ -102,6 +107,7 @@ export function contactsToCSV(
     favorite: c.favorite ? "true" : "false",
     relationship_notes: c.relationshipNotes ?? "",
     linked_family_member: c.linkedFamilyMember ?? "",
+    birthday: birthdayToCell(c),
     important_date_1: c.importantDate1 ?? "",
     important_date_1_label: c.importantDate1Label ?? "",
     important_date_2: c.importantDate2 ?? "",
@@ -190,8 +196,28 @@ export function parseContactsCSV(
   const contacts: ParsedContact[] = [];
   const errors: ParseError[] = [];
 
+  // An export made before birthdays existed has no birthday column. That means "leave birthdays alone", which is
+  // different from a blank cell under the column, which means "clear it".
+  const hasBirthdayColumn = result.meta.fields!.includes("birthday");
+
   result.data.forEach((row, i) => {
     const rowNum = i + 2;
+
+    let birthday: Pick<ContactInput, "birthdayMonth" | "birthdayDay" | "birthdayYear"> = {};
+    let birthdayInvalid = false;
+    if (hasBirthdayColumn) {
+      const cell = parseBirthdayCell(row["birthday"] ?? "");
+      if (cell.ok) {
+        birthday = {
+          birthdayMonth: cell.value?.month ?? null,
+          birthdayDay: cell.value?.day ?? null,
+          birthdayYear: cell.value?.year ?? null,
+        };
+      } else {
+        birthdayInvalid = true;
+        errors.push({ row: rowNum, column: "birthday", message: cell.error });
+      }
+    }
 
     const categoryRaw = (row["*category"] ?? row["category"] ?? "").trim();
     const householdIdRaw = row["household_id"]?.trim() || undefined;
@@ -217,6 +243,7 @@ export function parseContactsCSV(
       importantDate1Label: row["important_date_1_label"]?.trim() || undefined,
       importantDate2: row["important_date_2"]?.trim() || undefined,
       importantDate2Label: row["important_date_2_label"]?.trim() || undefined,
+      ...birthday,
       notes: row["notes"]?.trim() || undefined,
     };
 
@@ -231,6 +258,7 @@ export function parseContactsCSV(
       });
       return;
     }
+    if (birthdayInvalid) return;
 
     // Referential integrity: household_id in contacts must exist in households.csv
     if (parsed.data.householdId && !knownHouseholdIds.has(parsed.data.householdId)) {
@@ -381,7 +409,8 @@ export function computeContactDiff(
         (existingC.emailSecondary ?? "") !== (incomingC.emailSecondary ?? "") ||
         existingC.tags.join(";") !== incomingC.tags.join(";") ||
         existingC.favorite !== incomingC.favorite ||
-        (existingC.notes ?? "") !== (incomingC.notes ?? "");
+        (existingC.notes ?? "") !== (incomingC.notes ?? "") ||
+        birthdayWouldChange(existingC, incomingC);
       if (changed) {
         updated.push({
           before: {
@@ -401,6 +430,9 @@ export function computeContactDiff(
             favorite: existingC.favorite,
             relationshipNotes: existingC.relationshipNotes ?? undefined,
             linkedFamilyMember: existingC.linkedFamilyMember ?? undefined,
+            birthdayMonth: existingC.birthdayMonth,
+            birthdayDay: existingC.birthdayDay,
+            birthdayYear: existingC.birthdayYear,
             importantDate1: existingC.importantDate1 ?? undefined,
             importantDate1Label: existingC.importantDate1Label ?? undefined,
             importantDate2: existingC.importantDate2 ?? undefined,

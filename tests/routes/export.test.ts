@@ -103,6 +103,7 @@ describe("GET /[slug]/contacts/api/export", () => {
         phoneMobile: null, phoneHome: null, phoneWork: null,
         emailPrimary: null, emailSecondary: null, tags: [], favorite: false,
         relationshipNotes: null, linkedFamilyMember: null,
+        birthdayMonth: 3, birthdayDay: 4, birthdayYear: 1985,
         importantDate1: null, importantDate1Label: null,
         importantDate2: null, importantDate2Label: null, notes: null,
       },
@@ -117,5 +118,9 @@ describe("GET /[slug]/contacts/api/export", () => {
     expect(body).toContain("Joe");
     expect(body).toContain("Plumber");
     expect(body).toContain("*category");
+    // The birthday is exported as its own optional column, in the same format an import reads.
+    expect(body.split("\n")[0]).toContain(",birthday,");
+    expect(body.split("\n")[1]).toContain("1985-03-04");
+    expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.select).toMatchObject({ birthdayMonth: true, birthdayDay: true, birthdayYear: true });
   });
 });
