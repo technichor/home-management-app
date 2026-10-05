@@ -20,6 +20,8 @@ vi.mock("@/lib/db", () => ({
     mealPlanSettings: { upsert: vi.fn() },
   },
 }));
+vi.mock("@/lib/shopping", () => ({ loadShopping: vi.fn() }));
+vi.mock("@/app/(app)/meals/shopping/ShoppingList", () => ({ default: (p: any) => ((seen.shopping = p), <div>shopping list</div>) }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/meals/PlannerClient", () => ({ default: (p: any) => ((seen.planner = p), <div>planner client</div>) }));
@@ -29,6 +31,8 @@ vi.mock("@/app/(app)/meals/library/[id]/MealDetailClient", () => ({ default: (p:
 
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
+import { loadShopping } from "@/lib/shopping";
+import ShoppingPage from "@/app/(app)/meals/shopping/page";
 import PlannerPage from "@/app/(app)/meals/page";
 import MealLibraryPage from "@/app/(app)/meals/library/page";
 import NewMealPage from "@/app/(app)/meals/library/new/page";
@@ -46,6 +50,7 @@ beforeEach(() => {
   vi.mocked(prisma.mealPlanEntry.groupBy).mockResolvedValue([] as any);
   vi.mocked(prisma.mealPlanEntry.count).mockResolvedValue(0);
   vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([]);
+  vi.mocked(loadShopping).mockResolvedValue({ listId: "g1", items: [] });
   vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
 });
 
@@ -148,6 +153,14 @@ describe("PlannerPage", () => {
     expect(seen.planner).toBeUndefined();
   });
 
+  it("passes the household's shopping list to the planner's slide-over", async () => {
+    const items = [{ id: "i1", text: "Milk", quantity: null, notes: null, checked: false, category: "DAIRY_EGGS" }];
+    vi.mocked(loadShopping).mockResolvedValue({ listId: "g1", items } as any);
+    await run({ today: "2026-10-07" });
+    expect(loadShopping).toHaveBeenCalledWith("h1");
+    expect(seen.planner.shoppingItems).toEqual(items);
+  });
+
   it("shows the week containing the browser's today, for a Sunday-start household", async () => {
     await run({ today: "2026-10-07" }); // a Wednesday
     expect(seen.planner).toMatchObject({ weekStart: "2026-10-04", today: "2026-10-07" });
@@ -197,5 +210,15 @@ describe("PlannerPage", () => {
     });
     // Breakfast is hidden by default: two entries sit in it.
     expect(seen.planner.hiddenCount).toBe(2);
+  });
+});
+
+describe("ShoppingPage", () => {
+  it("shows the household's own shopping list as the full-page view", async () => {
+    const items = [{ id: "i1", text: "Milk", quantity: null, notes: null, checked: false, category: "DAIRY_EGGS" }];
+    vi.mocked(loadShopping).mockResolvedValue({ listId: "g1", items } as any);
+    render(await ShoppingPage());
+    expect(loadShopping).toHaveBeenCalledWith("h1");
+    expect(seen.shopping).toEqual({ items, variant: "page" });
   });
 });

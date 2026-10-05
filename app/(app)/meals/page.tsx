@@ -3,6 +3,7 @@ import { pageHouseholdId } from "@/lib/auth";
 import { dateOr, isDateString, weekStartOf } from "@/lib/dates";
 import { getMealPlanSettings, visibleSlots, weekEntries } from "@/lib/mealPlan";
 import { mealStats } from "@/lib/meals";
+import { loadShopping } from "@/lib/shopping";
 import LocalToday from "@/components/LocalToday";
 import PlannerClient from "./PlannerClient";
 
@@ -16,10 +17,11 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
 
   const settings = await getMealPlanSettings(householdId);
   const weekStart = weekStartOf(dateOr(week, today), settings.weekStartsOn);
-  const [entries, meals, stats] = await Promise.all([
+  const [entries, meals, stats, shopping] = await Promise.all([
     weekEntries(householdId, weekStart),
     prisma.meal.findMany({ where: { householdId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     mealStats(householdId, today),
+    loadShopping(householdId),
   ]);
 
   const shown = visibleSlots(settings);
@@ -33,6 +35,7 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
         entries={entries}
         hiddenCount={entries.filter((e) => !shown.includes(e.slot)).length}
         meals={meals}
+        shoppingItems={shopping.items}
         stats={Object.fromEntries(
           entries.filter((e) => e.mealId).map((e) => [e.mealId as string, stats.get(e.mealId as string) ?? { lastMade: null, timesMade: 0 }])
         )}

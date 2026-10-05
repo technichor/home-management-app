@@ -243,3 +243,15 @@ export async function planEntries(email: string) {
     await prisma.$disconnect();
   }
 }
+
+/** The id of the household's shopping (grocery) list, read straight from the test database. */
+export async function shoppingListId(email: string) {
+  const prisma = new PrismaClient();
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const list = await prisma.list.findFirstOrThrow({ where: { householdId: user.householdId!, kind: "GROCERY" } });
+    return list.id;
+  } finally {
+    await prisma.$disconnect();
+  }
+}

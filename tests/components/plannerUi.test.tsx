@@ -7,6 +7,7 @@ import { App } from "antd";
 const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn() };
 let pathname = "/meals";
 vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => pathname }));
+vi.mock("@/app/(app)/meals/shopping/ShoppingList", () => ({ default: (p: any) => <div data-testid="shopping" data-variant={p.variant}>{p.items.length} items</div> }));
 vi.mock("@/app/(app)/meals/actions", () => ({
   addPlanEntryAction: vi.fn(),
   addOneOffEntryAction: vi.fn(),
@@ -45,7 +46,7 @@ type Props = React.ComponentProps<typeof PlannerClient>;
 const setup = (over: Partial<Props> = {}) =>
   render(
     <App>
-      <PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={entries} hiddenCount={0} meals={meals} stats={stats} {...over} />
+      <PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={entries} hiddenCount={0} meals={meals} stats={stats} shoppingItems={[]} {...over} />
     </App>
   );
 
@@ -400,6 +401,43 @@ describe("an entry's detail", () => {
   });
 });
 
+describe("the shopping list panel", () => {
+  const items = [
+    { id: "s1", text: "Milk", quantity: null, notes: null, checked: false, category: "DAIRY_EGGS" as const },
+    { id: "s2", text: "Eggs", quantity: null, notes: null, checked: true, category: "DAIRY_EGGS" as const },
+    { id: "s3", text: "Bread", quantity: null, notes: null, checked: false, category: "BAKERY" as const },
+  ];
+
+  it("shows how many items are still to buy on its button", () => {
+    setup({ shoppingItems: items });
+    expect(screen.getByRole("button", { name: /Shopping list/ })).toBeInTheDocument();
+    expect(document.querySelector(".ant-badge-count")).toHaveTextContent("2");
+  });
+
+  it("shows no count when there is nothing to buy", () => {
+    setup({ shoppingItems: [] });
+    expect(document.querySelector(".ant-badge-count")).toBeNull();
+  });
+
+  it("opens the list in a slide-over, with a link to the full page", async () => {
+    setup({ shoppingItems: items });
+    expect(screen.queryByTestId("shopping")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Shopping list/ }));
+    const panel = await screen.findByTestId("shopping");
+    expect(panel).toHaveAttribute("data-variant", "panel");
+    expect(panel).toHaveTextContent("3 items");
+    expect(screen.getByRole("link", { name: "Open full page" })).toHaveAttribute("href", "/meals/shopping");
+  });
+
+  it("closes with its close button", async () => {
+    setup({ shoppingItems: items });
+    await userEvent.click(screen.getByRole("button", { name: /Shopping list/ }));
+    await screen.findByTestId("shopping");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(document.querySelector(".ant-drawer-content-wrapper")).toHaveStyle({ transform: "translateX(100%)" }), { timeout: 1500 }).catch(() => {});
+  });
+});
+
 describe("MealsNav", () => {
   it("links Planner and Library, marking the current one", () => {
     pathname = "/meals";
@@ -412,6 +450,14 @@ describe("MealsNav", () => {
     expect(screen.getByRole("link", { name: "Library" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Planner" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Library" })).toHaveAttribute("href", "/meals/library");
+  });
+
+  it("links the shopping list, current on its page", () => {
+    pathname = "/meals/shopping";
+    render(<MealsNav />);
+    expect(screen.getByRole("link", { name: "Shopping" })).toHaveAttribute("href", "/meals/shopping");
+    expect(screen.getByRole("link", { name: "Shopping" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Planner" })).not.toHaveAttribute("aria-current");
   });
 
   it("has no current link elsewhere", () => {

@@ -26,6 +26,7 @@ test("signed-out visitors are sent to log in from every app page", async ({ page
     "/meals",
     "/meals/library",
     "/meals/library/new",
+    "/meals/shopping",
     "/account",
     "/household",
   ]) {
@@ -69,6 +70,7 @@ test("no link anywhere in the app carries a household name", async ({ page }) =>
     "/messages",
     "/meals/library",
     "/meals/library/new",
+    "/meals/shopping",
     "/account",
     "/household",
   ];

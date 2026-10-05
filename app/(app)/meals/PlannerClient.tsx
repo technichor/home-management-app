@@ -3,13 +3,15 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { App, Button, Popover, Select, Typography } from "antd";
-import { LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined } from "@ant-design/icons";
+import { App, Badge, Button, Drawer, Popover, Select, Typography } from "antd";
+import { LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { addDays, formatDayHeading, formatWeekRange, weekDates, weekStartOf, type WeekStart } from "@/lib/dates";
 import { SLOTS, SLOT_LABELS, visibleSlots, type PlanSettings } from "@/lib/mealPlan";
 import { updateMealPlanSettingsAction } from "./actions";
 import AddEntryDialog, { type Cell, type LibraryOption } from "./AddEntryDialog";
 import EntryDetailDialog, { type DetailEntry } from "./EntryDetailDialog";
+import ShoppingList from "./shopping/ShoppingList";
+import { uncheckedCount, type ShoppingItem } from "@/lib/shoppingGroups";
 
 /** Below this width the grid becomes a vertical list of days (see .planner in globals.css). */
 export const LIST_LAYOUT_QUERY = "(max-width: 1100px)";
@@ -26,6 +28,7 @@ export default function PlannerClient({
   hiddenCount,
   meals,
   stats,
+  shoppingItems,
 }: {
   weekStart: string;
   today: string;
@@ -34,11 +37,13 @@ export default function PlannerClient({
   hiddenCount: number;
   meals: LibraryOption[];
   stats: Stats;
+  shoppingItems: ShoppingItem[];
 }) {
   const router = useRouter();
   const { message } = App.useApp();
   const [adding, setAdding] = useState<Cell | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
   const todayRef = useRef<HTMLDivElement>(null);
 
   const days = weekDates(weekStart);
@@ -111,6 +116,11 @@ export default function PlannerClient({
               </Button>
             );
           })}
+          <Badge count={uncheckedCount(shoppingItems)} size="small" overflowCount={99} color="var(--accent)" offset={[-4, 4]}>
+            <Button size="small" icon={<ShoppingCartOutlined aria-hidden />} onClick={() => setShopOpen(true)}>
+              Shopping list
+            </Button>
+          </Badge>
           <Popover content={settingsPanel} trigger="click" placement="bottomRight">
             <Button size="small" icon={<SettingOutlined aria-hidden />} aria-label="Planner settings" />
           </Popover>
@@ -164,6 +174,18 @@ export default function PlannerClient({
           );
         })}
       </div>
+
+      <Drawer
+        title="Shopping list"
+        placement="right"
+        size={440}
+        open={shopOpen}
+        onClose={() => setShopOpen(false)}
+        destroyOnHidden
+        extra={<Link href="/meals/shopping">Open full page</Link>}
+      >
+        <ShoppingList items={shoppingItems} variant="panel" />
+      </Drawer>
 
       <AddEntryDialog cell={adding} meals={meals} onClose={() => setAdding(null)} />
       <EntryDetailDialog entry={open} stats={open?.mealId ? (stats[open.mealId] ?? null) : null} onClose={() => setOpenId(null)} />

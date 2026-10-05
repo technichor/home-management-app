@@ -107,6 +107,7 @@ test.describe("on a phone", () => {
       chatPath,
       `/meals/library`,
       `/meals/library/new`,
+      `/meals/shopping`,
       `/account`,
       `/household`,
     ];

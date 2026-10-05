@@ -456,3 +456,127 @@ html[data-pending] body {
 .option-list > button:hover:not(:disabled) {
   background: var(--hover);
 }
+
+/* ---- Shopping list (app/(app)/meals/shopping) ---- */
+
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shop-add {
+  display: flex;
+  gap: 8px;
+}
+.shop-add .ant-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.shop-section-select {
+  flex: 0 0 170px;
+}
+.shop-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.shop-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--subtle);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 400;
+}
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+}
+.shop-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-qty,
+.shop-notes {
+  color: var(--muted);
+  font-size: 13px;
+}
+.shop-row[data-checked] .shop-name,
+.shop-row[data-checked] .shop-qty {
+  text-decoration: line-through;
+  color: var(--faint);
+}
+.shop-cat {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.shop-cat:hover {
+  color: var(--accent);
+}
+
+/* In a store, on a phone: big targets. */
+.shop-page .shop-row {
+  min-height: 56px;
+  padding: 8px 14px;
+}
+.shop-page .shop-name {
+  font-size: 17px;
+}
+.shop-page .shop-section-head {
+  min-height: 48px;
+  font-size: 14px;
+}
+.shop-page .ant-checkbox {
+  transform: scale(1.5);
+  transform-origin: left center;
+  margin-right: 10px;
+}
+.shop-page .shop-cat {
+  min-height: 44px;
+  padding: 0 4px;
+}
+
+@media (max-width: 575px) {
+  .shop-add {
+    flex-wrap: wrap;
+  }
+  /* The box and the Add button share the first row; the section picker gets its own below. */
+  .shop-add .ant-input {
+    flex: 1 1 0;
+  }
+  .shop-section-select {
+    flex: 1 1 100%;
+    order: 3;
+  }
+}
