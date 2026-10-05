@@ -45,7 +45,7 @@ export default async function AdminPage() {
         {stats.map(([label, value]) => (
           <Card key={label} size="small">
             <div style={{ fontSize: 24, fontWeight: 600 }}>{value}</div>
-            <div style={{ color: "rgba(0,0,0,.45)", fontSize: 13 }}>{label}</div>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>{label}</div>
           </Card>
         ))}
       </div>
@@ -67,11 +67,11 @@ export default async function AdminPage() {
 
       <Card size="small" title="Recent admin activity">
         {audit.length === 0 ? (
-          <span style={{ color: "rgba(0,0,0,.45)", fontSize: 13 }}>Nothing yet.</span>
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>Nothing yet.</span>
         ) : (
           audit.map((a) => (
-            <div key={a.id} style={{ padding: "6px 0", borderBottom: "1px solid #f5f5f5", fontSize: 13 }}>
-              <span style={{ color: "rgba(0,0,0,.45)" }}>{formatWhen(a.createdAt)}</span>{" "}
+            <div key={a.id} style={{ padding: "6px 0", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
+              <span style={{ color: "var(--muted)" }}>{formatWhen(a.createdAt)}</span>{" "}
               <strong>{a.actor?.email ?? "a deleted user"}</strong> {AUDIT_LABELS[a.action] ?? a.action}{" "}
               <strong>{a.targetUser?.email ?? "a deleted user"}</strong>
             </div>

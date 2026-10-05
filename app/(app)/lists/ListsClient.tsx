@@ -128,7 +128,7 @@ export default function ListsClient({
       ) : visibleLists.length === 0 ? (
         <Empty description="No lists match that search or tag." style={{ padding: "48px 0" }} />
       ) : (
-        <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
           {visibleLists.map((list, i) => (
             <div
               key={list.id}
@@ -136,14 +136,14 @@ export default function ListsClient({
                 display: "flex",
                 alignItems: "center",
                 padding: "12px 16px",
-                borderTop: i > 0 ? "1px solid #f0f0f0" : undefined,
-                background: "#fff",
+                borderTop: i > 0 ? "1px solid var(--border)" : undefined,
+                background: "var(--surface)",
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Link
                   href={`/lists/${list.id}`}
-                  style={{ fontWeight: 500, fontSize: 15, color: "#111827" }}
+                  style={{ fontWeight: 500, fontSize: 15, color: "var(--text)" }}
                 >
                   {list.name}
                 </Link>
@@ -162,7 +162,7 @@ export default function ListsClient({
 
               <span
                 style={{
-                  color: "rgba(0,0,0,.45)",
+                  color: "var(--muted)",
                   fontSize: 13,
                   marginRight: 8,
                   whiteSpace: "nowrap",
@@ -193,7 +193,7 @@ export default function ListsClient({
                     { type: "divider" },
                     {
                       key: "delete",
-                      label: <span style={{ color: "#ff4d4f" }}>Delete</span>,
+                      label: <span style={{ color: "var(--danger)" }}>Delete</span>,
                       onClick: () => {
                         if (confirm(`Delete "${list.name}"? This cannot be undone.`)) {
                           startTransition(async () => {
@@ -211,7 +211,7 @@ export default function ListsClient({
                   type="text"
                   icon={<MoreOutlined />}
                   size="small"
-                  style={{ color: "rgba(0,0,0,.45)" }}
+                  style={{ color: "var(--muted)" }}
                 />
               </Dropdown>
             </div>
@@ -238,7 +238,7 @@ export default function ListsClient({
             <label
               style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 14 }}
             >
-              Name <span style={{ color: "#ff4d4f" }}>*</span>
+              Name <span style={{ color: "var(--danger)" }}>*</span>
             </label>
             <Input
               value={createName}
@@ -253,7 +253,7 @@ export default function ListsClient({
               style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 14 }}
             >
               Tags{" "}
-              <span style={{ color: "rgba(0,0,0,.45)", fontWeight: 400 }}>
+              <span style={{ color: "var(--muted)", fontWeight: 400 }}>
                 (optional, comma-separated)
               </span>
             </label>

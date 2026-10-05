@@ -71,21 +71,21 @@ function ItemRow({
         alignItems: "center",
         gap: 8,
         padding: "8px 4px",
-        borderBottom: "1px solid rgba(0,0,0,.06)",
-        background: "#fff",
+        borderBottom: "1px solid var(--border)",
+        background: "var(--surface)",
       }}
     >
       {sortable && (
-        <span {...attributes} {...listeners} style={{ cursor: "grab", color: "rgba(0,0,0,.35)", touchAction: "none", padding: "10px 6px", margin: "-10px -2px", display: "flex" }} aria-label="Drag to reorder">
+        <span {...attributes} {...listeners} style={{ cursor: "grab", color: "var(--faint)", touchAction: "none", padding: "10px 6px", margin: "-10px -2px", display: "flex" }} aria-label="Drag to reorder">
           <HolderOutlined />
         </span>
       )}
       <Checkbox checked={item.checked} onChange={(e) => onToggle(e.target.checked)} />
       <div style={{ flex: 1, minWidth: 0, opacity: item.checked ? 0.5 : 1 }}>
         <span style={{ textDecoration: item.checked ? "line-through" : undefined }}>{item.text}</span>
-        {item.quantity && <span style={{ color: "rgba(0,0,0,.45)" }}> · {item.quantity}</span>}
+        {item.quantity && <span style={{ color: "var(--muted)" }}> · {item.quantity}</span>}
         {assignee && <Tag style={{ marginLeft: 8 }}>{assignee}</Tag>}
-        {item.notes && <div style={{ fontSize: 12, color: "rgba(0,0,0,.45)" }}>{item.notes}</div>}
+        {item.notes && <div style={{ fontSize: 12, color: "var(--muted)" }}>{item.notes}</div>}
       </div>
       <Button type="text" size="small" icon={<EditOutlined />} onClick={onEdit} aria-label="Edit item" />
       <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={onDelete} aria-label="Delete item" />
@@ -223,7 +223,7 @@ export default function ListDetailClient({
   return (
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-        <span style={{ color: "rgba(0,0,0,.45)", fontSize: 13 }}>Sort:</span>
+        <span style={{ color: "var(--muted)", fontSize: 13 }}>Sort:</span>
         <Segmented
           size="small"
           value={sortMode}

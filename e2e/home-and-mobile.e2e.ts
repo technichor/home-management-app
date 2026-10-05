@@ -19,7 +19,7 @@ test("the home page greets you and reflects what's in the household", async ({ p
   await page.getByRole("button", { name: "Add contact" }).click();
   await expect(page.getByRole("heading", { name: /Bertie Birthday/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Home" }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/home$`));
   await expect(page.getByText("Bertie Birthday").first()).toBeVisible();
   await expect(page.getByText("Today")).toBeVisible();
@@ -28,7 +28,7 @@ test("the home page greets you and reflects what's in the household", async ({ p
   // The cards link through to the real pages.
   await page.getByRole("link", { name: "Add contact" }).click();
   await expect(page).toHaveURL(new RegExp(`/contacts/new$`));
-  await page.getByRole("button", { name: "Home" }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await page.getByRole("link", { name: "Invite someone" }).click();
   await expect(page).toHaveURL(new RegExp(`/household$`));
 });
@@ -115,28 +115,33 @@ test.describe("on a phone", () => {
     }
 
     // The signed-out and onboarding screens too.
-    await page.getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("button", { name: "More" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Log out" }).click();
     for (const path of ["/", "/login", "/signup", "/forgot-password"]) {
       await page.goto(path);
       await expectFitsScreen(page, path);
     }
   });
 
-  test("navigation stays usable: every main tab is reachable and the coming-soon ones are hidden", async ({ page }) => {
+  test("navigation stays usable: a tab bar at the bottom with every module, and the rest under More", async ({ page }) => {
     await newOwner(page, "nav", "The Navs");
-    const tabs = page.locator(".tab-strip").first();
-    for (const tab of ["Home", "Contacts", "Lists", "Messages"]) {
-      await expect(tabs.getByRole("button", { name: tab, exact: true })).toBeVisible();
+    const tabs = page.getByRole("navigation", { name: "Main" });
+    for (const tab of ["Home", "Contacts", "Lists", "Messages", "More"]) {
+      const box = await tabs.getByText(tab, { exact: true }).boundingBox();
+      expect(box, tab).not.toBeNull();
+      expect(box!.y + box!.height, tab).toBeLessThanOrEqual(812); // on screen (the 375x812 phone)
     }
-    await expect(page.getByRole("button", { name: /Meal Planning/ })).toBeHidden();
-    await tabs.getByRole("button", { name: "Lists", exact: true }).click();
+    await expect(page.getByText(/Meal Planning/)).toHaveCount(0);
+    await tabs.getByRole("link", { name: "Lists", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/lists$`));
-    // Account / Household / Log out are in the top bar, not off screen.
-    for (const name of ["Account", "Household", "Log out"]) {
-      const box = await page.getByRole("button", { name, exact: true }).boundingBox();
-      expect(box, name).not.toBeNull();
-      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
-    }
+
+    // Account / Household / Log out are one tap away under More.
+    await tabs.getByRole("button", { name: "More" }).click();
+    const sheet = page.getByRole("dialog");
+    for (const name of ["Account", "Household"]) await expect(sheet.getByRole("link", { name, exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Log out" })).toBeVisible();
+    await sheet.getByRole("link", { name: "Account", exact: true }).click();
+    await expect(page).toHaveURL(/\/account$/);
   });
 
   test("forms are easy to use: 16px text (no iOS zoom), full-width filters, finger-sized buttons", async ({ page }) => {
@@ -148,7 +153,7 @@ test.describe("on a phone", () => {
 
     await page.goto(`/contacts`);
     const search = await page.locator(".ant-input-search").first().boundingBox();
-    expect(search!.width).toBeGreaterThanOrEqual(375 - 24 - 2); // spans the whole row
+    expect(search!.width).toBeGreaterThanOrEqual(375 - 32 - 2); // spans the whole row
     const add = await page.getByRole("link", { name: "Add contact" }).boundingBox();
     expect(add!.height).toBeGreaterThanOrEqual(40);
   });

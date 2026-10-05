@@ -94,10 +94,10 @@ export default async function HouseholdDetailPage({
     key: c.id,
     name: (
       <Link href={`/contacts/${c.id}`} style={{ fontWeight: 500 }}>
-        {c.favorite && <span style={{ color: "#faad14", marginRight: 4 }}>★</span>}
+        {c.favorite && <span style={{ color: "var(--warning)", marginRight: 4 }}>★</span>}
         {c.firstName} {c.lastName}
         {c.nickname && (
-          <span style={{ fontWeight: 400, marginLeft: 4, color: "rgba(0,0,0,.45)" }}>
+          <span style={{ fontWeight: 400, marginLeft: 4, color: "var(--muted)" }}>
             ({c.nickname})
           </span>
         )}
@@ -133,7 +133,7 @@ export default async function HouseholdDetailPage({
         <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>
           {household.displayName}
         </h3>
-        {isOurs && <Tag color="blue">Our household</Tag>}
+        {isOurs && <Tag>Our household</Tag>}
         {isDeleted && <Tag color="error">Removed</Tag>}
       </Space>
 

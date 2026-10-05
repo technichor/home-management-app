@@ -82,19 +82,19 @@ test("signed in, the front page and logging in lead to /home; the nav goes where
   await page.goto("/");
   await expect(page).toHaveURL(/\/home$/);
 
-  const nav = page.locator(".tab-strip").first();
+  const nav = page.getByRole("navigation", { name: "Modules" });
   for (const [tab, path] of [
     ["Contacts", "/contacts"],
     ["Lists", "/lists"],
     ["Messages", "/messages"],
     ["Home", "/home"],
   ] as const) {
-    await nav.getByRole("button", { name: tab, exact: true }).click();
+    await nav.getByRole("link", { name: tab, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
   }
-  await page.getByRole("button", { name: "Account", exact: true }).click();
+  await page.getByRole("link", { name: "Account", exact: true }).click();
   await expect(page).toHaveURL(/\/account$/);
-  await page.getByRole("button", { name: "Household", exact: true }).click();
+  await page.getByRole("link", { name: "Household", exact: true }).click();
   await expect(page).toHaveURL(/\/household$/);
 
   // A deep link survives logging in (the ?next= path no longer contains a household name either).

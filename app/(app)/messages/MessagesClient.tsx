@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { App, Badge, Button, Empty, Input, Modal, Space, Tag, Typography } from "antd";
+import { shortWhen } from "@/lib/format";
 import type { Candidate } from "@/lib/channels";
 import { createChannelAction } from "./actions";
 import MemberPicker from "./MemberPicker";
@@ -82,28 +83,28 @@ export default function MessagesClient({
           style={{ padding: "48px 0" }}
         />
       ) : (
-        <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "var(--surface)" }}>
           {channels.map((c, i) => (
             <Link
               key={c.id}
               href={`/messages/${c.id}`}
-              style={{ display: "block", padding: "12px 16px", borderTop: i > 0 ? "1px solid #f0f0f0" : undefined, color: "inherit" }}
+              style={{ display: "block", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : undefined, color: "inherit" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ fontWeight: c.unread > 0 ? 700 : 500 }}>
                   {c.name}{" "}
                   {c.unread > 0 && <Badge count={c.unread} overflowCount={99} aria-label={`${c.unread} unread`} style={{ marginRight: 6 }} />}
-                  {c.general && <Tag color="blue">Everyone</Tag>}
-                  {c.shared && <Tag color="green">Shared</Tag>}
-                  <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12, fontWeight: 400 }}>
+                  {c.general && <Tag>Everyone</Tag>}
+                  {c.shared && <Tag>Shared</Tag>}
+                  <span style={{ color: "var(--muted)", fontSize: 12, fontWeight: 400 }}>
                     {c.memberCount} {c.memberCount === 1 ? "person" : "people"}
                   </span>
                 </span>
-                <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12, whiteSpace: "nowrap" }} suppressHydrationWarning>
-                  {new Date(c.lastActivity).toLocaleString()}
+                <span style={{ color: "var(--muted)", fontSize: 12, whiteSpace: "nowrap" }} suppressHydrationWarning>
+                  {shortWhen(c.lastActivity)}
                 </span>
               </div>
-              <div style={{ color: "rgba(0,0,0,.55)", fontSize: 13 }}>
+              <div style={{ color: "var(--muted)", fontSize: 13 }}>
                 {c.preview ? `${c.previewSender}: ${c.preview}` : "No messages yet"}
               </div>
             </Link>

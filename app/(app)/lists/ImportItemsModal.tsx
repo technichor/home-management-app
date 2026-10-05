@@ -84,7 +84,7 @@ export default function ImportItemsModal({
       okText={canImport ? `Add ${items.length} item${items.length === 1 ? "" : "s"}` : "Add items"}
       okButtonProps={{ disabled: !canImport, loading }}
     >
-      <p style={{ marginTop: 0, color: "rgba(0,0,0,.65)" }}>
+      <p style={{ marginTop: 0, color: "var(--muted)" }}>
         Columns: <code>*text</code> (required), <code>quantity</code>, <code>notes</code>. Items are added to the end
         of the list; nothing already in the list is changed or removed.{" "}
         <Button type="link" size="small" style={{ padding: 0 }} onClick={downloadTemplate}>

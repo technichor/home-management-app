@@ -22,13 +22,6 @@ const CATEGORY_LABELS: Record<ContactCategory, string> = {
   HOUSEHOLD_ADMIN: "Household Admin",
 };
 
-const CATEGORY_COLORS: Record<ContactCategory, string> = {
-  FAMILY_FRIEND: "blue",
-  SERVICE_PROVIDER: "green",
-  MEDICAL_SCHOOL: "purple",
-  HOUSEHOLD_ADMIN: "orange",
-};
-
 const ACTION_LABELS: Record<ActivityAction, string> = {
   CREATED: "Created",
   UPDATED: "Updated",
@@ -100,7 +93,7 @@ export default async function ContactDetailPage({
       key: "category",
       label: "Category",
       children: (
-        <Tag color={CATEGORY_COLORS[contact.category]} variant="filled">
+        <Tag variant="filled">
           {CATEGORY_LABELS[contact.category]}
         </Tag>
       ),
@@ -113,10 +106,10 @@ export default async function ContactDetailPage({
             children: addressValue ? (
               <span>
                 {addressValue}
-                {addressExtra && <span style={{ marginLeft: 8, color: "#999" }}>— {addressExtra}</span>}
+                {addressExtra && <span style={{ marginLeft: 8, color: "var(--faint)" }}>— {addressExtra}</span>}
               </span>
             ) : (
-              <span style={{ color: "rgba(0,0,0,.45)" }}>
+              <span style={{ color: "var(--muted)" }}>
                 No address on household record
                 {contact.household && (
                   <>
@@ -213,11 +206,11 @@ export default async function ContactDetailPage({
         <Space align="baseline" size="small">
           <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, display: "inline" }}>
             {contact.favorite && (
-              <span style={{ color: "#faad14", marginRight: 8 }}>★</span>
+              <span style={{ color: "var(--warning)", marginRight: 8 }}>★</span>
             )}
             {contact.firstName} {contact.lastName}
             {contact.nickname && (
-              <span style={{ fontSize: 16, fontWeight: 400, marginLeft: 8, color: "rgba(0,0,0,.45)" }}>
+              <span style={{ fontSize: 16, fontWeight: 400, marginLeft: 8, color: "var(--muted)" }}>
                 ({contact.nickname})
               </span>
             )}

@@ -46,8 +46,8 @@ export default function AdminEmailPanel({ entries }: { entries: EmailLogRow[] })
         <div>
           <span style={{ wordBreak: "break-all" }}>{e.to}</span>{" "}
           <Tag color={STATUS_COLORS[e.status] ?? "default"}>{STATUS_LABELS[e.status] ?? e.status}</Tag>
-          <div style={{ color: "rgba(0,0,0,.45)", fontSize: 12 }}>{e.subject}</div>
-          {e.error && <div style={{ color: "#cf1322", fontSize: 12, wordBreak: "break-word" }}>{e.error}</div>}
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>{e.subject}</div>
+          {e.error && <div style={{ color: "var(--danger)", fontSize: 12, wordBreak: "break-word" }}>{e.error}</div>}
           <Typography.Text type="secondary" className="mobile-only" style={{ fontSize: 12 }}>
             {formatWhen(e.createdAt)}
           </Typography.Text>

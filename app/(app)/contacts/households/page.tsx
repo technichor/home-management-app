@@ -57,7 +57,7 @@ export default async function HouseholdsPage() {
                     <Space size="small">
                       <span>{h.displayName}</span>
                       {isOurs && (
-                        <Tag color="blue" variant="filled" style={{ fontWeight: 400 }}>
+                        <Tag variant="filled" style={{ fontWeight: 400 }}>
                           Our household
                         </Tag>
                       )}
@@ -65,12 +65,12 @@ export default async function HouseholdsPage() {
                   }
                 >
                   {h.mailingAddress && (
-                    <span style={{ display: "block", fontSize: 13, color: "rgba(0,0,0,.45)" }}>
+                    <span style={{ display: "block", fontSize: 13, color: "var(--muted)" }}>
                       {h.mailingAddress}
                     </span>
                   )}
                   {h.contacts.length > 0 && (
-                    <span style={{ display: "block", fontSize: 12, marginTop: 4, color: "rgba(0,0,0,.45)" }}>
+                    <span style={{ display: "block", fontSize: 12, marginTop: 4, color: "var(--muted)" }}>
                       {h.contacts.map((c) => `${c.firstName} ${c.lastName}`).join(", ")}
                     </span>
                   )}

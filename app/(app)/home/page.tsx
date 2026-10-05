@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { Button, Card, Tag } from "antd";
+import { Button, Card } from "antd";
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import { inDays, upcomingDates } from "@/lib/home";
 import { channelsFor, previewText } from "@/lib/messaging";
 import { contactsOf, householdsOf } from "@/lib/scope";
 
-const COMING_SOON = ["Meal planning", "Maintenance", "Schedules"];
-
-const muted = { color: "rgba(0,0,0,.45)", fontSize: 13 } as const;
-const row = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, padding: "8px 0", borderBottom: "1px solid #f5f5f5" } as const;
+const muted = { color: "var(--muted)", fontSize: 13 } as const;
+const row = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--border)" } as const;
 const clip = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } as const;
 
 export default async function HomePage() {
@@ -70,12 +68,6 @@ export default async function HomePage() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         <Link href="/contacts/new">
           <Button type="primary">Add contact</Button>
-        </Link>
-        <Link href="/lists">
-          <Button>Lists</Button>
-        </Link>
-        <Link href="/messages">
-          <Button>Messages</Button>
         </Link>
         {isOwner && (
           <Link href="/household">
@@ -150,7 +142,7 @@ export default async function HomePage() {
               <Link key={f.id} href={`/contacts/${f.id}`} style={{ display: "block", color: "inherit" }}>
                 <div style={row}>
                   <span style={clip}>
-                    <span style={{ color: "#faad14", marginRight: 6 }}>★</span>
+                    <span style={{ color: "var(--warning)", marginRight: 6 }}>★</span>
                     {f.firstName} {f.lastName}
                   </span>
                 </div>
@@ -158,15 +150,6 @@ export default async function HomePage() {
             ))
           )}
         </Card>
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <span style={muted}>Coming soon:</span>
-        {COMING_SOON.map((name) => (
-          <Tag key={name} variant="filled">
-            {name}
-          </Tag>
-        ))}
       </div>
     </div>
   );

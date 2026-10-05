@@ -35,7 +35,7 @@ test("the admin area does not exist for anyone who isn't a superuser", async ({ 
 
   // A signed-in ordinary user: the same, and no Admin link anywhere.
   const { email } = await newOwner(page, "ordinary", "The Ordinaries");
-  await expect(page.getByRole("button", { name: "Admin", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Admin", exact: true })).toHaveCount(0);
   for (const path of ["/admin", "/admin/users/anything", "/admin/email"]) {
     await gotoMissing(page, path);
     await expect(page.getByText(/could not be found/i), path).toBeVisible();
@@ -71,7 +71,7 @@ test("the admin area does not exist for anyone who isn't a superuser", async ({ 
   // The moment they're made a superuser it appears (the check is against the database every time).
   await makeSuperuser(email);
   await page.goto("/home");
-  await expect(page.getByRole("button", { name: "Admin", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Admin", exact: true })).toBeVisible();
   await page.goto("/admin");
   await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
 

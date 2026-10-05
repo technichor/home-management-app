@@ -31,7 +31,7 @@ export default function ArchivedListsClient({
       {lists.length === 0 ? (
         <Empty description="No archived lists." style={{ padding: "48px 0" }} />
       ) : (
-        <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
           {lists.map((list, i) => (
             <div
               key={list.id}
@@ -39,15 +39,15 @@ export default function ArchivedListsClient({
                 display: "flex",
                 alignItems: "center",
                 padding: "12px 16px",
-                borderTop: i > 0 ? "1px solid #f0f0f0" : undefined,
-                background: "#fff",
+                borderTop: i > 0 ? "1px solid var(--border)" : undefined,
+                background: "var(--surface)",
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontWeight: 500, fontSize: 15, color: "#111827" }}>
+                <span style={{ fontWeight: 500, fontSize: 15, color: "var(--text)" }}>
                   {list.name}
                 </span>
-                <span style={{ fontSize: 12, color: "rgba(0,0,0,.45)", marginLeft: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 8 }}>
                   archived {list.archivedAt}
                 </span>
                 {list.tags.length > 0 && (
@@ -65,7 +65,7 @@ export default function ArchivedListsClient({
 
               <span
                 style={{
-                  color: "rgba(0,0,0,.45)",
+                  color: "var(--muted)",
                   fontSize: 13,
                   marginRight: 12,
                   whiteSpace: "nowrap",

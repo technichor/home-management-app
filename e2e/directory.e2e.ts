@@ -76,7 +76,7 @@ test("your own household can be edited but not removed", async ({ page }) => {
   await newOwner(page, "own", "The Owners");
   await page.goto(`/contacts/households`);
   await expect(page.getByText("Our household")).toBeVisible();
-  await page.getByRole("link", { name: /The Owners/ }).click();
+  await page.getByRole("main").getByRole("link", { name: /The Owners/ }).click();
   await page.getByRole("link", { name: "Edit" }).click();
   await expect(page.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
   await page.getByLabel(/^Mailing address/).fill("9 Home Rd");

@@ -11,11 +11,11 @@ export default async function VerifyEmailPage() {
   if (user.emailVerifiedAt) redirect(homePathFor(user));
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "#f5f5f5" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "var(--sidebar)" }}>
       <div style={{ width: "100%", maxWidth: 440 }}>
         <Card>
           <h3 style={{ marginTop: 0, marginBottom: 4, fontSize: 20, fontWeight: 600 }}>Check your email</h3>
-          <p style={{ color: "rgba(0,0,0,.45)" }}>
+          <p style={{ color: "var(--muted)" }}>
             We sent a confirmation link to {user.email}. Open it to finish setting up your account. Until
             then you can&apos;t create or join a household.
           </p>

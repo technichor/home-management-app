@@ -14,7 +14,7 @@ export default function CreateHouseholdForm() {
         {state?.error && <Alert type="error" title={state.error} showIcon />}
         <div>
           <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
-            Household name <span style={{ color: "#ff4d4f" }}>*</span>
+            Household name <span style={{ color: "var(--danger)" }}>*</span>
           </Typography.Text>
           <Input name="displayName" required placeholder="e.g. The Reynolds Family" />
         </div>

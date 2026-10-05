@@ -77,7 +77,7 @@ export default function SyncCard({
     <Card size="small" title="Messaging sync">
       <Space orientation="vertical" style={{ width: "100%" }}>
         {sync?.status === "ACTIVE" && (
-          <Tag color="green">
+          <Tag>
             Synced{sync.counterpartHouseholdName ? ` with ${sync.counterpartHouseholdName}` : ""}
           </Tag>
         )}

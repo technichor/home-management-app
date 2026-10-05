@@ -8,20 +8,18 @@ import { logoutAction } from "@/app/login/actions";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await pageSuperuser();
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f5f5" }}>
-      <div className="app-nav">
-        <div className="app-nav-top">
-          <span className="app-nav-title">Admin</span>
-          <div className="app-nav-links">
-            <Link href="/admin">Users</Link>
-            <Link href="/admin/email">Email</Link>
-            <Link href="/home">Back to the app</Link>
-            <form action={logoutAction} style={{ display: "inline" }}>
-              <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
-                Log out
-              </Button>
-            </form>
-          </div>
+    <div style={{ minHeight: "100vh" }}>
+      <div className="admin-bar">
+        <strong>Admin</strong>
+        <div className="admin-bar-links">
+          <Link href="/admin">Users</Link>
+          <Link href="/admin/email">Email</Link>
+          <Link href="/home">Back to the app</Link>
+          <form action={logoutAction} style={{ display: "inline" }}>
+            <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
+              Log out
+            </Button>
+          </form>
         </div>
       </div>
       <div className="app-container">{children}</div>

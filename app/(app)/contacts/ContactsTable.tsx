@@ -12,13 +12,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   HOUSEHOLD_ADMIN: "Household Admin",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  FAMILY_FRIEND: "blue",
-  SERVICE_PROVIDER: "green",
-  MEDICAL_SCHOOL: "purple",
-  HOUSEHOLD_ADMIN: "orange",
-};
-
 interface ContactRow {
   id: string;
   firstName: string;
@@ -47,7 +40,7 @@ export default function ContactsTable({ contacts }: ContactsTableProps) {
         <Space orientation="vertical" size={2}>
           <Link href={`/contacts/${c.id}`} style={{ fontWeight: 500 }}>
             {c.favorite && (
-              <StarFilled style={{ color: "#faad14", marginRight: 4, fontSize: 12 }} />
+              <StarFilled style={{ color: "var(--warning)", marginRight: 4, fontSize: 12 }} />
             )}
             {c.firstName} {c.lastName}
             {c.nickname && (
@@ -79,7 +72,7 @@ export default function ContactsTable({ contacts }: ContactsTableProps) {
       key: "category",
       responsive: ["sm"],
       render: (_, c) => (
-        <Tag color={CATEGORY_COLORS[c.category]} variant="filled">
+        <Tag variant="filled">
           {CATEGORY_LABELS[c.category]}
         </Tag>
       ),

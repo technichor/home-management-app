@@ -14,7 +14,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         alignItems: "center",
         justifyContent: "center",
         padding: "24px 16px",
-        background: "#f5f5f5",
+        background: "var(--sidebar)",
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>

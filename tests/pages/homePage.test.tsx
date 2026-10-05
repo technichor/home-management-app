@@ -44,7 +44,7 @@ describe("HomePage", () => {
     expect(screen.getByText(/Nothing coming up/)).toBeInTheDocument();
     expect(screen.getByText("Star a contact to keep them handy here.")).toBeInTheDocument();
     expect(screen.getByText("0 people in 1 household")).toBeInTheDocument();
-    for (const name of ["Meal planning", "Maintenance", "Schedules"]) expect(screen.getByText(name)).toBeInTheDocument();
+    expect(screen.queryByText(/Coming soon/)).toBeNull();
   });
 
   it("offers quick actions, with Invite only for owners", async () => {

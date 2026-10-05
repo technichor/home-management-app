@@ -13,11 +13,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const unreadMessages = await totalUnread(user.id);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f5f5" }}>
+    <div className="app-shell">
       <AppNav householdName={household.displayName} isSuperuser={user.isSuperuser} unreadMessages={unreadMessages} logoutAction={logoutAction} />
-      <div className="app-container">
-        {children}
-      </div>
+      <main className="app-main">
+        <div className="app-container">{children}</div>
+      </main>
     </div>
   );
 }

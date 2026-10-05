@@ -21,6 +21,10 @@ vi.mock("@/app/(app)/contacts/import/ImportClient", () => ({
   default: () => <div>import client</div>,
 }));
 vi.mock("@/app/login/actions", () => ({ logoutAction: vi.fn() }));
+const cookieValue = vi.hoisted(() => ({ scheme: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => (name === "scheme" && cookieValue.scheme ? { value: cookieValue.scheme } : undefined) }),
+}));
 vi.mock("@/lib/messaging", () => ({ totalUnread: vi.fn().mockResolvedValue(0) }));
 
 import { getSessionUser } from "@/lib/auth";
@@ -37,10 +41,19 @@ beforeEach(() => {
 });
 
 describe("RootLayout", () => {
-  it("wraps children in an html document", () => {
-    const html = renderToStaticMarkup(RootLayout({ children: <p>hello</p> }));
-    expect(html).toContain('<html lang="en">');
+  it("wraps children in an html document", async () => {
+    const html = renderToStaticMarkup(await RootLayout({ children: <p>hello</p> }));
+    expect(html).toContain('<html lang="en" data-theme="light">');
     expect(html).toContain("<p>hello</p>");
+    expect(html).toContain("--accent:#0f766e");
+    expect(html).toContain("prefers-color-scheme: dark");
+  });
+
+  it("starts in dark when the saved scheme cookie says so", async () => {
+    cookieValue.scheme = "dark";
+    const html = renderToStaticMarkup(await RootLayout({ children: <p>hello</p> }));
+    cookieValue.scheme = undefined;
+    expect(html).toContain('data-theme="dark"');
     expect(metadata.title).toBe("Domata");
     expect(metadata.description).toBe("Your family's home directory");
   });
@@ -83,11 +96,11 @@ describe("AppLayout", () => {
   it("shows the Admin link to a superuser and not to anyone else", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household, isSuperuser: true } as any);
     const { unmount } = render(await AppLayout({ children: null }));
-    expect(screen.getByRole("button", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Admin" }).length).toBeGreaterThan(0);
     unmount();
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household, isSuperuser: false } as any);
     render(await AppLayout({ children: null }));
-    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
   });
 
   it("shows the user's unread message count on the nav", async () => {
@@ -95,13 +108,13 @@ describe("AppLayout", () => {
     vi.mocked(totalUnread).mockResolvedValueOnce(4);
     render(await AppLayout({ children: null }));
     expect(totalUnread).toHaveBeenCalledWith("u9");
-    expect(screen.getByLabelText("4 unread messages")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("4 unread messages").length).toBeGreaterThan(0);
   });
 
   it("renders the nav and children for a member", async () => {
     vi.mocked(getSessionUser).mockResolvedValue({ id: "u", household } as any);
     render(await AppLayout({ children: <p>page body</p> }));
-    expect(screen.getByText("The Smiths")).toBeInTheDocument();
+    expect(screen.getAllByText("The Smiths").length).toBeGreaterThan(0);
     expect(screen.getByText("page body")).toBeInTheDocument();
   });
 });
@@ -109,13 +122,13 @@ describe("AppLayout", () => {
 describe("small layouts and pages", () => {
   it("ContactsLayout renders the contacts nav above its children", async () => {
     render(await ContactsLayout({ children: <p>kids</p> }));
-    expect(screen.getByRole("button", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "People" })).toBeInTheDocument();
     expect(screen.getByText("kids")).toBeInTheDocument();
   });
 
   it("ListsLayout renders the lists nav above its children", async () => {
     render(await ListsLayout({ children: <p>kids</p> }));
-    expect(screen.getByRole("button", { name: "Archived" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Archived" })).toBeInTheDocument();
     expect(screen.getByText("kids")).toBeInTheDocument();
   });
 

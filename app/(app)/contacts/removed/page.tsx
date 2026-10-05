@@ -39,7 +39,7 @@ export default async function RemovedPage() {
   const contactData: ContactRow[] = deletedContacts.map((c) => ({
     key: c.id,
     name: (
-      <Link href={`/contacts/${c.id}`} style={{ color: "#595959" }}>
+      <Link href={`/contacts/${c.id}`} style={{ color: "var(--muted)" }}>
         {c.firstName} {c.lastName}
       </Link>
     ),
@@ -70,7 +70,7 @@ export default async function RemovedPage() {
   const householdData: HouseholdRow[] = deletedHouseholds.map((h) => ({
     key: h.id,
     name: (
-      <Link href={`/contacts/households/${h.id}`} style={{ color: "#595959" }}>
+      <Link href={`/contacts/households/${h.id}`} style={{ color: "var(--muted)" }}>
         {h.displayName}
       </Link>
     ),
@@ -90,7 +90,7 @@ export default async function RemovedPage() {
         <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
           Removed items
         </h4>
-        <span style={{ fontSize: 13, color: "rgba(0,0,0,.45)" }}>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>
           Items removed via CSV import or manually. Restore to make them active again.
         </span>
       </div>

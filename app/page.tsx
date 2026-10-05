@@ -16,7 +16,7 @@ export default async function RootPage() {
         alignItems: "center",
         justifyContent: "center",
         padding: "24px 16px",
-        background: "#f5f5f5",
+        background: "var(--sidebar)",
       }}
     >
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
@@ -26,7 +26,7 @@ export default async function RootPage() {
               {BRAND_NAME}
             </h2>
             <div style={{ fontSize: 16, marginBottom: 8 }}>{TAGLINE}</div>
-            <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
+            <span style={{ color: "var(--muted)", fontSize: 14 }}>
               Log in with your email address, or create an account.
             </span>
           </div>

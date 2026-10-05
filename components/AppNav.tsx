@@ -1,8 +1,12 @@
 "use client";
 
-import { Badge, Button, Tag } from "antd";
-import { BRAND_NAME, TAGLINE } from "@/lib/brand";
-import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Badge, Drawer } from "antd";
+import { EllipsisOutlined, LogoutOutlined, SafetyCertificateOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
+import { BRAND_NAME } from "@/lib/brand";
+import { MODULES, TAB_BAR_COUNT } from "./navModules";
 
 interface AppNavProps {
   householdName: string;
@@ -11,90 +15,122 @@ interface AppNavProps {
   logoutAction: () => Promise<void>;
 }
 
-const MODULES = [
-  { key: "home", label: "Home", href: "/home", active: true },
-  { key: "contacts", label: "Contacts", href: "/contacts", active: true },
-  { key: "lists", label: "Lists", href: "/lists", active: true },
-  { key: "messages", label: "Messages", href: "/messages", active: true },
-  { key: "meals", label: "Meal Planning", href: undefined, active: false },
-  { key: "maintenance", label: "Maintenance", href: undefined, active: false },
-  { key: "schedules", label: "Schedules", href: undefined, active: false },
-];
+const isActive = (pathname: string, href: string) =>
+  href === "/home" ? pathname === "/home" : pathname === href || pathname.startsWith(`${href}/`);
 
+/**
+ * Navigation: a sidebar on a wide screen, and on a phone a slim top bar plus a bottom tab bar (the
+ * pattern a native app would use). Both are always in the page and the stylesheet shows one of them.
+ */
 export default function AppNav({ householdName, isSuperuser, unreadMessages = 0, logoutAction }: AppNavProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const [more, setMore] = useState(false);
 
-  const selectedKey =
-    pathname === "/home"
-      ? "home"
-      : (MODULES.find((m) => m.key !== "home" && m.active && pathname.startsWith(`/${m.key}`))?.key ?? "");
+  const unreadLabel = `${unreadMessages} unread messages`;
+  const badge = (key: string) =>
+    key === "messages" && unreadMessages > 0 ? (
+      <Badge className="nav-badge" count={unreadMessages} overflowCount={99} color="var(--accent)" aria-label={unreadLabel} />
+    ) : null;
+
+  const account = [
+    { href: "/household", label: "Household", icon: <TeamOutlined aria-hidden /> },
+    { href: "/account", label: "Account", icon: <SettingOutlined aria-hidden /> },
+    ...(isSuperuser ? [{ href: "/admin", label: "Admin", icon: <SafetyCertificateOutlined aria-hidden /> }] : []),
+  ];
+
+  const tabModules = MODULES.slice(0, TAB_BAR_COUNT);
+  const moreModules = MODULES.slice(TAB_BAR_COUNT);
+  const moreActive = [...moreModules, ...account].some((m) => isActive(pathname, m.href));
+
+  const logout = (
+    <form action={logoutAction} className="nav-form">
+      <button type="submit" className="nav-item">
+        <LogoutOutlined aria-hidden />
+        Log out
+      </button>
+    </form>
+  );
 
   return (
-    <div className="app-nav">
-      <div className="app-nav-top">
-        <span className="app-nav-title">
-          {BRAND_NAME}
-          <span className="app-nav-tagline">{TAGLINE}</span>
-        </span>
-        <div className="app-nav-links">
-          <span className="app-nav-household">{householdName}</span>
-          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/account")}>
-            Account
-          </Button>
-          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/household")}>
-            Household
-          </Button>
-          {isSuperuser && (
-            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/admin")}>
-              Admin
-            </Button>
-          )}
-          <form action={logoutAction} style={{ display: "inline" }}>
-            <Button type="link" htmlType="submit" size="small" style={{ padding: 0 }}>
-              Log out
-            </Button>
-          </form>
-        </div>
-      </div>
+    <>
+      <aside className="sidebar">
+        <Link href="/home" className="brand">
+          <span className="brand-mark">D</span>
+          <span className="brand-text">
+            <span className="brand-name">{BRAND_NAME}</span>
+            <span className="brand-household">{householdName}</span>
+          </span>
+        </Link>
 
-      <div className="tab-strip">
-        {MODULES.map((mod) => {
-          const isSelected = mod.active && selectedKey === mod.key;
-          return (
-            <button
-              key={mod.key}
-              className={mod.active ? undefined : "tab-soon"}
-              onClick={mod.active && mod.href ? () => router.push(mod.href) : undefined}
-              style={{
-                padding: "8px 12px",
-                background: "none",
-                border: "none",
-                borderBottom: isSelected ? "2px solid #111827" : "2px solid transparent",
-                cursor: mod.active ? "pointer" : "default",
-                fontSize: 14,
-                color: !mod.active ? "rgba(0,0,0,.25)" : isSelected ? "#111827" : "rgba(0,0,0,.65)",
-                fontWeight: isSelected ? 500 : 400,
-                marginBottom: -1,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {mod.label}
-              {mod.key === "messages" && unreadMessages > 0 && (
-                <Badge count={unreadMessages} overflowCount={99} aria-label={`${unreadMessages} unread messages`} />
-              )}
-              {!mod.active && (
-                <Tag variant="filled" style={{ fontSize: 10, lineHeight: "14px", padding: "0 4px" }}>
-                  soon
-                </Tag>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+        <nav className="nav-group" aria-label="Modules">
+          {MODULES.map((m) => (
+            <Link key={m.key} href={m.href} className="nav-item" aria-current={isActive(pathname, m.href) ? "page" : undefined}>
+              {m.icon}
+              {m.label}
+              {badge(m.key)}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="nav-spacer" />
+
+        <nav className="nav-group" aria-label="Account">
+          {account.map((a) => (
+            <Link key={a.href} href={a.href} className="nav-item" aria-current={isActive(pathname, a.href) ? "page" : undefined}>
+              {a.icon}
+              {a.label}
+            </Link>
+          ))}
+          {logout}
+        </nav>
+      </aside>
+
+      <header className="mobile-top">
+        <Link href="/home" className="brand">
+          <span className="brand-mark">D</span>
+          <span className="brand-text">
+            <span className="brand-name">{BRAND_NAME}</span>
+          </span>
+        </Link>
+      </header>
+
+      <nav className="tabbar" aria-label="Main">
+        {tabModules.map((m) => (
+          <Link key={m.key} href={m.href} className="tabbar-item" aria-current={isActive(pathname, m.href) ? "page" : undefined}>
+            {m.key === "messages" && unreadMessages > 0 ? (
+              <Badge count={unreadMessages} overflowCount={99} size="small" color="var(--accent)" aria-label={unreadLabel}>
+                {m.icon}
+              </Badge>
+            ) : (
+              m.icon
+            )}
+            {m.label}
+          </Link>
+        ))}
+        <button type="button" className="tabbar-item" aria-current={moreActive ? "page" : undefined} onClick={() => setMore(true)}>
+          <EllipsisOutlined aria-hidden />
+          More
+        </button>
+      </nav>
+
+      <Drawer
+        placement="bottom"
+        size={320}
+        open={more}
+        onClose={() => setMore(false)}
+        title={householdName}
+        destroyOnHidden
+      >
+        <div className="more-sheet" onClick={() => setMore(false)}>
+          {[...moreModules, ...account].map((a) => (
+            <Link key={a.href} href={a.href} className="nav-item" aria-current={isActive(pathname, a.href) ? "page" : undefined}>
+              {a.icon}
+              {a.label}
+            </Link>
+          ))}
+          {logout}
+        </div>
+      </Drawer>
+    </>
   );
 }

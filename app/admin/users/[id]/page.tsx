@@ -82,11 +82,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
 
       <Card size="small" title="Admin activity involving this user">
         {history.length === 0 ? (
-          <span style={{ color: "rgba(0,0,0,.45)", fontSize: 13 }}>Nothing yet.</span>
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>Nothing yet.</span>
         ) : (
           history.map((a) => (
-            <div key={a.id} style={{ padding: "6px 0", borderBottom: "1px solid #f5f5f5", fontSize: 13 }}>
-              <span style={{ color: "rgba(0,0,0,.45)" }}>{formatWhen(a.createdAt)}</span>{" "}
+            <div key={a.id} style={{ padding: "6px 0", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
+              <span style={{ color: "var(--muted)" }}>{formatWhen(a.createdAt)}</span>{" "}
               <strong>{a.actor?.email ?? "a deleted user"}</strong> {AUDIT_LABELS[a.action] ?? a.action}{" "}
               <strong>{a.targetUser?.email ?? "a deleted user"}</strong>
             </div>

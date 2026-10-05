@@ -106,7 +106,7 @@ export default function AdminUserActions({
         </Space>
       </Card>
 
-      <Card size="small" title="Superuser access" style={{ borderColor: "#ffccc7" }}>
+      <Card size="small" title="Superuser access" style={{ borderColor: "color-mix(in srgb, var(--danger) 35%, var(--border))" }}>
         <Space orientation="vertical" style={{ width: "100%" }}>
           <Typography.Text type="secondary">
             Superusers can see every account and start password resets. This should be very rare. Enter your own password to

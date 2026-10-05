@@ -177,7 +177,7 @@ function UploadStep({
           <Col xs={24} sm={12}>
             <div>
               <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
-                households.csv <span style={{ color: "#ff4d4f" }}>*</span>
+                households.csv <span style={{ color: "var(--danger)" }}>*</span>
               </Typography.Text>
               <input
                 name="householdsFile"
@@ -191,7 +191,7 @@ function UploadStep({
           <Col xs={24} sm={12}>
             <div>
               <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
-                contacts.csv <span style={{ color: "#ff4d4f" }}>*</span>
+                contacts.csv <span style={{ color: "var(--danger)" }}>*</span>
               </Typography.Text>
               <input
                 name="contactsFile"
@@ -275,7 +275,7 @@ function DiffStep({
             <Statistic
               title="Households removed"
               value={diff.households.removed.length}
-              styles={diff.households.removed.length > 0 ? { content: { color: "#cf1322" } } : undefined}
+              styles={diff.households.removed.length > 0 ? { content: { color: "var(--danger)" } } : undefined}
             />
           </Col>
           <Col xs={12} sm={6}>
@@ -291,7 +291,7 @@ function DiffStep({
             <Statistic
               title="Contacts removed"
               value={diff.contacts.removed.length}
-              styles={diff.contacts.removed.length > 0 ? { content: { color: "#cf1322" } } : undefined}
+              styles={diff.contacts.removed.length > 0 ? { content: { color: "var(--danger)" } } : undefined}
             />
           </Col>
           <Col xs={12} sm={6}>

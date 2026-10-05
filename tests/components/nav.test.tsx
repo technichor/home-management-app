@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const push = vi.fn();
@@ -19,123 +19,143 @@ beforeEach(() => {
   pathname = "/";
 });
 
-const selected = (el: HTMLElement) => el.style.fontWeight === "500";
-
-describe("AppNav brand", () => {
-  it("shows the product name and tagline", () => {
-    render(<AppNav householdName="H" logoutAction={vi.fn()} />);
-    expect(screen.getByText("Domata")).toBeInTheDocument();
-    expect(screen.getByText("Your family's home directory")).toBeInTheDocument();
-  });
-});
-
-describe("AppNav unread badge", () => {
-  it("shows the unread count on Messages, and nothing when there are none", () => {
-    const { unmount } = render(<AppNav householdName="H" unreadMessages={3} logoutAction={vi.fn()} />);
-    expect(screen.getByLabelText("3 unread messages")).toBeInTheDocument();
-    unmount();
-    render(<AppNav householdName="H" logoutAction={vi.fn()} />);
-    expect(screen.queryByLabelText(/unread messages/)).toBeNull();
-  });
-});
+const current = (el: HTMLElement) => el.getAttribute("aria-current") === "page";
 
 describe("AppNav", () => {
-  const setup = () => {
+  const setup = (props: Partial<React.ComponentProps<typeof AppNav>> = {}) => {
     const logoutAction = vi.fn().mockResolvedValue(undefined);
-    render(<AppNav householdName="The Smiths" logoutAction={logoutAction} />);
+    render(<AppNav householdName="The Smiths" logoutAction={logoutAction} {...props} />);
     return { logoutAction };
   };
+  const sidebar = () => within(screen.getByRole("complementary"));
+  const tabbar = () => within(screen.getByRole("navigation", { name: "Main" }));
 
-  it("shows the household name and marks unbuilt modules as coming soon", () => {
+  it("shows the product name and the household, in the sidebar and the phone header", () => {
     setup();
-    expect(screen.getByText("The Smiths")).toBeInTheDocument();
-    expect(screen.getAllByText("soon")).toHaveLength(3);
+    expect(screen.getAllByText("Domata")).toHaveLength(2);
+    expect(sidebar().getByText("The Smiths")).toBeInTheDocument();
   });
 
-  it("shows the Admin link only to superusers", async () => {
-    const { unmount } = render(<AppNav householdName="The Smiths" logoutAction={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: "Admin" })).toBeNull();
-    unmount();
-    render(<AppNav householdName="The Smiths" isSuperuser logoutAction={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Admin" }));
-    expect(push).toHaveBeenCalledWith("/admin");
+  it("shows no coming-soon placeholders", () => {
+    setup();
+    expect(screen.queryByText("soon")).toBeNull();
+    expect(screen.queryByText(/Meal/)).toBeNull();
   });
 
-  it("has a Home tab that is highlighted only on the home path", async () => {
+  it("links each module in the sidebar and the tab bar", () => {
+    setup();
+    for (const [name, href] of [["Home", "/home"], ["Contacts", "/contacts"], ["Lists", "/lists"], ["Messages", "/messages"]]) {
+      expect(sidebar().getByRole("link", { name })).toHaveAttribute("href", href);
+      expect(tabbar().getByRole("link", { name })).toHaveAttribute("href", href);
+    }
+  });
+
+  it("highlights Home only on the home path", () => {
     pathname = "/home";
     setup();
-    expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(true);
-    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
-    await userEvent.click(screen.getByRole("button", { name: "Home" }));
-    expect(push).toHaveBeenCalledWith("/home");
+    expect(current(sidebar().getByRole("link", { name: "Home" }))).toBe(true);
+    expect(current(sidebar().getByRole("link", { name: "Contacts" }))).toBe(false);
+    expect(current(tabbar().getByRole("link", { name: "Home" }))).toBe(true);
   });
 
   it("does not highlight Home on a module path", () => {
     pathname = "/contacts";
     setup();
-    expect(selected(screen.getByRole("button", { name: "Home" }))).toBe(false);
-    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(true);
+    expect(current(sidebar().getByRole("link", { name: "Home" }))).toBe(false);
+    expect(current(sidebar().getByRole("link", { name: "Contacts" }))).toBe(true);
   });
 
-  it("tags the coming-soon tabs so a phone can hide them", () => {
-    setup();
-    expect(screen.getByRole("button", { name: /Meal Planning/ })).toHaveClass("tab-soon");
-    expect(screen.getByRole("button", { name: "Contacts" })).not.toHaveClass("tab-soon");
-  });
-
-  it("highlights the module matching the current path", () => {
-    pathname = "/lists/abc";
-    setup();
-    expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(true);
-    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
-  });
-
-  it("highlights Messages on a messages path", () => {
-    pathname = "/messages/abc";
-    setup();
-    expect(selected(screen.getByRole("button", { name: "Messages" }))).toBe(true);
-    expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(false);
-  });
+  it.each([["/lists/abc", "Lists"], ["/messages/abc", "Messages"], ["/contacts/households", "Contacts"]])(
+    "highlights the module for %s",
+    (path, label) => {
+      pathname = path;
+      setup();
+      expect(current(sidebar().getByRole("link", { name: label }))).toBe(true);
+      expect(current(sidebar().getByRole("link", { name: "Home" }))).toBe(false);
+    }
+  );
 
   it("highlights nothing for an unknown path", () => {
     pathname = "/other";
     setup();
-    expect(selected(screen.getByRole("button", { name: "Lists" }))).toBe(false);
-    expect(selected(screen.getByRole("button", { name: "Contacts" }))).toBe(false);
+    expect(screen.queryAllByRole("link").some(current)).toBe(false);
   });
 
-  it("navigates when an active module is clicked", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "Contacts" }));
-    await userEvent.click(screen.getByRole("button", { name: "Lists" }));
-    await userEvent.click(screen.getByRole("button", { name: "Messages" }));
-    expect(push).toHaveBeenNthCalledWith(1, "/contacts");
-    expect(push).toHaveBeenNthCalledWith(2, "/lists");
-    expect(push).toHaveBeenNthCalledWith(3, "/messages");
+  it("links Household and Account, and Admin only for superusers", () => {
+    const { unmount } = render(<AppNav householdName="H" logoutAction={vi.fn()} />);
+    expect(sidebar().getByRole("link", { name: "Household" })).toHaveAttribute("href", "/household");
+    expect(sidebar().getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+    expect(sidebar().queryByRole("link", { name: "Admin" })).toBeNull();
+    unmount();
+    render(<AppNav householdName="H" isSuperuser logoutAction={vi.fn()} />);
+    expect(sidebar().getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
   });
 
-  it("does nothing when a coming-soon module is clicked", async () => {
+  it("highlights Account on its page", () => {
+    pathname = "/account";
     setup();
-    await userEvent.click(screen.getByRole("button", { name: /Meal Planning/ }));
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it("opens the account page", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "Account" }));
-    expect(push).toHaveBeenCalledWith("/account");
-  });
-
-  it("opens the household page", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "Household" }));
-    expect(push).toHaveBeenCalledWith("/household");
+    expect(current(sidebar().getByRole("link", { name: "Account" }))).toBe(true);
   });
 
   it("logs out via the form action", async () => {
     const { logoutAction } = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await userEvent.click(sidebar().getByRole("button", { name: "Log out" }));
     expect(logoutAction).toHaveBeenCalled();
+  });
+
+  describe("unread badge", () => {
+    it("shows the count on Messages in the sidebar and the tab bar", () => {
+      setup({ unreadMessages: 3 });
+      expect(screen.getAllByLabelText("3 unread messages")).toHaveLength(2);
+    });
+
+    it("shows nothing when there are none", () => {
+      setup();
+      expect(screen.queryByLabelText(/unread messages/)).toBeNull();
+    });
+  });
+
+  describe("More (phone)", () => {
+    it("opens a sheet with Household, Account and Log out, and closes after a choice", async () => {
+      setup();
+      expect(screen.queryByText("The Smiths", { selector: ".ant-drawer-title" })).toBeNull();
+      await userEvent.click(tabbar().getByRole("button", { name: "More" }));
+      const sheet = within(await screen.findByRole("dialog"));
+      expect(sheet.getByRole("link", { name: "Household" })).toHaveAttribute("href", "/household");
+      expect(sheet.getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+      expect(sheet.queryByRole("link", { name: "Admin" })).toBeNull();
+      await userEvent.click(sheet.getByRole("link", { name: "Account" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("closes with its close button", async () => {
+      setup();
+      await userEvent.click(tabbar().getByRole("button", { name: "More" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("includes Admin for a superuser, and logs out from the sheet", async () => {
+      const { logoutAction } = setup({ isSuperuser: true });
+      await userEvent.click(tabbar().getByRole("button", { name: "More" }));
+      const sheet = within(await screen.findByRole("dialog"));
+      expect(sheet.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
+      await userEvent.click(sheet.getByRole("button", { name: "Log out" }));
+      expect(logoutAction).toHaveBeenCalled();
+    });
+
+    it("is highlighted on a page it holds", () => {
+      pathname = "/household";
+      setup();
+      expect(current(tabbar().getByRole("button", { name: "More" }))).toBe(true);
+      pathname = "/lists";
+    });
+
+    it("is not highlighted on a main tab", () => {
+      pathname = "/lists";
+      setup();
+      expect(current(tabbar().getByRole("button", { name: "More" }))).toBe(false);
+    });
   });
 });
 
@@ -147,27 +167,23 @@ describe("ContactsNav", () => {
     ["/contacts/households/h1", "Households"],
     ["/contacts/import", "Import"],
     ["/contacts/removed", "Removed"],
-  ])("on %s the %s tab is active", (path, label) => {
+  ])("on %s the %s link is current", (path, label) => {
     pathname = path;
     render(<ContactsNav />);
     for (const name of ["People", "Households", "Import", "Removed"]) {
-      expect(selected(screen.getByRole("button", { name }))).toBe(name === label);
+      expect(current(screen.getByRole("link", { name }))).toBe(name === label);
     }
   });
 
-  it("has no active tab outside contacts", () => {
+  it("has no current link outside contacts", () => {
     pathname = "/lists";
     render(<ContactsNav />);
-    expect(screen.getAllByRole("button").some(selected)).toBe(false);
+    expect(screen.getAllByRole("link").some(current)).toBe(false);
   });
 
-  it("navigates to each tab", async () => {
+  it("links to each section", () => {
     render(<ContactsNav />);
-    await userEvent.click(screen.getByRole("button", { name: "People" }));
-    await userEvent.click(screen.getByRole("button", { name: "Households" }));
-    await userEvent.click(screen.getByRole("button", { name: "Import" }));
-    await userEvent.click(screen.getByRole("button", { name: "Removed" }));
-    expect(push.mock.calls.map((c) => c[0])).toEqual([
+    expect(screen.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
       "/contacts",
       "/contacts/households",
       "/contacts/import",
@@ -182,24 +198,22 @@ describe("ListsNav", () => {
     ["/lists/abc", "Active"],
     ["/lists/abc/compare", "Active"],
     ["/lists/archived", "Archived"],
-  ])("on %s the %s tab is active", (path, label) => {
+  ])("on %s the %s link is current", (path, label) => {
     pathname = path;
     render(<ListsNav />);
     for (const name of ["Active", "Archived"]) {
-      expect(selected(screen.getByRole("button", { name }))).toBe(name === label);
+      expect(current(screen.getByRole("link", { name }))).toBe(name === label);
     }
   });
 
-  it("has no active tab outside lists", () => {
+  it("has no current link outside lists", () => {
     pathname = "/contacts";
     render(<ListsNav />);
-    expect(screen.getAllByRole("button").some(selected)).toBe(false);
+    expect(screen.getAllByRole("link").some(current)).toBe(false);
   });
 
-  it("navigates to each tab", async () => {
+  it("links to each section", () => {
     render(<ListsNav />);
-    await userEvent.click(screen.getByRole("button", { name: "Active" }));
-    await userEvent.click(screen.getByRole("button", { name: "Archived" }));
-    expect(push.mock.calls.map((c) => c[0])).toEqual(["/lists", "/lists/archived"]);
+    expect(screen.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/lists", "/lists/archived"]);
   });
 });

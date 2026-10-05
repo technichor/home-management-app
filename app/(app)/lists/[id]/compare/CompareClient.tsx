@@ -71,9 +71,9 @@ export default function CompareClient({
         flex: "1 1 240px",
         minHeight: 120,
         padding: 16,
-        border: "1px solid #d9d9d9",
+        border: "1px solid var(--border-strong)",
         borderRadius: 8,
-        background: "#fff",
+        background: "var(--surface)",
         cursor: busy ? "wait" : "pointer",
         fontSize: 18,
         fontWeight: 500,
@@ -81,7 +81,7 @@ export default function CompareClient({
     >
       {item.text}
       {item.quantity && (
-        <div style={{ fontSize: 13, fontWeight: 400, color: "rgba(0,0,0,.45)", marginTop: 4 }}>{item.quantity}</div>
+        <div style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)", marginTop: 4 }}>{item.quantity}</div>
       )}
     </button>
   );

@@ -45,7 +45,7 @@ export default function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
               Unconfirmed
             </Tag>
           )}
-          <div style={{ color: "rgba(0,0,0,.45)", fontSize: 12 }}>
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>
             {u.name}
             {u.householdName ? ` · ${u.householdName}` : " · no household"}
           </div>

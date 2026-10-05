@@ -7,7 +7,7 @@ export default async function ResetPasswordPage({ params }: { params: Promise<{ 
   const { token } = await params;
   if (!(await findValidResetToken(token))) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "#f5f5f5" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "var(--sidebar)" }}>
         <div style={{ width: "100%", maxWidth: 400 }}>
           <Card>
             <h4 style={{ marginTop: 0, fontSize: 18, fontWeight: 600 }}>Link not valid</h4>

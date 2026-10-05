@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, App, Button, Input, Modal, Popconfirm, Space, Tag, Typography } from "antd";
+import { shortWhen } from "@/lib/format";
 import type { Candidate } from "@/lib/channels";
 import {
   sendMessageAction,
@@ -116,8 +117,8 @@ export default function ConversationClient({
           <Typography.Title level={4} style={{ margin: 0 }}>
             {conversation.name}
           </Typography.Title>
-          {conversation.general && <Tag color="blue">Everyone</Tag>}
-          {conversation.shared && <Tag color="green">Shared</Tag>}
+          {conversation.general && <Tag>Everyone</Tag>}
+          {conversation.shared && <Tag>Shared</Tag>}
           {conversation.archived && <Tag>Archived</Tag>}
         </Space>
         <Button onClick={() => setPanel(true)}>People ({members.length})</Button>
@@ -125,8 +126,8 @@ export default function ConversationClient({
 
       <div
         style={{
-          background: "#fff",
-          border: "1px solid #f0f0f0",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
           borderRadius: 8,
           padding: 12,
           minHeight: 240,
@@ -139,12 +140,12 @@ export default function ConversationClient({
         ) : (
           messages.map((m) => (
             <div key={m.id} style={{ display: "flex", justifyContent: m.mine ? "flex-end" : "flex-start", marginBottom: 10 }}>
-              <div style={{ maxWidth: "80%", background: m.mine ? "#e6f4ff" : "#f5f5f5", borderRadius: 8, padding: "6px 10px" }}>
-                <div style={{ fontSize: 12, color: "rgba(0,0,0,.55)" }}>
+              <div style={{ maxWidth: "80%", background: m.mine ? "var(--accent-soft)" : "var(--hover)", borderRadius: 8, padding: "6px 10px" }}>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
                   <strong>{m.senderName}</strong>
                   {conversation.shared && m.householdName && <span> · {m.householdName}</span>}
                   <span style={{ marginLeft: 8 }} suppressHydrationWarning>
-                    {new Date(m.createdAt).toLocaleString()}
+                    {shortWhen(m.createdAt)}
                   </span>
                 </div>
                 <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
@@ -182,8 +183,8 @@ export default function ConversationClient({
               <div key={m.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
                 <span>
                   {m.name}
-                  {m.mine && " (you)"} {m.manager && <Tag color="gold">Manager</Tag>}
-                  {m.householdName && <span style={{ color: "rgba(0,0,0,.45)", fontSize: 12 }}> · {m.householdName}</span>}
+                  {m.mine && " (you)"} {m.manager && <Tag>Manager</Tag>}
+                  {m.householdName && <span style={{ color: "var(--muted)", fontSize: 12 }}> · {m.householdName}</span>}
                 </span>
                 {canManage && !m.mine && (
                   <Popconfirm title={`Remove ${m.name}?`} onConfirm={() => run(() => removeChannelMemberAction(conversation.id, m.userId))}>

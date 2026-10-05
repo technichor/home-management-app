@@ -126,7 +126,7 @@ test("unread: new messages show a badge on Messages and in the list until the ch
 
   // The other member sees it on the tab and the list.
   await mate.page.goto(`/home`);
-  await expect(mate.page.getByLabel("1 unread messages")).toBeVisible();
+  await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible();
   await mate.page.goto(`/messages`);
   await expect(mate.page.getByLabel("1 unread", { exact: true })).toBeVisible();
 
@@ -143,7 +143,7 @@ test("unread: new messages show a badge on Messages and in the list until the ch
   await owner.page.getByRole("button", { name: "Send" }).click();
   await expect(owner.page.getByText("Second!")).toBeVisible();
   await mate.page.reload();
-  await expect(mate.page.getByLabel("1 unread messages")).toBeVisible();
+  await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible();
 
   for (const s of [owner, mate]) await s.context.close();
 });

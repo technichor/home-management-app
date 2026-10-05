@@ -8,7 +8,7 @@ import { requestPasswordResetAction, type ForgotState } from "@/app/forgot-passw
 export default function ForgotPasswordForm() {
   const [state, formAction, isPending] = useActionState<ForgotState, FormData>(requestPasswordResetAction, null);
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "#f5f5f5" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "var(--sidebar)" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
