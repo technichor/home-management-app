@@ -40,6 +40,24 @@ export type PlanEntry = {
   label: string;
 };
 
+/** The household's entries dated within the range (inclusive), in the order they were added. */
+export async function entriesInRange(householdId: string, start: string, end: string) {
+  const rows = await prisma.mealPlanEntry.findMany({
+    where: { householdId, date: { gte: stringToDate(start), lte: stringToDate(end) } },
+    include: { meal: { select: { id: true, name: true, description: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    date: dateToString(r.date),
+    slot: r.slot,
+    mealId: r.mealId,
+    label: r.meal?.name ?? r.text ?? "",
+    description: r.meal?.description ?? null,
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
 /** The household's entries for the seven days starting on `weekStart`, in the order they were added. */
 export async function weekEntries(householdId: string, weekStart: string) {
   const rows = await prisma.mealPlanEntry.findMany({

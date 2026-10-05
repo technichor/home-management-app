@@ -1,6 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
+  CALENDAR_VIEWS,
   addDays,
+  addMonths,
+  datesInRange,
+  daysBetween,
+  inRange,
+  monthEndOf,
+  monthStartOf,
+  parseView,
+  resolveCalendarRange,
+  stepAnchor,
+  viewAnchor,
+  viewRange,
   dateOr,
   dateToString,
   dayOfWeek,
@@ -138,5 +150,196 @@ describe("week headings", () => {
   it("splits a day into weekday and month/day", () => {
     expect(formatDayHeading("2026-10-05")).toEqual({ weekday: "Mon", monthDay: "Oct 5" });
     expect(formatDayHeading("2026-10-04")).toEqual({ weekday: "Sun", monthDay: "Oct 4" });
+  });
+});
+
+describe("calendar view helpers", () => {
+  it("knows the three views and defaults to the week", () => {
+    expect(CALENDAR_VIEWS).toEqual(["day", "week", "month"]);
+    expect(parseView("day")).toBe("day");
+    expect(parseView("month")).toBe("month");
+    expect(parseView("week")).toBe("week");
+    for (const bad of [undefined, "", "year", "WEEK", 3, null]) expect(parseView(bad)).toBe("week");
+  });
+
+  it("measures and walks ranges", () => {
+    expect(daysBetween("2026-10-05", "2026-10-12")).toBe(7);
+    expect(daysBetween("2026-10-12", "2026-10-05")).toBe(-7);
+    expect(daysBetween("2026-12-31", "2027-01-01")).toBe(1);
+    expect(daysBetween("2026-03-07", "2026-03-09")).toBe(2); // across a daylight-saving change
+    expect(daysBetween("2026-10-05", "2026-10-05")).toBe(0);
+    expect(datesInRange({ start: "2026-12-30", end: "2027-01-02" })).toEqual(["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"]);
+    expect(datesInRange({ start: "2026-10-05", end: "2026-10-05" })).toEqual(["2026-10-05"]);
+    expect(inRange("2026-10-05", { start: "2026-10-05", end: "2026-10-11" })).toBe(true);
+    expect(inRange("2026-10-11", { start: "2026-10-05", end: "2026-10-11" })).toBe(true);
+    expect(inRange("2026-10-12", { start: "2026-10-05", end: "2026-10-11" })).toBe(false);
+    expect(inRange("2026-10-04", { start: "2026-10-05", end: "2026-10-11" })).toBe(false);
+  });
+
+  it("finds the start and end of a month, including leap February", () => {
+    expect(monthStartOf("2026-10-17")).toBe("2026-10-01");
+    expect(monthEndOf("2026-10-17")).toBe("2026-10-31");
+    expect(monthEndOf("2024-02-10")).toBe("2024-02-29");
+    expect(monthEndOf("2026-02-10")).toBe("2026-02-28");
+    expect(monthEndOf("2026-12-05")).toBe("2026-12-31");
+    expect(monthEndOf("2026-04-30")).toBe("2026-04-30");
+  });
+
+  it("steps by whole months from any day, across year ends", () => {
+    expect(addMonths("2026-10-17", 1)).toBe("2026-11-01");
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-01"); // never skips a short month
+    expect(addMonths("2026-03-31", -1)).toBe("2026-02-01");
+    expect(addMonths("2026-12-15", 1)).toBe("2027-01-01");
+    expect(addMonths("2027-01-15", -1)).toBe("2026-12-01");
+    expect(addMonths("2026-10-17", 0)).toBe("2026-10-01");
+    expect(addMonths("2026-10-17", 14)).toBe("2027-12-01");
+  });
+});
+
+describe("what each view is anchored on", () => {
+  it("is the day itself, the week's first day, or the month's first day", () => {
+    expect(viewAnchor("day", "2026-10-07", "SUNDAY")).toBe("2026-10-07");
+    expect(viewAnchor("week", "2026-10-07", "SUNDAY")).toBe("2026-10-04");
+    expect(viewAnchor("week", "2026-10-07", "MONDAY")).toBe("2026-10-05");
+    expect(viewAnchor("week", "2026-10-04", "MONDAY")).toBe("2026-09-28");
+    expect(viewAnchor("month", "2026-10-31", "MONDAY")).toBe("2026-10-01");
+  });
+});
+
+describe("the dates each view shows", () => {
+  it("is one day, or seven", () => {
+    expect(viewRange("day", "2026-10-07", "SUNDAY")).toEqual({ start: "2026-10-07", end: "2026-10-07" });
+    expect(viewRange("week", "2026-10-04", "SUNDAY")).toEqual({ start: "2026-10-04", end: "2026-10-10" });
+    expect(viewRange("week", "2026-12-28", "MONDAY")).toEqual({ start: "2026-12-28", end: "2027-01-03" });
+  });
+
+  // October 2026: the 1st is a Thursday and the 31st a Saturday.
+  it("is a month grid of whole weeks, with leading and trailing days (Sunday start)", () => {
+    expect(viewRange("month", "2026-10-01", "SUNDAY")).toEqual({ start: "2026-09-27", end: "2026-10-31" });
+  });
+
+  it("starts the grid on Monday for a Monday-start household, and ends it on a Sunday", () => {
+    const r = viewRange("month", "2026-10-01", "MONDAY");
+    expect(r).toEqual({ start: "2026-09-28", end: "2026-11-01" });
+    expect(datesInRange(r)).toHaveLength(35);
+  });
+
+  it("has no padding when the month starts and ends on week boundaries", () => {
+    // Feb 2026 starts on a Sunday and ends on a Saturday: exactly four weeks.
+    expect(viewRange("month", "2026-02-01", "SUNDAY")).toEqual({ start: "2026-02-01", end: "2026-02-28" });
+    expect(datesInRange(viewRange("month", "2026-02-01", "SUNDAY"))).toHaveLength(28);
+  });
+
+  it("can need six weeks", () => {
+    // Aug 2026 starts on a Saturday and has 31 days: a Sunday-start grid is six weeks.
+    expect(datesInRange(viewRange("month", "2026-08-01", "SUNDAY"))).toHaveLength(42);
+  });
+
+  it("crosses a year boundary", () => {
+    expect(viewRange("month", "2026-12-01", "SUNDAY")).toEqual({ start: "2026-11-29", end: "2027-01-02" });
+    expect(viewRange("month", "2027-01-01", "MONDAY")).toEqual({ start: "2026-12-28", end: "2027-01-31" });
+  });
+
+  it("is always whole weeks, for every month of several years and both week starts", () => {
+    for (const wso of ["SUNDAY", "MONDAY"] as const) {
+      for (let year = 2023; year <= 2028; year++) {
+        for (let month = 1; month <= 12; month++) {
+          const anchor = `${year}-${String(month).padStart(2, "0")}-01`;
+          const range = viewRange("month", anchor, wso);
+          const days = datesInRange(range);
+          expect(days.length % 7).toBe(0);
+          expect(days.length).toBeGreaterThanOrEqual(28);
+          expect(days.length).toBeLessThanOrEqual(42);
+          expect(range.start <= anchor && range.end >= monthEndOf(anchor)).toBe(true);
+          expect(daysBetween(range.start, anchor)).toBeLessThan(7);
+          expect(daysBetween(monthEndOf(anchor), range.end)).toBeLessThan(7);
+        }
+      }
+    }
+  });
+});
+
+describe("stepping between views", () => {
+  it("moves a day, a week or a month, both ways", () => {
+    expect(stepAnchor("day", "2026-10-07", 1)).toBe("2026-10-08");
+    expect(stepAnchor("day", "2026-10-01", -1)).toBe("2026-09-30");
+    expect(stepAnchor("week", "2026-10-04", 1)).toBe("2026-10-11");
+    expect(stepAnchor("week", "2026-10-04", -1)).toBe("2026-09-27");
+    expect(stepAnchor("month", "2026-10-01", 1)).toBe("2026-11-01");
+    expect(stepAnchor("month", "2026-10-01", -1)).toBe("2026-09-01");
+  });
+
+  it("crosses month and year boundaries", () => {
+    expect(stepAnchor("day", "2026-12-31", 1)).toBe("2027-01-01");
+    expect(stepAnchor("day", "2027-01-01", -1)).toBe("2026-12-31");
+    expect(stepAnchor("week", "2026-12-27", 1)).toBe("2027-01-03");
+    expect(stepAnchor("month", "2026-12-01", 1)).toBe("2027-01-01");
+    expect(stepAnchor("month", "2027-01-01", -1)).toBe("2026-12-01");
+    expect(stepAnchor("month", "2024-03-01", -1)).toBe("2024-02-01");
+  });
+});
+
+describe("resolveCalendarRange", () => {
+  const resolve = (over: Partial<Parameters<typeof resolveCalendarRange>[0]> = {}) =>
+    resolveCalendarRange({ today: "2026-10-07", weekStartsOn: "SUNDAY", ...over });
+
+  it("defaults to the week containing the browser's today", () => {
+    expect(resolve()).toEqual({
+      view: "week",
+      anchor: "2026-10-04",
+      range: { start: "2026-10-04", end: "2026-10-10" },
+      prev: "2026-09-27",
+      next: "2026-10-11",
+      containsToday: true,
+    });
+  });
+
+  it("honors the week-start setting", () => {
+    expect(resolve({ weekStartsOn: "MONDAY" })).toMatchObject({ anchor: "2026-10-05", range: { start: "2026-10-05", end: "2026-10-11" } });
+    // Sunday 4 Oct belongs to the week that began Monday 28 Sep.
+    expect(resolve({ today: "2026-10-04", weekStartsOn: "MONDAY" }).anchor).toBe("2026-09-28");
+  });
+
+  it("normalizes any date inside the range to the range's start", () => {
+    expect(resolve({ view: "week", date: "2026-10-10" }).anchor).toBe("2026-10-04");
+    expect(resolve({ view: "month", date: "2026-10-31" }).anchor).toBe("2026-10-01");
+    expect(resolve({ view: "day", date: "2026-10-09" }).anchor).toBe("2026-10-09");
+  });
+
+  it("falls back to today for a missing or invalid date, and to the week for an unknown view", () => {
+    expect(resolve({ date: "garbage" }).anchor).toBe("2026-10-04");
+    expect(resolve({ date: "2026-02-30" }).anchor).toBe("2026-10-04");
+    expect(resolve({ view: "year" }).view).toBe("week");
+  });
+
+  it("knows whether today is among the dates shown", () => {
+    expect(resolve({ date: "2026-10-18" }).containsToday).toBe(false);
+    expect(resolve({ view: "day", date: "2026-10-07" }).containsToday).toBe(true);
+    expect(resolve({ view: "day", date: "2026-10-08" }).containsToday).toBe(false);
+    // The month grid includes leading and trailing days, so it can contain today even from an adjacent month.
+    expect(resolve({ view: "month", date: "2026-11-15", today: "2026-11-01" }).containsToday).toBe(true);
+    expect(resolve({ view: "month", date: "2026-11-15", today: "2026-10-31" }).containsToday).toBe(false);
+    // November 2026 starts on a Sunday: a Monday-start grid begins on 26 Oct, a Sunday-start one on 1 Nov.
+    expect(resolve({ view: "month", date: "2026-11-15", today: "2026-10-31", weekStartsOn: "MONDAY" }).containsToday).toBe(true);
+    expect(resolve({ view: "month", date: "2026-10-15", today: "2026-11-01", weekStartsOn: "MONDAY" }).containsToday).toBe(true);
+  });
+
+  it("gives the previous and next anchors for each view, unbounded in both directions", () => {
+    expect(resolve({ view: "day" })).toMatchObject({ prev: "2026-10-06", next: "2026-10-08" });
+    expect(resolve({ view: "month" })).toMatchObject({ prev: "2026-09-01", next: "2026-11-01" });
+    expect(resolve({ view: "month", date: "1999-12-20" })).toMatchObject({ anchor: "1999-12-01", next: "2000-01-01" });
+    expect(resolve({ view: "week", date: "2099-01-04" })).toMatchObject({ prev: "2098-12-28" });
+  });
+
+  it("walks forward and back through a year boundary without skipping or repeating", () => {
+    let anchor = resolve({ view: "week", date: "2026-12-06" }).anchor;
+    const seen: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      seen.push(anchor);
+      anchor = resolve({ view: "week", date: anchor }).next;
+    }
+    expect(seen).toEqual(["2026-12-06", "2026-12-13", "2026-12-20", "2026-12-27", "2027-01-03"]);
+    for (let i = 0; i < 4; i++) anchor = resolve({ view: "week", date: anchor }).prev;
+    expect(anchor).toBe("2026-12-13");
   });
 });

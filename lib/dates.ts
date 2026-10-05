@@ -99,3 +99,100 @@ export function formatDayHeading(date: string): { weekday: string; monthDay: str
     monthDay: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
   };
 }
+
+// ---- Calendar views: day, week and month ranges (Scheduling) ----
+
+export type CalendarView = "day" | "week" | "month";
+export const CALENDAR_VIEWS: readonly CalendarView[] = ["day", "week", "month"];
+
+/** The view named in a URL parameter; anything else is the default, the week. */
+export function parseView(value: unknown): CalendarView {
+  return CALENDAR_VIEWS.find((v) => v === value) ?? "week";
+}
+
+/** An inclusive range of calendar dates. */
+export type DateRange = { start: string; end: string };
+
+export function inRange(date: string, range: DateRange): boolean {
+  return date >= range.start && date <= range.end;
+}
+
+/** Every date in the range, in order. */
+export function datesInRange(range: DateRange): string[] {
+  const dates: string[] = [];
+  for (let d = range.start; d <= range.end; d = addDays(d, 1)) dates.push(d);
+  return dates;
+}
+
+/** Whole days from `from` to `to` (negative if `to` is earlier). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((toUtc(to).getTime() - toUtc(from).getTime()) / 86_400_000);
+}
+
+export function monthStartOf(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+export function monthEndOf(date: string): string {
+  return addDays(monthStartOf(addMonths(date, 1)), -1);
+}
+
+/** The first day of the month `months` away from the one containing `date`. */
+export function addMonths(date: string, months: number): string {
+  const d = toUtc(monthStartOf(date));
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The date a view is anchored on: the day itself, the first day of its week (honoring the week-start setting), or
+ * the first day of its month. A URL's `date` can be any date inside the range; this is what it is normalized to.
+ */
+export function viewAnchor(view: CalendarView, date: string, weekStartsOn: WeekStart): string {
+  if (view === "day") return date;
+  return view === "week" ? weekStartOf(date, weekStartsOn) : monthStartOf(date);
+}
+
+/**
+ * The dates a view shows. A month is the full grid of weeks: it starts on the week's first day on or before the 1st
+ * and ends on the last day of the week containing the month's last day, so it includes leading and trailing days.
+ */
+export function viewRange(view: CalendarView, anchor: string, weekStartsOn: WeekStart): DateRange {
+  if (view === "day") return { start: anchor, end: anchor };
+  if (view === "week") return { start: anchor, end: addDays(anchor, 6) };
+  return { start: weekStartOf(anchor, weekStartsOn), end: addDays(weekStartOf(monthEndOf(anchor), weekStartsOn), 6) };
+}
+
+/** The anchor one view-unit earlier (-1) or later (+1): a day, a week, or a month. */
+export function stepAnchor(view: CalendarView, anchor: string, direction: -1 | 1): string {
+  if (view === "day") return addDays(anchor, direction);
+  return view === "week" ? addDays(anchor, direction * 7) : addMonths(anchor, direction);
+}
+
+export type CalendarRange = {
+  view: CalendarView;
+  anchor: string;
+  range: DateRange;
+  prev: string;
+  next: string;
+  /** Whether today is among the dates shown (the overdue strip depends on it). */
+  containsToday: boolean;
+};
+
+/**
+ * Everything a calendar page needs from its URL: the view (default week), the date (default today; any date inside the
+ * range works), and the browser's own today. Unbounded in both directions.
+ */
+export function resolveCalendarRange(input: { view?: unknown; date?: unknown; today: string; weekStartsOn: WeekStart }): CalendarRange {
+  const view = parseView(input.view);
+  const anchor = viewAnchor(view, dateOr(input.date, input.today), input.weekStartsOn);
+  const range = viewRange(view, anchor, input.weekStartsOn);
+  return {
+    view,
+    anchor,
+    range,
+    prev: stepAnchor(view, anchor, -1),
+    next: stepAnchor(view, anchor, 1),
+    containsToday: inRange(input.today, range),
+  };
+}
