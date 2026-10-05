@@ -163,7 +163,7 @@ test("a superuser can reset someone's password with a link they pass on (and it 
   await logIn(fresh.page, email, PASSWORD);
   await expect(fresh.page.getByText("Incorrect email or password.")).toBeVisible();
   await logIn(fresh.page, email, "chosen-by-the-user-1");
-  await expect(fresh.page).toHaveURL(/\/home$/);
+  await expect(fresh.page).toHaveURL(/\/home(\?.*)?$/);
   await other.page.goto("/home");
   await expect(other.page).toHaveURL(/\/login$/);
 

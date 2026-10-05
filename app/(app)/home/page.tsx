@@ -1,40 +1,33 @@
 import Link from "next/link";
-import { Button, Card } from "antd";
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
+import { addDays, formatCalendarDate, formatWeekRange, isDateString, stringToDate, weekStartOf } from "@/lib/dates";
+import { loadAttention } from "@/lib/homeAttention";
 import { inDays, upcomingDates } from "@/lib/home";
-import { channelsFor, previewText } from "@/lib/messaging";
-import { contactsOf, householdsOf } from "@/lib/scope";
+import { getMealPlanSettings, visibleSlots, weekEntries } from "@/lib/mealPlan";
+import { contactsOf } from "@/lib/scope";
+import { buildBrief } from "@/lib/weekBrief";
+import LocalToday from "@/components/LocalToday";
+import WeekDrawing from "@/components/WeekDrawing";
 
-const muted = { color: "var(--muted)", fontSize: 13 } as const;
-const row = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--border)" } as const;
-const clip = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } as const;
+/** How far ahead of today the "Coming up" list reaches. */
+const COMING_UP_DAYS = 30;
+const COMING_UP_SHOWN = 5;
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
   const me = await pageMember();
-  const householdId = me.householdId;
-  const isOwner = me.role === "OWNER";
+  const { today } = await searchParams;
 
-  const [conversations, lists, dated, favorites, contactCount, householdCount] = await Promise.all([
-    prisma.conversation.findMany({
-      where: { AND: [channelsFor(me.id), { archivedAt: null }] },
-      orderBy: { updatedAt: "desc" },
-      take: 3,
-      include: {
-        messages: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: { text: true, sender: { select: { firstName: true } } },
-        },
-      },
-    }),
-    prisma.list.findMany({
-      where: { householdId, archivedAt: null, kind: "STANDARD" },
-      orderBy: { createdAt: "desc" },
-      take: 4,
-      include: { items: { select: { checked: true } } },
-    }),
+  // The week is the user's own, so it needs their browser's date; LocalToday puts it in the URL straight away.
+  if (!isDateString(today)) return <LocalToday />;
+
+  const householdId = me.householdId;
+  const settings = await getMealPlanSettings(householdId);
+  const weekStart = weekStartOf(today, settings.weekStartsOn);
+  const slots = visibleSlots(settings);
+
+  const [entries, contacts, attention] = await Promise.all([
+    weekEntries(householdId, weekStart),
     prisma.contact.findMany({
       where: {
         ...contactsOf(householdId),
@@ -46,111 +39,103 @@ export default async function HomePage() {
         importantDate1: true, importantDate1Label: true, importantDate2: true, importantDate2Label: true,
       },
     }),
-    prisma.contact.findMany({
-      where: { ...contactsOf(householdId), deletedAt: null, favorite: true },
-      select: { id: true, firstName: true, lastName: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      take: 5,
-    }),
-    prisma.contact.count({ where: { ...contactsOf(householdId), deletedAt: null } }),
-    prisma.household.count({ where: { ...householdsOf(householdId), deletedAt: null } }),
+    loadAttention(me),
   ]);
 
-  const upcoming = upcomingDates(dated, new Date()).slice(0, 5);
+  // Dates inside the week (judged from the week's first day), and the ones after it.
+  const weekEnd = addDays(weekStart, 6);
+  const inWeek = upcomingDates(contacts, stringToDate(weekStart), 6).map((d) => ({ date: d.next, name: d.name, label: d.label }));
+  const after = upcomingDates(contacts, stringToDate(today), COMING_UP_DAYS)
+    .filter((d) => d.next > weekEnd)
+    .slice(0, COMING_UP_SHOWN);
+
+  const brief = buildBrief({
+    firstName: me.firstName,
+    weekStart,
+    today,
+    slots,
+    entries: entries.filter((e) => slots.includes(e.slot)).map((e) => ({ date: e.date, slot: e.slot, label: e.label })),
+    dates: inWeek,
+  });
+
+  const plannerHref = `/meals?week=${weekStart}&today=${today}`;
+  const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Welcome back, {me.firstName}</h3>
-        <span style={muted}>{me.household.displayName}</span>
+    <>
+      <LocalToday />
+      <div className="brief-top">
+        <div className="brief-inner">
+          <div className="brief-date">Week of {formatWeekRange(weekStart)}</div>
+          <h1 className="brief-headline">{brief.headline}</h1>
+          <WeekDrawing drawing={brief.drawing} description={description} />
+          <div className="brief-groups">
+            {brief.groups.map((g) => (
+              <div key={g.range} className="brief-group">
+                <strong>{g.range}</strong>
+                <p>{g.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <Link href="/contacts/new">
-          <Button type="primary">Add contact</Button>
-        </Link>
-        {isOwner && (
-          <Link href="/household">
-            <Button>Invite someone</Button>
-          </Link>
+      <div className="brief-inner brief-lists">
+        <section>
+          <h2 className="brief-section">Needs attention</h2>
+          {attention.length === 0 ? (
+            <div className="brief-row brief-row-plain">
+              <div>
+                <div className="brief-title">Nothing needs attention</div>
+                <div className="brief-support">No unread messages, join requests or open sync invites.</div>
+              </div>
+            </div>
+          ) : (
+            attention.map((a, i) => (
+              <Link key={a.key} href={a.href} className="brief-row brief-row-num">
+                <span className="brief-index">{i + 1}</span>
+                <div>
+                  <div className="brief-title">{a.title}</div>
+                  <div className="brief-support">{a.support}</div>
+                </div>
+              </Link>
+            ))
+          )}
+        </section>
+
+        <section>
+          <h2 className="brief-section">Day by day</h2>
+          {brief.days.map((d) => (
+            <Link key={d.date} href={plannerHref} className="brief-row" data-today={d.isToday || undefined} data-open={d.load === 0 || undefined}>
+              <span className="brief-index">
+                {d.weekday}
+                {d.isToday && <span className="sr-only"> (today)</span>}
+              </span>
+              <div>
+                <div className="brief-title">{d.title}</div>
+                <div className="brief-support">{d.support}</div>
+              </div>
+            </Link>
+          ))}
+        </section>
+
+        {after.length > 0 && (
+          <section>
+            <h2 className="brief-section">Coming up</h2>
+            {after.map((d) => (
+              <Link key={`${d.contactId}-${d.label}-${d.next}`} href={`/contacts/${d.contactId}`} className="brief-row">
+                <span className="brief-index">{formatCalendarDate(d.next).replace(/, \d{4}$/, "")}</span>
+                <div>
+                  <div className="brief-title">
+                    {d.name}&apos;s {d.label.toLowerCase()}
+                  </div>
+                  <div className="brief-support">{inDays(d.daysUntil)}.</div>
+                </div>
+              </Link>
+            ))}
+          </section>
         )}
       </div>
-
-      <div className="home-grid">
-        <Card size="small" title="Messages" extra={<Link href="/messages">View all</Link>}>
-          {conversations.length === 0 ? (
-            <span style={muted}>No channels yet.</span>
-          ) : (
-            conversations.map((c) => {
-              const last = c.messages[0];
-              return (
-                <Link key={c.id} href={`/messages/${c.id}`} style={{ display: "block", color: "inherit" }}>
-                  <div style={{ ...row, flexDirection: "column", alignItems: "stretch", gap: 2 }}>
-                    <strong style={clip}>{c.name}</strong>
-                    <span style={{ ...muted, ...clip }}>
-                      {last ? `${last.sender?.firstName ?? "Former member"}: ${previewText(last.text, 60)}` : "No messages yet"}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })
-          )}
-        </Card>
-
-        <Card size="small" title="Lists" extra={<Link href="/lists">View all</Link>}>
-          {lists.length === 0 ? (
-            <span style={muted}>No lists yet.</span>
-          ) : (
-            lists.map((l) => (
-              <Link key={l.id} href={`/lists/${l.id}`} style={{ display: "block", color: "inherit" }}>
-                <div style={row}>
-                  <span style={clip}>{l.name}</span>
-                  <span style={{ ...muted, flexShrink: 0 }}>
-                    {l.items.filter((i) => i.checked).length} / {l.items.length}
-                  </span>
-                </div>
-              </Link>
-            ))
-          )}
-        </Card>
-
-        <Card size="small" title="Coming up" extra={<span style={muted}>next 30 days</span>}>
-          {upcoming.length === 0 ? (
-            <span style={muted}>Nothing coming up. Add birthdays and anniversaries to contacts to see them here.</span>
-          ) : (
-            upcoming.map((d) => (
-              <Link key={`${d.contactId}-${d.label}`} href={`/contacts/${d.contactId}`} style={{ display: "block", color: "inherit" }}>
-                <div style={row}>
-                  <span style={clip}>
-                    {d.name} <span style={muted}>· {d.label}</span>
-                  </span>
-                  <span style={{ ...muted, flexShrink: 0 }}>{inDays(d.daysUntil)}</span>
-                </div>
-              </Link>
-            ))
-          )}
-        </Card>
-
-        <Card size="small" title="Contacts" extra={<Link href="/contacts">View all</Link>}>
-          <div style={{ ...muted, marginBottom: 8 }}>
-            {contactCount} {contactCount === 1 ? "person" : "people"} in {householdCount} {householdCount === 1 ? "household" : "households"}
-          </div>
-          {favorites.length === 0 ? (
-            <span style={muted}>Star a contact to keep them handy here.</span>
-          ) : (
-            favorites.map((f) => (
-              <Link key={f.id} href={`/contacts/${f.id}`} style={{ display: "block", color: "inherit" }}>
-                <div style={row}>
-                  <span style={clip}>
-                    <span style={{ color: "var(--warning)", marginRight: 6 }}>★</span>
-                    {f.firstName} {f.lastName}
-                  </span>
-                </div>
-              </Link>
-            ))
-          )}
-        </Card>
-      </div>
-    </div>
+    </>
   );
 }

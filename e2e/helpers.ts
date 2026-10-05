@@ -107,7 +107,7 @@ export async function logIn(page: Page, email: string, password = PASSWORD) {
 export async function createHousehold(page: Page, name: string) {
   await page.getByPlaceholder("e.g. The Reynolds Family").fill(name);
   await page.getByRole("button", { name: "Create household" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/home(\?.*)?$/);
 }
 
 /** A new user who has signed up, confirmed their email and created a household. */
@@ -189,7 +189,7 @@ export async function addMember(browser: Browser, ownerPage: Page, tag: string) 
   await confirmEmail(session.page, email);
   await session.page.goto(new URL(link).pathname);
   await session.page.getByRole("button", { name: "Join this household" }).click();
-  await expect(session.page).toHaveURL(/\/home$/);
+  await expect(session.page).toHaveURL(/\/home(\?.*)?$/);
   return { ...session, email, name: `Joiner ${tag}` };
 }
 

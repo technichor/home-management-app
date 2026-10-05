@@ -38,7 +38,7 @@ test("an owner invites someone by link; they join, then the owner removes them",
   await confirmEmail(guest.page, email);
   await guest.page.goto(path);
   await guest.page.getByRole("button", { name: "Join this household" }).click();
-  await expect(guest.page).toHaveURL(new RegExp(`/home$`));
+  await expect(guest.page).toHaveURL(/\/home(\?.*)?$/);
 
   // The link was single-use.
   const third = await newSession(browser);
@@ -80,7 +80,7 @@ test("someone with a join code asks to join and an owner approves", async ({ bro
   await expect(owner.page.getByText("Asker")).toBeVisible();
 
   await asker.page.goto("/onboarding");
-  await expect(asker.page).toHaveURL(new RegExp(`/home$`));
+  await expect(asker.page).toHaveURL(/\/home(\?.*)?$/);
 
   for (const s of [owner, asker]) await s.context.close();
 });

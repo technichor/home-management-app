@@ -87,7 +87,7 @@ test("no link anywhere in the app carries a household name", async ({ page }) =>
 test("signed in, the front page and logging in lead to /home; the nav goes where it says", async ({ page, browser }) => {
   await newOwner(page, "front", "The Fronts");
   await page.goto("/");
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/home(\?.*)?$/);
 
   const nav = page.getByRole("navigation", { name: "Modules" });
   for (const [tab, path] of [

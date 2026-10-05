@@ -28,7 +28,7 @@ test("change your login email: confirm from the new address, the old one is told
   // Nothing has changed yet: the old address still logs in, and the account still shows it.
   const other = await newSession(browser);
   await logIn(other.page, oldEmail);
-  await expect(other.page).toHaveURL(/\/home$/);
+  await expect(other.page).toHaveURL(/\/home(\?.*)?$/);
   await other.page.goto("/account");
   await expect(other.page.getByText(oldEmail).first()).toBeVisible();
   await other.page.getByRole("button", { name: "Log out" }).click();
@@ -51,7 +51,7 @@ test("change your login email: confirm from the new address, the old one is told
   await logIn(other.page, oldEmail);
   await expect(other.page.getByText("Incorrect email or password.")).toBeVisible();
   await logIn(other.page, newEmail);
-  await expect(other.page).toHaveURL(/\/home$/);
+  await expect(other.page).toHaveURL(/\/home(\?.*)?$/);
   await other.page.goto("/account");
   await expect(other.page.getByText(newEmail).first()).toBeVisible();
 

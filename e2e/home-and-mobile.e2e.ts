@@ -1,36 +1,66 @@
 import { expect, type Page } from "@playwright/test";
-import { addServiceProvider, choose, newOwner, test } from "./helpers";
+import { addMember, addServiceProvider, choose, newOwner, test } from "./helpers";
 
-test("the home page greets you and reflects what's in the household", async ({ page }) => {
+test("the home page is a weekly brief: the week's meals, what needs attention, and what's coming up", async ({ page, browser }) => {
   await newOwner(page, "home", "The Homes");
-  await expect(page.getByRole("heading", { name: /Welcome back, Casey/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /General/ })).toBeVisible(); // every household starts with General
-  await expect(page.getByText("No lists yet.")).toBeVisible();
+  const brief = page.getByRole("heading", { level: 1 });
+  await expect(brief).toHaveText("Nothing is planned this week yet, Casey.");
+  await expect(page.getByText(/^Week of /)).toBeVisible();
+  await expect(page.getByText("Nothing needs attention")).toBeVisible();
+  await expect(page.getByRole("img", { name: /Sunday: open/ })).toBeVisible();
+  await expect(page.locator(".brief-row[data-open]")).toHaveCount(7);
 
-  // A contact with a birthday today shows under "Coming up", and is found from the home page.
-  const today = new Date().toISOString().slice(0, 10);
-  await page.goto(`/contacts/new`);
-  await page.getByLabel("First name").fill("Bertie");
-  await page.getByLabel("Last name").fill("Birthday");
-  await choose(page, "Category", "Service Provider");
-  await page.getByLabel("Important date 1").fill(today);
-  await page.getByLabel("Label").first().fill("Birthday");
-  await page.getByLabel(/^Favorite/).click();
-  await page.getByRole("button", { name: "Add contact" }).click();
-  await expect(page.getByRole("heading", { name: /Bertie Birthday/ })).toBeVisible();
-
+  // Meals planned this week appear in the headline, the drawing and the day-by-day list.
+  await page.goto("/meals");
+  await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
+  await page.getByRole("dialog").getByLabel("Meal").fill("Tacos");
+  await page.getByRole("dialog").getByRole("button", { name: /Create .Tacos. and add/ }).click();
+  await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Tacos"]);
   await page.getByRole("link", { name: "Home", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/home$`));
-  await expect(page.getByText("Bertie Birthday").first()).toBeVisible();
-  await expect(page.getByText("Today")).toBeVisible();
-  await expect(page.getByText("2 people in 1 household")).toBeVisible();
+  await expect(brief).toContainText("A light week, Casey, with the most planned on");
+  await expect(page.locator(".brief-row", { hasText: "Dinner: Tacos." })).toHaveCount(1);
+  await expect(page.locator(".brief-row[data-today]")).toHaveCount(1);
+  await expect(page.locator(".brief-drawing circle")).toHaveCount(1);
+  // A day links to that week in the planner.
+  await page.locator(".brief-row", { hasText: "Dinner: Tacos." }).click();
+  await expect(page).toHaveURL(/\/meals\?week=\d{4}-\d{2}-\d{2}/);
 
-  // The cards link through to the real pages.
-  await page.getByRole("link", { name: "Add contact" }).click();
-  await expect(page).toHaveURL(new RegExp(`/contacts/new$`));
+  // A contact's birthday today is in the week; one a few weeks out is under Coming up.
+  const iso = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  for (const [first, last, date] of [["Bertie", "Birthday", iso(0)], ["Later", "Person", iso(21)]]) {
+    await page.goto(`/contacts/new`);
+    await page.getByLabel("First name").fill(first);
+    await page.getByLabel("Last name").fill(last);
+    await choose(page, "Category", "Service Provider");
+    await page.getByLabel("Important date 1").fill(date);
+    await page.getByLabel("Label").first().fill("Birthday");
+    await page.getByRole("button", { name: "Add contact" }).click();
+    await expect(page.getByRole("heading", { name: new RegExp(`${first} ${last}`) })).toBeVisible();
+  }
   await page.getByRole("link", { name: "Home", exact: true }).click();
-  await page.getByRole("link", { name: "Invite someone" }).click();
-  await expect(page).toHaveURL(new RegExp(`/household$`));
+  await expect(page.getByText("Bertie Birthday's birthday").first()).toBeVisible();
+  const coming = page.locator("section", { has: page.getByRole("heading", { name: "Coming up" }) });
+  await expect(coming.getByText("Later Person's birthday")).toBeVisible();
+  await expect(coming.getByText("Bertie Birthday")).toHaveCount(0);
+
+  // What needs attention: a message from someone else in the household shows up with a link to it.
+  const mate = await addMember(browser, page, "homemate");
+  await mate.page.goto("/messages");
+  await mate.page.getByText("General").first().click();
+  await mate.page.getByPlaceholder(/Write a message/).fill("Dinner is ready");
+  await mate.page.getByRole("button", { name: "Send" }).click();
+  await expect(mate.page.getByText("Dinner is ready")).toBeVisible();
+  await page.goto("/home");
+  const attention = page.locator("section", { has: page.getByRole("heading", { name: "Needs attention" }) });
+  await expect(attention.getByText("General has 1 unread message")).toBeVisible();
+  await expect(attention.getByText(/Dinner is ready/)).toBeVisible();
+  await attention.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/messages\/[a-z0-9]+/);
+  await mate.context.close();
 });
 
 // ---- Phone-sized screens ----
