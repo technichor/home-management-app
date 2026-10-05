@@ -4,10 +4,7 @@ import { dateToString, stringToDate } from "@/lib/dates";
 
 type Tx = Prisma.TransactionClient;
 
-/** The case-insensitive identity of a meal's name within a household. */
-export function mealKey(name: string): string {
-  return name.trim().toLowerCase();
-}
+export { mealKey } from "@/lib/mealKey";
 
 export type MealStats = { lastMade: string | null; timesMade: number };
 

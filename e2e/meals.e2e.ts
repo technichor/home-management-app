@@ -12,8 +12,7 @@ async function addMeal(page: import("@playwright/test").Page, name: string, desc
 
 test("the meal library: add, search, sort, edit, and no duplicate names", async ({ page }) => {
   await newOwner(page, "mealslib", "The Mealers");
-  await page.goto("/meals");
-  await expect(page).toHaveURL(/\/meals\/library/);
+  await page.goto("/meals/library");
   await expect(page.getByText(/No meals yet/)).toBeVisible();
 
   const recipe = "1. Chop <b>onions</b>\n   2. Fry them\n\nServe hot.";

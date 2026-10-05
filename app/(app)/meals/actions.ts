@@ -5,7 +5,10 @@ import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
 import { deleteMealKeepingEntries, mealKey } from "@/lib/meals";
-import { mealSchema } from "@/lib/validations";
+import { mealPlanSettingsSchema, mealSchema, planEntrySchema, planPositionSchema } from "@/lib/validations";
+import { getMealPlanSettings, visibleSlots } from "@/lib/mealPlan";
+import { stringToDate } from "@/lib/dates";
+import type { MealSlot } from "@prisma/client";
 
 // Server actions are public endpoints: each one takes the household from the session and only ever touches
 // meals of that household. A meal id from the client that belongs to another household is "not found".
@@ -86,5 +89,130 @@ export async function deleteMealAction(id: string) {
     refresh(id);
     revalidatePath("/meals");
     return { converted };
+  });
+}
+
+// ---------- The plan ----------
+
+async function loadEntry(householdId: string, id: string) {
+  const entry = await prisma.mealPlanEntry.findFirst({ where: { id, householdId } });
+  if (!entry) throw new UserError("That entry isn't on your plan any more");
+  return entry;
+}
+
+function parseEntry(input: { date: string; slot: string; mealId?: string | null; text?: string | null }) {
+  const parsed = planEntrySchema.safeParse(input);
+  if (!parsed.success) throw new UserError(parsed.error.issues[0].message);
+  return parsed.data;
+}
+
+const entryData = (householdId: string, e: { date: string; slot: MealSlot; mealId: string | null; text: string | null }) => ({
+  householdId,
+  date: stringToDate(e.date),
+  slot: e.slot,
+  mealId: e.mealId,
+  text: e.text,
+});
+
+function refreshPlan() {
+  revalidatePath("/meals");
+}
+
+/** Put a library meal on a date and slot. A slot can hold several entries. */
+export async function addPlanEntryAction(date: string, slot: MealSlot, mealId: string) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    const entry = parseEntry({ date, slot, mealId });
+    await loadMeal(householdId, entry.mealId as string);
+    const created = await prisma.mealPlanEntry.create({ data: entryData(householdId, entry) });
+    refreshPlan();
+    return { entryId: created.id };
+  });
+}
+
+/** Put a one-off text ("leftovers") on a date and slot, without saving it to the library. */
+export async function addOneOffEntryAction(date: string, slot: MealSlot, text: string) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    const entry = parseEntry({ date, slot, text });
+    const created = await prisma.mealPlanEntry.create({ data: entryData(householdId, entry) });
+    refreshPlan();
+    return { entryId: created.id };
+  });
+}
+
+/**
+ * Create a library meal and put it on the plan in one transaction. A name that already exists (ignoring case)
+ * selects that meal instead of making a duplicate.
+ */
+export async function createMealAndAddAction(date: string, slot: MealSlot, name: string) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    const position = planPositionSchema.safeParse({ date, slot });
+    if (!position.success) throw new UserError(position.error.issues[0].message);
+    const meal = parseMeal(name, null);
+    const key = mealKey(meal.name);
+
+    const run = () =>
+      prisma.$transaction(async (tx) => {
+        const existing = await tx.meal.findUnique({ where: { householdId_nameKey: { householdId, nameKey: key } } });
+        const target =
+          existing ?? (await tx.meal.create({ data: { householdId, name: meal.name, nameKey: key, description: null } }));
+        const entry = parseEntry({ date, slot, mealId: target.id });
+        const created = await tx.mealPlanEntry.create({ data: entryData(householdId, entry) });
+        return { entryId: created.id, mealId: target.id, created: !existing };
+      });
+    let result;
+    try {
+      result = await run();
+    } catch (e) {
+      // Someone added the same name a moment ago: now it exists, so this picks it.
+      if (!isUniqueViolation(e)) throw e;
+      result = await run();
+    }
+    refreshPlan();
+    revalidatePath("/meals/library");
+    return result;
+  });
+}
+
+/** Change an entry's date and/or slot. */
+export async function moveEntryAction(id: string, date: string, slot: MealSlot) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    await loadEntry(householdId, id);
+    const position = planPositionSchema.safeParse({ date, slot });
+    if (!position.success) throw new UserError(position.error.issues[0].message);
+    await prisma.mealPlanEntry.update({ where: { id }, data: { date: stringToDate(date), slot } });
+    refreshPlan();
+  });
+}
+
+/** Take an entry off the plan (hard delete). The meal itself stays in the library. */
+export async function removeEntryAction(id: string) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    await loadEntry(householdId, id);
+    await prisma.mealPlanEntry.delete({ where: { id } });
+    refreshPlan();
+    revalidatePath("/meals/library");
+  });
+}
+
+/** Household-wide planner settings. At least one slot must stay visible. */
+export async function updateMealPlanSettingsAction(patch: {
+  weekStartsOn?: "SUNDAY" | "MONDAY";
+  showBreakfast?: boolean;
+  showLunch?: boolean;
+  showDinner?: boolean;
+}) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    const parsed = mealPlanSettingsSchema.safeParse(patch);
+    if (!parsed.success) throw new UserError("Invalid setting");
+    const next = { ...(await getMealPlanSettings(householdId)), ...parsed.data };
+    if (visibleSlots(next).length === 0) throw new UserError("Keep at least one meal visible");
+    await prisma.mealPlanSettings.update({ where: { householdId }, data: parsed.data });
+    refreshPlan();
   });
 }

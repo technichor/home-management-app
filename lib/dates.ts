@@ -76,3 +76,26 @@ export function stringToDate(date: string): Date {
 export function formatCalendarDate(date: string): string {
   return toUtc(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
+
+/** "Oct 4 – 10, 2026", or "Sep 28 – Oct 4, 2026" when the week spans two months (or years). */
+export function formatWeekRange(start: string): string {
+  const end = addDays(start, 6);
+  const [a, b] = [toUtc(start), toUtc(end)];
+  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
+  if (a.getUTCFullYear() !== b.getUTCFullYear()) {
+    return `${fmt(a, { month: "short", day: "numeric", year: "numeric" })} – ${fmt(b, { month: "short", day: "numeric", year: "numeric" })}`;
+  }
+  if (a.getUTCMonth() !== b.getUTCMonth()) {
+    return `${fmt(a, { month: "short", day: "numeric" })} – ${fmt(b, { month: "short", day: "numeric" })}, ${a.getUTCFullYear()}`;
+  }
+  return `${fmt(a, { month: "short", day: "numeric" })} – ${b.getUTCDate()}, ${a.getUTCFullYear()}`;
+}
+
+/** "Mon" and "Oct 5" for a column or row heading. */
+export function formatDayHeading(date: string): { weekday: string; monthDay: string } {
+  const d = toUtc(date);
+  return {
+    weekday: d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+    monthDay: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+  };
+}

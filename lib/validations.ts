@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_MESSAGE_LENGTH } from "./messaging";
+import { isDateString } from "./dates";
 
 export const ContactCategoryEnum = z.enum([
   "FAMILY_FRIEND",
@@ -206,4 +207,28 @@ export const mealSchema = z.object({
     .nullish()
     // Text is kept exactly as pasted (line breaks and indentation); only an empty or blank one becomes null.
     .transform((v) => (v && v.trim() ? v : null)),
+});
+
+const MEAL_SLOTS = ["BREAKFAST", "LUNCH", "DINNER"] as const;
+const planDate = z.string().refine(isDateString, "Choose a valid date");
+const planSlot = z.enum(MEAL_SLOTS, "Choose breakfast, lunch or dinner");
+
+/** A meal on the plan: a calendar date and slot, and either a library meal or a one-off text, never both. */
+export const planEntrySchema = z
+  .object({
+    date: planDate,
+    slot: planSlot,
+    mealId: z.string().min(1).nullish(),
+    text: z.string().trim().max(120, "One-off entries can be at most 120 characters").nullish(),
+  })
+  .refine((v) => Boolean(v.mealId) !== Boolean(v.text), "Choose a meal or type a one-off, not both")
+  .transform((v) => ({ date: v.date, slot: v.slot, mealId: v.mealId || null, text: v.mealId ? null : (v.text as string) }));
+
+export const planPositionSchema = z.object({ date: planDate, slot: planSlot });
+
+export const mealPlanSettingsSchema = z.object({
+  weekStartsOn: z.enum(["SUNDAY", "MONDAY"]).optional(),
+  showBreakfast: z.boolean().optional(),
+  showLunch: z.boolean().optional(),
+  showDinner: z.boolean().optional(),
 });

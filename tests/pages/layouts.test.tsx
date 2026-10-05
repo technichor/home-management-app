@@ -34,6 +34,7 @@ import RootPage from "@/app/page";
 import AppLayout from "@/app/(app)/layout";
 import ContactsLayout from "@/app/(app)/contacts/layout";
 import ListsLayout from "@/app/(app)/lists/layout";
+import MealsLayout from "@/app/(app)/meals/layout";
 import ImportPage from "@/app/(app)/contacts/import/page";
 
 beforeEach(() => {
@@ -123,6 +124,12 @@ describe("small layouts and pages", () => {
   it("ContactsLayout renders the contacts nav above its children", async () => {
     render(await ContactsLayout({ children: <p>kids</p> }));
     expect(screen.getByRole("link", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByText("kids")).toBeInTheDocument();
+  });
+
+  it("MealsLayout renders the meals nav above its children", () => {
+    render(<MealsLayout><p>kids</p></MealsLayout>);
+    expect(screen.getByRole("link", { name: "Planner" })).toBeInTheDocument();
     expect(screen.getByText("kids")).toBeInTheDocument();
   });
 

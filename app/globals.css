@@ -330,3 +330,129 @@ html[data-pending] body {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 16px;
 }
+
+/* ---- Meal planner (app/(app)/meals): a week grid, or a list of days on a narrow screen ---- */
+
+.planner {
+  display: grid;
+  /* Cells flow down a column (a day's header, then its slots), so the rows line up across days. */
+  grid-auto-flow: column;
+  grid-template-columns: 84px repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto repeat(var(--planner-rows, 2), minmax(96px, auto));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.planner > * {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.planner-corner {
+  background: var(--subtle);
+}
+.planner-label {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--subtle);
+}
+.planner-day {
+  padding: 8px 10px;
+  background: var(--subtle);
+  font-size: 13px;
+  color: var(--muted);
+}
+.planner-day strong {
+  color: var(--text);
+}
+.planner-day[data-today] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.planner-day[data-today] strong {
+  color: var(--accent);
+}
+.planner-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
+}
+.planner-slot-label {
+  display: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.plan-entry {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.plan-entry:hover {
+  background: var(--accent-soft);
+}
+.plan-add {
+  align-self: flex-start;
+  margin-top: auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+}
+.plan-add:hover {
+  background: var(--hover);
+  color: var(--accent);
+}
+
+@media (max-width: 1100px) {
+  .planner {
+    display: block;
+  }
+  .planner > * {
+    border-right: 0;
+  }
+  .planner-corner,
+  .planner-label {
+    display: none;
+  }
+  .planner-day {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  .planner-slot-label {
+    display: block;
+  }
+  .planner-cell {
+    padding: 8px 12px;
+  }
+  .plan-add {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* A plain list of choices (the add-to-planner box): a hairline between neighbours. */
+.option-list > button + button {
+  border-top: 1px solid var(--border);
+}
+.option-list > button:hover:not(:disabled) {
+  background: var(--hover);
+}

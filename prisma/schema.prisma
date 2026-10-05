@@ -76,11 +76,12 @@ model Household {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  contacts        Contact[]       @relation("HouseholdContacts")
-  importVersions  ImportVersion[]
-  lists           List[]
-  meals           Meal[]
-  mealPlanEntries MealPlanEntry[]
+  contacts         Contact[]         @relation("HouseholdContacts")
+  importVersions   ImportVersion[]
+  lists            List[]
+  meals            Meal[]
+  mealPlanEntries  MealPlanEntry[]
+  mealPlanSettings MealPlanSettings?
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -500,4 +501,21 @@ model MealPlanEntry {
 
   @@index([householdId, date])
   @@index([mealId])
+}
+
+enum WeekStartDay {
+  SUNDAY
+  MONDAY
+}
+
+// Household-wide planner settings, created with these defaults the first time they are read.
+// At least one show* must stay true (enforced in the app).
+model MealPlanSettings {
+  householdId   String       @id
+  household     Household    @relation(fields: [householdId], references: [id])
+  weekStartsOn  WeekStartDay @default(SUNDAY)
+  showBreakfast Boolean      @default(false)
+  showLunch     Boolean      @default(true)
+  showDinner    Boolean      @default(true)
+  updatedAt     DateTime     @updatedAt
 }

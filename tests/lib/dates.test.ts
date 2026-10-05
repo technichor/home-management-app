@@ -5,6 +5,8 @@ import {
   dateToString,
   dayOfWeek,
   formatCalendarDate,
+  formatDayHeading,
+  formatWeekRange,
   isDateString,
   localDateString,
   stringToDate,
@@ -117,5 +119,24 @@ describe("converting to and from stored dates", () => {
   it("formats the same on the server and in the browser", () => {
     expect(formatCalendarDate("2026-10-05")).toBe("Oct 5, 2026");
     expect(formatCalendarDate("2026-01-01")).toBe("Jan 1, 2026");
+  });
+});
+
+describe("week headings", () => {
+  it("writes a week inside one month", () => {
+    expect(formatWeekRange("2026-10-04")).toBe("Oct 4 – 10, 2026");
+  });
+
+  it("names both months when the week spans two", () => {
+    expect(formatWeekRange("2026-09-28")).toBe("Sep 28 – Oct 4, 2026");
+  });
+
+  it("names both years when the week spans New Year", () => {
+    expect(formatWeekRange("2026-12-28")).toBe("Dec 28, 2026 – Jan 3, 2027");
+  });
+
+  it("splits a day into weekday and month/day", () => {
+    expect(formatDayHeading("2026-10-05")).toEqual({ weekday: "Mon", monthDay: "Oct 5" });
+    expect(formatDayHeading("2026-10-04")).toEqual({ weekday: "Sun", monthDay: "Oct 4" });
   });
 });
