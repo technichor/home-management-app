@@ -35,7 +35,7 @@ export async function sendPasswordResetEmail(
   const link = `${appUrl()}/reset-password/${token}`;
   await sendEmail({
     to: user.email,
-    subject: "Reset your Home Management password",
+    subject: "Reset your Domata password",
     text: options.byAdmin
       ? `Hi ${user.firstName},\n\n` +
         `An administrator started a password reset for your account. To choose a new password, open this link within 24 hours:\n\n` +

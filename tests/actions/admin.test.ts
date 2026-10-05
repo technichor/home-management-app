@@ -167,7 +167,7 @@ describe("sendTestEmailAction", () => {
 
   it("sends a plain test message to the normalized address", async () => {
     expect(await sendTestEmailAction(" Pat@X.co ")).toEqual({ ok: true });
-    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({ to: "pat@x.co", subject: "Home Management test email" });
+    expect(vi.mocked(sendEmail).mock.calls[0][0]).toMatchObject({ to: "pat@x.co", subject: "Domata test email" });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/email");
   });
 

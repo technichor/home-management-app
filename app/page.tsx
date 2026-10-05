@@ -2,6 +2,7 @@ import { getSessionUser, homePathFor } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Space } from "antd";
+import { BRAND_NAME, TAGLINE } from "@/lib/brand";
 
 export default async function RootPage() {
   const user = await getSessionUser();
@@ -22,8 +23,9 @@ export default async function RootPage() {
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
             <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 24, fontWeight: 600 }}>
-              Home Management
+              {BRAND_NAME}
             </h2>
+            <div style={{ fontSize: 16, marginBottom: 8 }}>{TAGLINE}</div>
             <span style={{ color: "rgba(0,0,0,.45)", fontSize: 14 }}>
               Log in with your email address, or create an account.
             </span>

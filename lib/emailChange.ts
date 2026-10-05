@@ -25,10 +25,10 @@ export async function sendChangeEmailLink(user: { id: string; firstName: string 
   });
   await sendEmail({
     to: newEmail,
-    subject: "Confirm your new email for Home Management",
+    subject: "Confirm your new email for Domata",
     text:
       `Hi ${user.firstName},\n\n` +
-      `You asked to use this address to log in to Home Management. To confirm the change, open this link within an hour:\n\n` +
+      `You asked to use this address to log in to Domata. To confirm the change, open this link within an hour:\n\n` +
       `${appUrl()}/change-email/${token}\n\n` +
       `If you didn't ask for this, ignore this email. Nothing changes until the link is opened.`,
   });
@@ -38,10 +38,10 @@ export async function sendChangeEmailLink(user: { id: string; firstName: string 
 export async function sendEmailChangedNotice(user: { firstName: string }, oldEmail: string, newEmail: string): Promise<void> {
   await sendEmail({
     to: oldEmail,
-    subject: "Your Home Management email address was changed",
+    subject: "Your Domata email address was changed",
     text:
       `Hi ${user.firstName},\n\n` +
-      `The email address you use to log in to Home Management was just changed from ${oldEmail} to ${newEmail}.\n\n` +
+      `The email address you use to log in to Domata was just changed from ${oldEmail} to ${newEmail}.\n\n` +
       `If that was you, there's nothing more to do. If it wasn't, someone else has access to your account: ` +
       `use "Forgot your password?" at ${appUrl()}/forgot-password with the new address, and change your password.`,
   });

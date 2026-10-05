@@ -22,7 +22,7 @@ export async function sendVerificationEmail(user: { id: string; email: string; f
   });
   await sendEmail({
     to: user.email,
-    subject: "Confirm your email for Home Management",
+    subject: "Confirm your email for Domata",
     text:
       `Hi ${user.firstName},\n\n` +
       `To finish setting up your account, confirm this email address by opening this link within 24 hours:\n\n` +

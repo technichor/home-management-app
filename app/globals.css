@@ -25,6 +25,20 @@ body {
   white-space: nowrap;
 }
 
+/* The tagline sits beside the name, and goes first when the screen is narrow. */
+.app-nav-tagline {
+  margin-left: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 720px) {
+  .app-nav-tagline {
+    display: none;
+  }
+}
+
 .app-nav-links {
   display: flex;
   align-items: center;

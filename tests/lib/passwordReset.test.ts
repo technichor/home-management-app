@@ -63,7 +63,7 @@ describe("sendPasswordResetEmail", () => {
   it("emails the reset link in the ordinary wording", async () => {
     await sendPasswordResetEmail(user, "tok");
     const mail = vi.mocked(sendEmail).mock.calls[0][0];
-    expect(mail).toMatchObject({ to: "a@b.co", subject: "Reset your Home Management password" });
+    expect(mail).toMatchObject({ to: "a@b.co", subject: "Reset your Domata password" });
     expect(mail.text).toContain("https://app.test/reset-password/tok");
     expect(mail.text).toContain("within an hour");
     expect(mail.text).not.toContain("administrator");

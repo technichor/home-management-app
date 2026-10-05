@@ -172,7 +172,7 @@ export async function onlySuperusers(emails: string[]) {
 export async function seedFailedEmail(to: string, error: string) {
   const prisma = new PrismaClient();
   try {
-    await prisma.emailLogEntry.create({ data: { toAddress: to, subject: "Reset your Home Management password", status: "FAILED", error } });
+    await prisma.emailLogEntry.create({ data: { toAddress: to, subject: "Reset your Domata password", status: "FAILED", error } });
   } finally {
     await prisma.$disconnect();
   }

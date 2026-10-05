@@ -1,4 +1,6 @@
-# Home Management App — Build Brief for Claude Code
+# Domata (home management app) — Build Brief for Claude Code
+
+> The product is called **Domata** ("Your family's home directory"); the name and tagline live in `lib/brand.ts`. The repo, Vercel project and package are still named `home-management-app`.
 
 > **Start here: read [`docs/HANDOFF.md`](docs/HANDOFF.md) first.** It is the current state of the project (what is built and deployed, environment, gotchas, what to verify, what to do next). Per-domain requirements are in `docs/domains/` (`lists.md`, `messaging.md`). The brief below is the original Phase 1 (Contacts & Households) spec; the app has since grown past it, and its "Access & identity model" (one shared household password, `/[slug]` login, `/setup`) has been **replaced by individual user accounts** — see HANDOFF.md. Quality rules: keep `npm run test:coverage` at 100%, lint and `tsc` clean, and `next build` passing before pushing to `main` (it auto-deploys to Vercel).
 

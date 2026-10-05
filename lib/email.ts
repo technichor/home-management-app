@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 //
 // EMAIL_FROM defaults to Resend's shared test sender, which only delivers to the Resend
 // account's own address. Set EMAIL_FROM to an address on a verified domain to email anyone.
-const DEFAULT_FROM = "Home Management <onboarding@resend.dev>";
+const DEFAULT_FROM = "Domata <onboarding@resend.dev>";
 
 const LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 

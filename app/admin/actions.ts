@@ -104,8 +104,8 @@ export async function sendTestEmailAction(to: string): Promise<AdminResult> {
   try {
     await sendEmail({
       to: parsed.data.to,
-      subject: "Home Management test email",
-      text: "This is a test email from the Home Management admin area. If you can read it, email delivery works.",
+      subject: "Domata test email",
+      text: "This is a test email from the Domata admin area. If you can read it, email delivery works.",
     });
   } catch (e) {
     return { ok: false, error: (e as Error).message };

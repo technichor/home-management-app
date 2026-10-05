@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, Button, Tag } from "antd";
+import { BRAND_NAME, TAGLINE } from "@/lib/brand";
 import { usePathname, useRouter } from "next/navigation";
 
 interface AppNavProps {
@@ -32,7 +33,10 @@ export default function AppNav({ householdName, isSuperuser, unreadMessages = 0,
   return (
     <div className="app-nav">
       <div className="app-nav-top">
-        <span className="app-nav-title">Home Management</span>
+        <span className="app-nav-title">
+          {BRAND_NAME}
+          <span className="app-nav-tagline">{TAGLINE}</span>
+        </span>
         <div className="app-nav-links">
           <span className="app-nav-household">{householdName}</span>
           <Button type="link" size="small" style={{ padding: 0 }} onClick={() => router.push("/account")}>

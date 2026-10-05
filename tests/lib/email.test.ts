@@ -38,7 +38,7 @@ describe("sendEmail", () => {
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     expect((init.headers as any).Authorization).toBe("Bearer key123");
-    expect(JSON.parse(init.body as string)).toEqual({ from: "Home Management <onboarding@resend.dev>", ...message });
+    expect(JSON.parse(init.body as string)).toEqual({ from: "Domata <onboarding@resend.dev>", ...message });
   });
 
   it("records an accepted send with the provider's message id, and never the body", async () => {

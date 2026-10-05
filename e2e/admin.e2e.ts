@@ -269,7 +269,7 @@ test("the email log shows every attempt and its outcome, and can send a test", a
   await expect(page.getByRole("heading", { name: "Email" })).toBeVisible();
   const row = page.locator("tr", { hasText: newcomerEmail });
   await expect(row).toContainText("Sent");
-  await expect(row).toContainText("Confirm your email for Home Management");
+  await expect(row).toContainText("Confirm your email for Domata");
   await expect(row).toContainText(today());
   // Only the recipient and subject are kept: the link in the body never appears.
   expect(await page.content()).not.toContain("/verify-email/");
@@ -292,7 +292,7 @@ test("the email log shows every attempt and its outcome, and can send a test", a
   await expect(page.getByText(`The provider accepted the test email for ${to}.`)).toBeVisible();
   const mail = await latestEmail(to, "test email");
   expect(mail.text).toContain("email delivery works");
-  await expect(page.locator("tr", { hasText: to })).toContainText("Home Management test email");
+  await expect(page.locator("tr", { hasText: to })).toContainText("Domata test email");
   await newcomer.context.close();
 });
 

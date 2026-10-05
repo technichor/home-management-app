@@ -41,7 +41,8 @@ describe("RootLayout", () => {
     const html = renderToStaticMarkup(RootLayout({ children: <p>hello</p> }));
     expect(html).toContain('<html lang="en">');
     expect(html).toContain("<p>hello</p>");
-    expect(metadata.title).toBe("Home Management");
+    expect(metadata.title).toBe("Domata");
+    expect(metadata.description).toBe("Your family's home directory");
   });
 });
 
