@@ -5,8 +5,8 @@ import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
 import { deleteMealKeepingEntries, mealKey } from "@/lib/meals";
-import { mealPlanSettingsSchema, mealSchema, planEntrySchema, planPositionSchema } from "@/lib/validations";
-import { getMealPlanSettings, visibleSlots } from "@/lib/mealPlan";
+import { mealSchema, planEntrySchema, planPositionSchema } from "@/lib/validations";
+import { updatePlanSettings } from "@/lib/mealPlan";
 import { stringToDate } from "@/lib/dates";
 import type { MealSlot } from "@prisma/client";
 
@@ -208,11 +208,8 @@ export async function updateMealPlanSettingsAction(patch: {
 }) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
-    const parsed = mealPlanSettingsSchema.safeParse(patch);
-    if (!parsed.success) throw new UserError("Invalid setting");
-    const next = { ...(await getMealPlanSettings(householdId)), ...parsed.data };
-    if (visibleSlots(next).length === 0) throw new UserError("Keep at least one meal visible");
-    await prisma.mealPlanSettings.update({ where: { householdId }, data: parsed.data });
+    const result = await updatePlanSettings(householdId, patch);
+    if (!result.ok) throw new UserError(result.error);
     refreshPlan();
   });
 }

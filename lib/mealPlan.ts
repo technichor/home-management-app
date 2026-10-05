@@ -1,6 +1,7 @@
 import type { MealSlot, WeekStartDay } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { addDays, dateToString, stringToDate } from "@/lib/dates";
+import { mealPlanSettingsSchema } from "@/lib/validations";
 
 export const SLOTS: readonly MealSlot[] = ["BREAKFAST", "LUNCH", "DINNER"];
 
@@ -29,6 +30,23 @@ const pick = (s: PlanSettings): PlanSettings => ({
 export async function getMealPlanSettings(householdId: string): Promise<PlanSettings> {
   const row = await prisma.mealPlanSettings.upsert({ where: { householdId }, create: { householdId }, update: {} });
   return pick(row);
+}
+
+/**
+ * Change the household's planner settings: the week's first day, and which meals show. At least one meal must stay
+ * visible. The calendar shares this (and `getMealPlanSettings`) for the week's first day, so changing it in either
+ * place changes both.
+ */
+export async function updatePlanSettings(
+  householdId: string,
+  patch: Partial<PlanSettings>
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = mealPlanSettingsSchema.safeParse(patch);
+  if (!parsed.success) return { ok: false, error: "Invalid setting" };
+  const next = { ...(await getMealPlanSettings(householdId)), ...parsed.data };
+  if (visibleSlots(next).length === 0) return { ok: false, error: "Keep at least one meal visible" };
+  await prisma.mealPlanSettings.update({ where: { householdId }, data: parsed.data });
+  return { ok: true };
 }
 
 export type PlanEntry = {
