@@ -8,9 +8,12 @@ import { formatDayHeading } from "@/lib/dates";
 import { mealKey } from "@/lib/mealKey";
 import { addOneOffEntryAction, addPlanEntryAction, createMealAndAddAction } from "./actions";
 import type { MealSlot } from "@prisma/client";
+import type { SuggestionMeal } from "@/lib/suggestions";
+import SuggestionList from "./SuggestionList";
+import { useSuggestions } from "./useSuggestions";
 
 export type Cell = { date: string; slot: MealSlot };
-export type LibraryOption = { id: string; name: string };
+export type LibraryOption = SuggestionMeal;
 
 const MAX_MATCHES = 8;
 
@@ -31,17 +34,19 @@ const optionStyle = {
  * ("Create 'x' and add"), or add the text as a one-off that isn't saved. A typed name that matches a library
  * meal (ignoring case) offers that meal instead of a duplicate.
  */
-export default function AddEntryDialog({ cell, meals, onClose }: { cell: Cell | null; meals: LibraryOption[]; onClose: () => void }) {
+type DialogProps = { cell: Cell | null; meals: LibraryOption[]; today: string; weekMealIds: ReadonlySet<string>; onClose: () => void };
+
+export default function AddEntryDialog({ cell, meals, today, weekMealIds, onClose }: DialogProps) {
   const title = cell ? `${SLOT_LABELS[cell.slot]}, ${formatDayHeading(cell.date).weekday} ${formatDayHeading(cell.date).monthDay}` : "";
   return (
     <Modal title={`Add to ${title}`} open={cell !== null} onCancel={onClose} footer={null} destroyOnHidden>
       {/* Keyed by cell, so what was typed for one cell isn't carried to the next. */}
-      {cell && <AddBody key={`${cell.date}-${cell.slot}`} cell={cell} meals={meals} onClose={onClose} />}
+      {cell && <AddBody key={`${cell.date}-${cell.slot}`} cell={cell} meals={meals} today={today} weekMealIds={weekMealIds} onClose={onClose} />}
     </Modal>
   );
 }
 
-function AddBody({ cell, meals, onClose }: { cell: Cell; meals: LibraryOption[]; onClose: () => void }) {
+function AddBody({ cell, meals, today, weekMealIds, onClose }: Omit<DialogProps, "cell"> & { cell: Cell }) {
   const router = useRouter();
   const { message } = App.useApp();
   const [text, setText] = useState("");
@@ -52,6 +57,7 @@ function AddBody({ cell, meals, onClose }: { cell: Cell; meals: LibraryOption[];
   const matches = meals.filter((m) => mealKey(m.name).includes(key));
   const exact = meals.find((m) => mealKey(m.name) === key);
   const shown = matches.slice(0, MAX_MATCHES);
+  const { due, staples, shuffle } = useSuggestions(meals, today, weekMealIds);
 
   async function run(call: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setBusy(true);
@@ -87,6 +93,21 @@ function AddBody({ cell, meals, onClose }: { cell: Cell; meals: LibraryOption[];
         aria-label="Meal"
         disabled={busy}
       />
+      {!typed && (due.length > 0 || staples.length > 0) && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <span className="suggest-title" style={{ margin: 0 }}>
+              Ideas
+            </span>
+            <Button size="small" type="link" onClick={shuffle}>
+              Shuffle
+            </Button>
+          </div>
+          <SuggestionList title="Due for a repeat" meals={due} onAdd={pick} busy={busy} />
+          <div style={{ height: 8 }} />
+          <SuggestionList title="Family staples" meals={staples} onAdd={pick} busy={busy} />
+        </div>
+      )}
       <div className="option-list" style={{ marginTop: 8, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", maxHeight: 320, overflowY: "auto" }}>
         {shown.map((m) => (
           <button key={m.id} type="button" disabled={busy} onClick={() => pick(m)} style={optionStyle}>

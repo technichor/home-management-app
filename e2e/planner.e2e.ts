@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { newOwner, newSession, test } from "./helpers";
+import { newOwner, newSession, seedPlanEntry, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
 
@@ -178,4 +178,57 @@ test("another household's plan is separate", async ({ browser }) => {
   await expect(b.page.getByRole("heading", { level: 4 })).toBeVisible();
   await expect(b.page.getByText("A's secret dinner")).toHaveCount(0);
   for (const s of [a, b]) await s.context.close();
+});
+
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+
+test("suggestions: due for a repeat and family staples, one-tap add, shuffle", async ({ page }) => {
+  const { email } = await newOwner(page, "plan5", "The Suggesters");
+  for (const name of ["Fresh", "Old favourite", "Staple", "Just had", "Already planned"]) {
+    await page.goto("/meals/library/new");
+    await page.getByLabel("Name").fill(name);
+    await page.getByRole("button", { name: "Add meal" }).click();
+    await expect(page).toHaveURL(/\/meals\/library\/(?!new)[a-z0-9]+/);
+  }
+  await seedPlanEntry(email, "Old favourite", daysAgo(200));
+  for (const n of [60, 67, 74, 81, 88]) await seedPlanEntry(email, "Staple", daysAgo(n));
+  await seedPlanEntry(email, "Just had", daysAgo(3));
+  await seedPlanEntry(email, "Already planned", daysAgo(120));
+
+  await page.goto("/meals");
+  // Plan one meal this week by hand: it must drop out of the suggestions.
+  await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
+  await page.getByRole("dialog").getByLabel("Meal").fill("Already");
+  await page.getByRole("dialog").getByRole("button", { name: "Already planned" }).click();
+  await expect(entries(page)).toHaveText(["Already planned"]);
+
+  await page.getByRole("button", { name: "Ideas" }).click();
+  const panel = page.locator(".suggest-panel");
+  const list = (title: string) => panel.locator(".suggest-list", { has: page.locator(".suggest-title", { hasText: title }) }).locator(".suggest-name");
+  // Never made first, then the longest ago; the meal made 3 days ago and the one already planned are left out.
+  await expect(list("Due for a repeat")).toHaveText(["Fresh", "Old favourite", "Staple"]);
+  await expect(list("Family staples")).toHaveText(["Staple", "Old favourite"]);
+  await expect(panel.getByText("Never made")).toBeVisible();
+  await expect(panel.getByText(/Last made .* · 5 times/).first()).toBeVisible();
+  await expect(panel).not.toContainText("Just had");
+
+  // One tap adds it to the chosen day and meal (today's dinner by default), and it stops being suggested.
+  await panel.getByRole("button", { name: "Add Fresh" }).first().click();
+  await expect(entries(page)).toHaveText(["Already planned", "Fresh"]);
+  await expect(list("Due for a repeat")).toHaveText(["Old favourite", "Staple"]);
+
+  // Shuffle redraws without breaking anything.
+  await panel.getByRole("button", { name: "Shuffle" }).click();
+  await expect(panel.locator(".suggest-name").first()).toBeVisible();
+
+  // The same ideas appear in a cell's add box.
+  await page.getByRole("button", { name: /^Add to Lunch on/ }).first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Family staples")).toBeVisible();
+  await dialog.getByRole("button", { name: "Add Staple" }).first().click();
+  await expect(page.locator('.planner-cell[data-slot="LUNCH"] .plan-entry')).toHaveText(["Staple"]);
 });

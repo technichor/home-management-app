@@ -190,24 +190,30 @@ describe("PlannerPage", () => {
       date: { gte: new Date("2026-10-04T00:00:00Z"), lte: new Date("2026-10-10T00:00:00Z") },
     });
     expect(vi.mocked(prisma.meal.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1" });
-    expect(seen.planner.meals).toEqual([{ id: "m1", name: "Tacos" }]);
+    expect(seen.planner.meals).toEqual([{ id: "m1", name: "Tacos", lastMade: null, timesMade: 0 }]);
   });
 
-  it("passes entries, stats for just the meals in view, and counts entries in hidden slots", async () => {
+  it("passes entries, every library meal with its derived stats, and counts entries in hidden slots", async () => {
     vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([
       entry(),
       entry({ id: "e2", slot: "BREAKFAST", mealId: null, text: "Toast", meal: null }),
       entry({ id: "e3", slot: "BREAKFAST", mealId: "m2", meal: { id: "m2", name: "Eggs", description: null } }),
+    ] as any);
+    vi.mocked(prisma.meal.findMany).mockResolvedValue([
+      { id: "m1", name: "Tacos" },
+      { id: "m2", name: "Eggs" },
+      { id: "m3", name: "Soup" },
     ] as any);
     vi.mocked(prisma.mealPlanEntry.groupBy).mockResolvedValue([
       { mealId: "m1", _max: { date: new Date("2026-09-30T00:00:00Z") }, _count: { _all: 3 } },
     ] as any);
     await run({ today: "2026-10-07" });
     expect(seen.planner.entries.map((e: any) => e.id)).toEqual(["e1", "e2", "e3"]);
-    expect(seen.planner.stats).toEqual({
-      m1: { lastMade: "2026-09-30", timesMade: 3 },
-      m2: { lastMade: null, timesMade: 0 },
-    });
+    expect(seen.planner.meals).toEqual([
+      { id: "m1", name: "Tacos", lastMade: "2026-09-30", timesMade: 3 },
+      { id: "m2", name: "Eggs", lastMade: null, timesMade: 0 },
+      { id: "m3", name: "Soup", lastMade: null, timesMade: 0 },
+    ]);
     // Breakfast is hidden by default: two entries sit in it.
     expect(seen.planner.hiddenCount).toBe(2);
   });

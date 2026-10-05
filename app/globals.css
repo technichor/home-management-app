@@ -580,3 +580,43 @@ html[data-pending] body {
     order: 3;
   }
 }
+
+/* ---- Meal suggestions (planner panel and the add box) ---- */
+
+.suggest-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--subtle);
+}
+.suggest-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+.suggest-title {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.suggest-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.suggest-name {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggest-meta {
+  color: var(--muted);
+  font-size: 12px;
+}

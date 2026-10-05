@@ -36,17 +36,16 @@ const entries = [
   { id: "e3", date: "2026-10-06", slot: "LUNCH" as const, mealId: null, label: "Leftovers", description: null },
 ];
 const meals = [
-  { id: "m1", name: "Tacos" },
-  { id: "m2", name: "Rice" },
-  { id: "m3", name: "Chili" },
+  { id: "m1", name: "Tacos", lastMade: "2026-09-28", timesMade: 4 },
+  { id: "m2", name: "Rice", lastMade: null, timesMade: 0 },
+  { id: "m3", name: "Chili", lastMade: null, timesMade: 0 },
 ];
-const stats = { m1: { lastMade: "2026-09-28", timesMade: 4 }, m2: { lastMade: null, timesMade: 0 } };
 
 type Props = React.ComponentProps<typeof PlannerClient>;
 const setup = (over: Partial<Props> = {}) =>
   render(
     <App>
-      <PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={entries} hiddenCount={0} meals={meals} stats={stats} shoppingItems={[]} {...over} />
+      <PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={entries} hiddenCount={0} meals={meals} shoppingItems={[]} {...over} />
     </App>
   );
 
@@ -283,7 +282,7 @@ describe("adding to a cell", () => {
     let dialog = await openMonDinner();
     expect(dialog.getByText(/Your library is empty/)).toBeInTheDocument();
     unmount();
-    const many = Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: `Meal ${String(i).padStart(2, "0")}` }));
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `x${i}`, name: `Meal ${String(i).padStart(2, "0")}`, lastMade: "2026-10-06", timesMade: 1 }));
     setup({ meals: many });
     dialog = await openMonDinner();
     expect(dialog.getAllByRole("button", { name: /^Meal \d\d$/ })).toHaveLength(8);
@@ -317,7 +316,7 @@ describe("an entry's detail", () => {
   });
 
   it("says '1 time' for a meal made once", async () => {
-    setup({ stats: { m1: { lastMade: "2026-09-28", timesMade: 1 } } });
+    setup({ meals: [{ ...meals[0], timesMade: 1 }, ...meals.slice(1)] });
     const dialog = await open("Tacos");
     expect(dialog.getByText("Dinner, Mon Oct 5 \u00b7 Last made Sep 28, 2026 \u00b7 1 time")).toBeInTheDocument();
   });
@@ -335,8 +334,8 @@ describe("an entry's detail", () => {
     expect(dialog.queryByRole("link", { name: "Edit meal" })).toBeNull();
   });
 
-  it("handles a meal whose stats aren't known", async () => {
-    setup({ stats: {} });
+  it("handles an entry whose meal is no longer in the library", async () => {
+    setup({ meals: meals.slice(1) });
     const dialog = await open("Tacos");
     expect(dialog.getByText("Dinner, Mon Oct 5")).toBeInTheDocument();
   });
@@ -398,6 +397,191 @@ describe("an entry's detail", () => {
     rerender(wrap(entries[1]));
     expect(await screen.findByLabelText("Date")).toHaveValue("2026-10-05");
     rerender(wrap(null));
+  });
+});
+
+describe("suggestions", () => {
+  // Today is Wed 7 Oct 2026. Tacos and Rice are planned this week, so only the others can be suggested.
+  const library = [
+    ...meals,
+    { id: "m4", name: "Lasagna", lastMade: "2026-01-10", timesMade: 8 },
+    { id: "m5", name: "Pad thai", lastMade: "2025-06-01", timesMade: 2 },
+    { id: "m6", name: "Burgers", lastMade: "2026-10-01", timesMade: 20 }, // made 6 days ago: too recent
+  ];
+  const ideas = () => {
+    const panel = document.querySelector(".suggest-panel") as HTMLElement;
+    const list = (title: string) => {
+      const heading = [...panel.querySelectorAll(".suggest-title")].find((e) => e.textContent === title);
+      return heading ? [...heading.parentElement!.querySelectorAll(".suggest-name")].map((e) => e.textContent) : [];
+    };
+    return { panel: within(panel), due: list("Due for a repeat"), staples: list("Family staples") };
+  };
+  const show = async (over: Partial<Props> = {}) => {
+    setup({ meals: library, ...over });
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+  };
+
+  it("is hidden until Ideas is pressed, and toggles", async () => {
+    setup({ meals: library });
+    expect(document.querySelector(".suggest-panel")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+    expect(document.querySelector(".suggest-panel")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Ideas" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+    expect(document.querySelector(".suggest-panel")).toBeNull();
+  });
+
+  it("suggests meals due for a repeat and family staples, skipping this week's and recent ones", async () => {
+    await show();
+    const { due, staples } = ideas();
+    // Chili was never made; then the oldest last-made: Pad thai (2025), Lasagna (Jan 2026).
+    expect(due).toEqual(["Chili", "Pad thai", "Lasagna"]);
+    // Most made first among those: Lasagna (8), Pad thai (2). Chili was never made.
+    expect(staples).toEqual(["Lasagna", "Pad thai"]);
+  });
+
+  it("shows when each was last made and how often", async () => {
+    await show();
+    const { panel } = ideas();
+    expect(panel.getAllByText("Last made Jan 10, 2026 \u00b7 8 times").length).toBeGreaterThan(0);
+    expect(panel.getAllByText("Last made Jun 1, 2025 \u00b7 2 times").length).toBeGreaterThan(0);
+    expect(panel.getAllByText("Never made").length).toBeGreaterThan(0);
+  });
+
+  it("says 1 time for a meal made once", async () => {
+    await show({ meals: [...meals, { id: "m7", name: "Quiche", lastMade: "2025-01-01", timesMade: 1 }] });
+    expect(ideas().panel.getAllByText("Last made Jan 1, 2025 \u00b7 1 time").length).toBeGreaterThan(0);
+  });
+
+  it("adds a suggestion to the chosen day and meal in one tap, defaulting to today's dinner", async () => {
+    await show();
+    await userEvent.click(ideas().panel.getAllByRole("button", { name: "Add Lasagna" })[0]);
+    await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-07", "DINNER", "m4"));
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    expect(await screen.findByText("Added Lasagna")).toBeInTheDocument();
+  });
+
+  it("adds to another day and meal once they are chosen", async () => {
+    await show({ settings: { ...settings, showBreakfast: true } });
+    const panel = ideas().panel;
+    await userEvent.click(panel.getByRole("combobox", { name: "Day" }));
+    await userEvent.click(await screen.findByTitle("Fri Oct 9"));
+    await userEvent.click(panel.getByRole("combobox", { name: "Meal" }));
+    await userEvent.click(await screen.findByTitle("Breakfast"));
+    await userEvent.click(panel.getAllByRole("button", { name: "Add Chili" })[0]);
+    await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-09", "BREAKFAST", "m3"));
+  });
+
+  it("starts on the first day of a week that doesn't include today, and on the last visible meal when dinner is hidden", async () => {
+    await show({ weekStart: "2026-10-18", settings: { ...settings, showDinner: false } });
+    await userEvent.click(ideas().panel.getAllByRole("button", { name: "Add Chili" })[0]);
+    await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-18", "LUNCH", "m3"));
+  });
+
+  it("follows the user to another week, and falls back when the chosen meal is switched off", async () => {
+    const wrap = (weekStart: string, s: typeof settings) => (
+      <App>
+        <PlannerClient weekStart={weekStart} today="2026-10-07" settings={s} entries={[]} hiddenCount={0} meals={library} shoppingItems={[]} />
+      </App>
+    );
+    const { rerender } = render(wrap("2026-10-04", { ...settings, showBreakfast: true }));
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+    const panel = ideas().panel;
+    await userEvent.click(panel.getByRole("combobox", { name: "Day" }));
+    await userEvent.click(await screen.findByTitle("Fri Oct 9"));
+    await userEvent.click(panel.getByRole("combobox", { name: "Meal" }));
+    await userEvent.click(await screen.findByTitle("Breakfast"));
+    // Next week, with breakfast switched off: the Friday and the breakfast no longer exist.
+    rerender(wrap("2026-10-11", settings));
+    await userEvent.click(ideas().panel.getAllByRole("button", { name: "Add Chili" })[0]);
+    await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-11", "DINNER", "m3"));
+  });
+
+  it("shows the reason and doesn't refresh when adding fails", async () => {
+    vi.mocked(addPlanEntryAction).mockResolvedValue({ ok: false, error: "Meal not found" });
+    await show();
+    await userEvent.click(ideas().panel.getAllByRole("button", { name: "Add Chili" })[0]);
+    expect(await screen.findByText("Meal not found")).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("shuffles to a different draw, from the best candidates", async () => {
+    const many = Array.from({ length: 14 }, (_, i) => ({ id: `x${i}`, name: `Dish ${String(i).padStart(2, "0")}`, lastMade: `2025-01-${String(i + 1).padStart(2, "0")}`, timesMade: 3 }));
+    await show({ meals: many, entries: [] });
+    const first = ideas().due;
+    expect(first).toEqual(["Dish 00", "Dish 01", "Dish 02", "Dish 03"]);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.37);
+    await userEvent.click(ideas().panel.getByRole("button", { name: "Shuffle" }));
+    random.mockRestore();
+    const shuffled = ideas().due;
+    expect(shuffled).toHaveLength(4);
+    expect(shuffled).not.toEqual(first);
+    expect(shuffled.every((n) => Number(n.slice(5)) < 12)).toBe(true);
+  });
+
+  it("explains an empty library, and when nothing is left to suggest", async () => {
+    const { unmount } = render(<App><PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={[]} hiddenCount={0} meals={[]} shoppingItems={[]} /></App>);
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+    expect(screen.getByText(/Add meals to your library/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shuffle" })).toBeDisabled();
+    unmount();
+    await show({ meals: [{ id: "m9", name: "Fresh", lastMade: "2026-10-05", timesMade: 3 }], entries: [] });
+    expect(screen.getByText(/Nothing to suggest right now/)).toBeInTheDocument();
+  });
+
+  it("a meal added to the week stops being suggested", async () => {
+    const wrap = (e: typeof entries) => (
+      <App>
+        <PlannerClient weekStart="2026-10-04" today="2026-10-07" settings={settings} entries={e} hiddenCount={0} meals={library} shoppingItems={[]} />
+      </App>
+    );
+    const { rerender } = render(wrap(entries));
+    await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
+    expect(ideas().due).toContain("Chili");
+    rerender(wrap([...entries, { id: "e9", date: "2026-10-08", slot: "DINNER" as const, mealId: "m3", label: "Chili", description: null }]));
+    expect(ideas().due).not.toContain("Chili");
+  });
+
+  describe("in the add box", () => {
+    const openMonDinner = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Add to Dinner on Mon Oct 5" }));
+      return within(await screen.findByRole("dialog"));
+    };
+
+    it("offers the same ideas, and a tap adds one to that cell", async () => {
+      setup({ meals: library });
+      const dialog = await openMonDinner();
+      expect(dialog.getByText("Due for a repeat")).toBeInTheDocument();
+      expect(dialog.getByText("Family staples")).toBeInTheDocument();
+      await userEvent.click(dialog.getAllByRole("button", { name: "Add Pad thai" })[0]);
+      await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-05", "DINNER", "m5"));
+    });
+
+    it("has its own shuffle", async () => {
+      const many = Array.from({ length: 14 }, (_, i) => ({ id: `x${i}`, name: `Dish ${String(i).padStart(2, "0")}`, lastMade: `2025-01-${String(i + 1).padStart(2, "0")}`, timesMade: 3 }));
+      setup({ meals: many, entries: [] });
+      const dialog = await openMonDinner();
+      const names = () => [...(document.querySelector(".ant-modal .suggest-list") as HTMLElement).querySelectorAll(".suggest-name")].map((e) => e.textContent);
+      const first = names();
+      const random = vi.spyOn(Math, "random").mockReturnValue(0.61);
+      await userEvent.click(dialog.getByRole("button", { name: "Shuffle" }));
+      random.mockRestore();
+      expect(names()).not.toEqual(first);
+    });
+
+    it("hides the ideas once something is typed, and when there are none", async () => {
+      setup({ meals: library });
+      const dialog = await openMonDinner();
+      await userEvent.type(dialog.getByLabelText("Meal"), "x");
+      expect(dialog.queryByText("Due for a repeat")).toBeNull();
+      await userEvent.click(dialog.getAllByRole("button", { name: "Cancel" })[0]);
+    });
+
+    it("shows no ideas section when nothing is eligible", async () => {
+      setup({ meals: [{ id: "m9", name: "Fresh", lastMade: "2026-10-05", timesMade: 3 }], entries: [] });
+      const dialog = await openMonDinner();
+      expect(dialog.queryByText("Ideas")).toBeNull();
+    });
   });
 });
 

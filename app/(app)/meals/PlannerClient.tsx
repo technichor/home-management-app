@@ -4,7 +4,8 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { App, Badge, Button, Drawer, Popover, Select, Typography } from "antd";
-import { LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined, ShoppingCartOutlined } from "@ant-design/icons";
+import SuggestionsPanel from "./SuggestionsPanel";
+import { BulbOutlined, LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { addDays, formatDayHeading, formatWeekRange, weekDates, weekStartOf, type WeekStart } from "@/lib/dates";
 import { SLOTS, SLOT_LABELS, visibleSlots, type PlanSettings } from "@/lib/mealPlan";
 import { updateMealPlanSettingsAction } from "./actions";
@@ -16,8 +17,6 @@ import { uncheckedCount, type ShoppingItem } from "@/lib/shoppingGroups";
 /** Below this width the grid becomes a vertical list of days (see .planner in globals.css). */
 export const LIST_LAYOUT_QUERY = "(max-width: 1100px)";
 
-type Stats = Record<string, { lastMade: string | null; timesMade: number }>;
-
 const SHOW_KEY = { BREAKFAST: "showBreakfast", LUNCH: "showLunch", DINNER: "showDinner" } as const;
 
 export default function PlannerClient({
@@ -27,7 +26,6 @@ export default function PlannerClient({
   entries,
   hiddenCount,
   meals,
-  stats,
   shoppingItems,
 }: {
   weekStart: string;
@@ -36,7 +34,6 @@ export default function PlannerClient({
   entries: DetailEntry[];
   hiddenCount: number;
   meals: LibraryOption[];
-  stats: Stats;
   shoppingItems: ShoppingItem[];
 }) {
   const router = useRouter();
@@ -44,6 +41,7 @@ export default function PlannerClient({
   const [adding, setAdding] = useState<Cell | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
   const todayRef = useRef<HTMLDivElement>(null);
 
   const days = weekDates(weekStart);
@@ -51,6 +49,8 @@ export default function PlannerClient({
   const currentWeek = weekStart === weekStartOf(today, settings.weekStartsOn);
   const href = (week: string | null) => `/meals?${week ? `week=${week}&` : ""}today=${today}`;
   const open = entries.find((e) => e.id === openId) ?? null;
+  const weekMealIds = new Set(entries.flatMap((e) => (e.mealId ? [e.mealId] : [])));
+  const openMeal = open?.mealId ? (meals.find((m) => m.id === open.mealId) ?? null) : null;
 
   // On a narrow screen the current week is a list; bring today to the top of it.
   useEffect(() => {
@@ -116,6 +116,9 @@ export default function PlannerClient({
               </Button>
             );
           })}
+          <Button size="small" icon={<BulbOutlined aria-hidden />} aria-pressed={ideasOpen} type={ideasOpen ? "primary" : "default"} onClick={() => setIdeasOpen((v) => !v)}>
+            Ideas
+          </Button>
           <Badge count={uncheckedCount(shoppingItems)} size="small" overflowCount={99} color="var(--accent)" offset={[-4, 4]}>
             <Button size="small" icon={<ShoppingCartOutlined aria-hidden />} onClick={() => setShopOpen(true)}>
               Shopping list
@@ -132,6 +135,8 @@ export default function PlannerClient({
           {hiddenCount === 1 ? "1 hidden entry" : `${hiddenCount} hidden entries`} this week (in a meal you&apos;ve turned off above).
         </Typography.Text>
       )}
+
+      {ideasOpen && <SuggestionsPanel meals={meals} today={today} weekStart={weekStart} weekMealIds={weekMealIds} slots={slots} />}
 
       <div className="planner" style={{ ["--planner-rows" as string]: slots.length }}>
         <div className="planner-corner" />
@@ -187,8 +192,8 @@ export default function PlannerClient({
         <ShoppingList items={shoppingItems} variant="panel" />
       </Drawer>
 
-      <AddEntryDialog cell={adding} meals={meals} onClose={() => setAdding(null)} />
-      <EntryDetailDialog entry={open} stats={open?.mealId ? (stats[open.mealId] ?? null) : null} onClose={() => setOpenId(null)} />
+      <AddEntryDialog cell={adding} meals={meals} today={today} weekMealIds={weekMealIds} onClose={() => setAdding(null)} />
+      <EntryDetailDialog entry={open} stats={openMeal ? { lastMade: openMeal.lastMade, timesMade: openMeal.timesMade } : null} onClose={() => setOpenId(null)} />
     </div>
   );
 }

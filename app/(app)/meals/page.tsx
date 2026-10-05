@@ -34,11 +34,8 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
         settings={settings}
         entries={entries}
         hiddenCount={entries.filter((e) => !shown.includes(e.slot)).length}
-        meals={meals}
+        meals={meals.map((m) => ({ id: m.id, name: m.name, lastMade: stats.get(m.id)?.lastMade ?? null, timesMade: stats.get(m.id)?.timesMade ?? 0 }))}
         shoppingItems={shopping.items}
-        stats={Object.fromEntries(
-          entries.filter((e) => e.mealId).map((e) => [e.mealId as string, stats.get(e.mealId as string) ?? { lastMade: null, timesMade: 0 }])
-        )}
       />
     </>
   );
