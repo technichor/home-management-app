@@ -89,7 +89,7 @@ describe("mode guards", () => {
 
   it("comparisons are rejected on a manual list", async () => {
     listWithMode("MANUAL");
-    await expect(recordComparisonAction("l1", "a", "b", "A")).rejects.toThrow("sorted manually");
+    expect(await recordComparisonAction("l1", "a", "b", "A")).toMatchObject({ ok: false, error: expect.stringContaining("sorted manually") });
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 });

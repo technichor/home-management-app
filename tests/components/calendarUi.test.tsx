@@ -10,8 +10,6 @@ vi.mock("@/app/(app)/calendar/actions", () => ({
   createCalendarItemAction: vi.fn(),
   updateCalendarItemAction: vi.fn(),
   deleteCalendarItemAction: vi.fn(),
-  setTaskCompletedAction: vi.fn(),
-  moveTaskToTodayAction: vi.fn(),
   setShowMealsAction: vi.fn(),
   setWeekStartAction: vi.fn(),
 }));
@@ -23,9 +21,7 @@ import type { AgendaContactDateEntry, AgendaItemEntry, AgendaMealEntry } from "@
 import {
   createCalendarItemAction,
   deleteCalendarItemAction,
-  moveTaskToTodayAction,
   setShowMealsAction,
-  setTaskCompletedAction,
   setWeekStartAction,
   updateCalendarItemAction,
 } from "@/app/(app)/calendar/actions";
@@ -34,10 +30,9 @@ import {
 const TODAY = "2026-10-07";
 let n = 0;
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${++n}`, itemId: over.id ?? `i${n}`, kind: "EVENT", date: TODAY, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
+  source: "item", id: `i${++n}`, itemId: over.id ?? `i${n}`, date: TODAY, title: "Item", notes: null, startTime: null, endTime: null,
+  assigneeContactId: null, assigneeName: null, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
 });
-const task = (over: Partial<AgendaItemEntry> = {}) => item({ kind: "TASK", title: "Task", ...over });
 const birthday = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date: TODAY, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,
 });
@@ -50,7 +45,7 @@ type Props = React.ComponentProps<typeof CalendarClient>;
 const props = (over: Partial<Props> = {}): Props => ({
   view: "week", anchor: "2026-10-04", dates: datesInRange(viewRange("week", "2026-10-04", "SUNDAY")),
   prev: "2026-09-27", next: "2026-10-11", today: TODAY, weekStartsOn: "SUNDAY", showMeals: false,
-  assignees: members, assigneeFilter: null, entries: [], overdue: [], ...over,
+  assignees: members, assigneeFilter: null, entries: [], ...over,
 });
 const wrap = (p: Props) => (
   <App>
@@ -66,7 +61,7 @@ const day = (over: Partial<Props> = {}) =>
 beforeEach(() => {
   vi.resetAllMocks();
   n = 0;
-  for (const fn of [createCalendarItemAction, updateCalendarItemAction, deleteCalendarItemAction, setTaskCompletedAction, moveTaskToTodayAction, setShowMealsAction, setWeekStartAction]) {
+  for (const fn of [createCalendarItemAction, updateCalendarItemAction, deleteCalendarItemAction, setShowMealsAction, setWeekStartAction]) {
     vi.mocked(fn as any).mockResolvedValue({ ok: true });
   }
   vi.mocked(createCalendarItemAction).mockResolvedValue({ ok: true, id: "new" });
@@ -190,13 +185,12 @@ describe("the week", () => {
     expect(screen.getByRole("link", { name: /Mon Oct 5/ })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-05&today=2026-10-07");
   });
 
-  it("shows each kind of entry: reminders and events with times, contact dates, meals, tasks", () => {
+  it("shows each kind of entry: reminders and events with times, contact dates, meals", () => {
     setup({
       entries: [
         birthday({ turns: 41 }),
         item({ title: "Picture day" }),
         item({ title: "Dentist", startTime: "09:30", endTime: "10:15", assigneeContactId: "m1", assigneeName: "Sam" }),
-        task({ title: "Call the vet" }),
         meal({ title: "Dinner: Tacos" }),
       ],
     });
@@ -207,9 +201,8 @@ describe("the week", () => {
     expect(inDay.getByText("Picture day")).toBeInTheDocument();
     expect(inDay.getByText("9:30 AM – 10:15 AM")).toBeInTheDocument();
     expect(inDay.getByText("Sam")).toBeInTheDocument();
-    expect(inDay.getByRole("checkbox", { name: "Complete Call the vet" })).toBeInTheDocument();
     expect(inDay.getByRole("link", { name: "Dinner: Tacos" })).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
-    expect([...today.querySelectorAll(".cal-entry-title")].map((e) => e.textContent)).toEqual(["Jo's birthday", "Picture day", "Dentist", "Call the vet", "Dinner: Tacos"]);
+    expect([...today.querySelectorAll(".cal-entry-title")].map((e) => e.textContent)).toEqual(["Jo's birthday", "Picture day", "Dentist", "Dinner: Tacos"]);
   });
 
   it("doesn't say 'turns' for a birthday with no year", () => {
@@ -217,14 +210,6 @@ describe("the week", () => {
     expect(screen.queryByText(/turns/)).toBeNull();
   });
 
-  it("marks an overdue task on its own date, and a done task crossed out", () => {
-    setup({ entries: [task({ title: "Late", date: "2026-10-05", overdue: true }), task({ title: "Done", date: "2026-10-05", completed: true })] });
-    const row = (title: string) => screen.getByRole("checkbox", { name: `Complete ${title}` }).closest(".cal-task") as HTMLElement;
-    expect(row("Late")).toHaveAttribute("data-overdue");
-    expect(row("Late")).toHaveTextContent("overdue");
-    expect(row("Done")).toHaveAttribute("data-done");
-    expect(screen.getByRole("checkbox", { name: "Complete Done" })).toBeChecked();
-  });
 });
 
 describe("on a narrow screen", () => {
@@ -258,13 +243,13 @@ describe("on a narrow screen", () => {
 
 describe("the day", () => {
   it("lists a day in sections, leaving out the empty ones", () => {
-    day({ entries: [birthday(), item({ title: "Picture day" }), item({ title: "Dentist", startTime: "09:00" }), task({ title: "Call the vet" }), meal()] });
-    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Birthdays and dates", "Events and reminders", "Tasks", "Meals"]);
+    day({ entries: [birthday(), item({ title: "Picture day" }), item({ title: "Dentist", startTime: "09:00" }), meal()] });
+    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Birthdays and dates", "Events and reminders", "Meals"]);
   });
 
   it("only shows sections that have something", () => {
-    day({ entries: [task({ title: "Only a task" })] });
-    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Tasks"]);
+    day({ entries: [meal()] });
+    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Meals"]);
   });
 
   it("says when there is nothing, and still offers to add something", () => {
@@ -319,8 +304,8 @@ describe("the month", () => {
     expect(document.querySelectorAll(".cal-dots")).toHaveLength(1);
   });
 
-  it("shows tasks, birthdays and meals compactly, and a task chip opens its details", async () => {
-    month({ entries: [birthday(), task({ title: "Call the vet", completed: true }), meal()] });
+  it("shows events, birthdays and meals compactly, and an event chip opens its details", async () => {
+    month({ entries: [birthday(), item({ title: "Call the vet" }), meal()] });
     expect(screen.getByRole("link", { name: /Jo's birthday/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dinner: Tacos" })).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).toBeNull();
@@ -328,15 +313,6 @@ describe("the month", () => {
     expect(await screen.findByRole("dialog")).toHaveTextContent("Call the vet");
   });
 
-  it("marks a task chip done, overdue or plain", () => {
-    month({ entries: [task({ title: "Done one", completed: true }), task({ title: "Late one", overdue: true }), task({ title: "Plain one" })] });
-    const chip = (t: string) => screen.getByRole("button", { name: new RegExp(t) });
-    expect(chip("Done one")).toHaveAttribute("data-done");
-    expect(chip("Done one")).toHaveTextContent("✓");
-    expect(chip("Late one")).toHaveAttribute("data-overdue");
-    expect(chip("Plain one")).not.toHaveAttribute("data-done");
-    expect(chip("Plain one")).toHaveTextContent("○");
-  });
 
   it("has an add button on each day", async () => {
     month();
@@ -345,107 +321,7 @@ describe("the month", () => {
   });
 });
 
-describe("checking tasks off", () => {
-  it("shows the change at once, saves it, and refreshes", async () => {
-    setup({ entries: [task({ id: "t1", title: "Call the vet" })] });
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).toBeChecked();
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true, TODAY);
-    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
-  });
 
-  it("unchecks a done task", async () => {
-    setup({ entries: [task({ id: "t1", title: "Call the vet", completed: true })] });
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", false, TODAY);
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).not.toBeChecked();
-  });
-
-  it("puts it back and offers a retry when saving fails, and the retry works", async () => {
-    vi.mocked(setTaskCompletedAction).mockResolvedValueOnce({ ok: false, error: "nope" });
-    setup({ entries: [task({ id: "t1", title: "Call the vet" })] });
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
-    const retry = await screen.findByRole("button", { name: /Couldn.t save. Retry/ });
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).not.toBeChecked();
-    await userEvent.click(retry);
-    await waitFor(() => expect(screen.queryByRole("button", { name: /Retry/ })).toBeNull());
-    expect(setTaskCompletedAction).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).toBeChecked();
-  });
-
-  it("starts fresh from new data: a later click isn't tangled up with the old data", async () => {
-    const a = task({ id: "ta", title: "First task" });
-    const b = task({ id: "tb", title: "Second task" });
-    const { rerender } = render(wrap(props({ entries: [a, b] })));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete First task" }));
-    rerender(wrap(props({ entries: [{ ...a, completed: true }, { ...b }] })));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Second task" }));
-    expect(screen.getByRole("checkbox", { name: "Complete First task" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Complete Second task" })).toBeChecked();
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("tb", true, TODAY);
-  });
-
-  it("takes the server's word once new data arrives", async () => {
-    const t = task({ id: "t1", title: "Call the vet" });
-    const { rerender } = render(wrap(props({ entries: [t] })));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).toBeChecked();
-    // Someone else un-checked it and the refreshed data says not done: that wins over our earlier click.
-    rerender(wrap(props({ entries: [{ ...t, completed: false }] })));
-    expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).not.toBeChecked();
-  });
-});
-
-describe("the overdue strip", () => {
-  const late = (over: Partial<AgendaItemEntry> = {}) => task({ title: "Late task", date: "2026-10-01", overdue: true, ...over });
-
-  it("lists open tasks past their date with a checkbox and 'Move to today'", () => {
-    setup({ overdue: [late({ assigneeName: "Sam" }), late({ title: "Later task", date: "2026-10-03" })] });
-    const strip = within(screen.getByRole("region", { name: "Overdue" }));
-    expect(strip.getByRole("heading")).toHaveTextContent("Overdue (2)");
-    expect(strip.getByText("due Oct 1, 2026")).toBeInTheDocument();
-    expect(strip.getByText("Sam")).toBeInTheDocument();
-    expect(strip.getAllByRole("button", { name: "Move to today" })).toHaveLength(2);
-    expect(strip.getByRole("checkbox", { name: "Complete Later task" })).not.toBeChecked();
-  });
-
-  it("is not there when nothing is overdue", () => {
-    setup();
-    expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull();
-  });
-
-  it("completes a task straight from the strip, and it leaves the strip at once", async () => {
-    setup({ overdue: [late({ id: "t9" })] });
-    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Late task" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t9", true, TODAY);
-    expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull();
-  });
-
-  it("moves a task to today (the browser's date) and drops it from the strip", async () => {
-    setup({ overdue: [late({ id: "t9" })] });
-    await userEvent.click(screen.getByRole("button", { name: "Move to today" }));
-    expect(moveTaskToTodayAction).toHaveBeenCalledWith("t9", TODAY);
-    expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull();
-    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
-  });
-
-  it("brings the task back with a retry if moving fails, and the retry works", async () => {
-    vi.mocked(moveTaskToTodayAction).mockResolvedValueOnce({ ok: false, error: "nope" });
-    setup({ overdue: [late({ id: "t9" })] });
-    await userEvent.click(screen.getByRole("button", { name: "Move to today" }));
-    const retry = await screen.findByRole("button", { name: /Couldn.t save. Retry/ });
-    expect(screen.getByText("Late task")).toBeInTheDocument();
-    await userEvent.click(retry);
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull());
-    expect(moveTaskToTodayAction).toHaveBeenCalledTimes(2);
-  });
-
-  it("opens a task's details", async () => {
-    setup({ overdue: [late({ notes: "Ask about shots" })] });
-    await userEvent.click(screen.getByRole("button", { name: /Late task/ }));
-    expect(await screen.findByRole("dialog")).toHaveTextContent("Ask about shots");
-  });
-});
 
 describe("quick add", () => {
   const title = () => screen.getByLabelText("Title");
@@ -461,7 +337,7 @@ describe("quick add", () => {
   it("adds an event on Enter, clears the box and keeps the cursor there, then refreshes", async () => {
     setup();
     await userEvent.type(title(), "  Picture day {Enter}");
-    expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", { title: "Picture day", date: TODAY, startTime: "" });
+    expect(createCalendarItemAction).toHaveBeenCalledWith({ title: "Picture day", date: TODAY, startTime: "" });
     await waitFor(() => expect(title()).toHaveValue(""));
     expect(title()).toHaveFocus();
     expect(router.refresh).toHaveBeenCalled();
@@ -480,18 +356,10 @@ describe("quick add", () => {
     fireChange(screen.getByLabelText("Date"), "2026-10-09");
     fireChange(screen.getByLabelText("Start time"), "14:30");
     await userEvent.type(title(), "Dentist{Enter}");
-    expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", { title: "Dentist", date: "2026-10-09", startTime: "14:30" });
+    expect(createCalendarItemAction).toHaveBeenCalledWith({ title: "Dentist", date: "2026-10-09", startTime: "14:30" });
     await waitFor(() => expect(screen.getByLabelText("Start time")).toHaveValue(""));
   });
 
-  it("adds a task, which has no time", async () => {
-    setup();
-    await userEvent.click(screen.getByText("Task", { selector: ".ant-segmented-item-label" }));
-    expect(screen.queryByLabelText("Start time")).toBeNull();
-    expect(title()).toHaveAttribute("placeholder", "Add a task and press Enter");
-    await userEvent.type(title(), "Call the vet{Enter}");
-    expect(createCalendarItemAction).toHaveBeenCalledWith("TASK", { title: "Call the vet", date: TODAY, startTime: "" });
-  });
 
   it("adds with the Add button, which is off while the box is empty", async () => {
     setup();
@@ -553,14 +421,6 @@ describe("an item's details", () => {
     expect(dialog.queryByRole("checkbox")).toBeNull();
   });
 
-  it("checks a task off from the dialog", async () => {
-    setup({ entries: [task({ id: "t1", title: "Call the vet" })] });
-    const dialog = await open("Call the vet");
-    expect(dialog.getByText("Task · Oct 7, 2026 · Whole household")).toBeInTheDocument();
-    await userEvent.click(dialog.getByRole("checkbox", { name: "Mark done" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true, TODAY);
-    expect(await within(screen.getByRole("dialog")).findByRole("checkbox", { name: "Done" })).toBeChecked();
-  });
 
   it("deletes after confirming, then closes and refreshes", async () => {
     setup({ entries: [item({ id: "i9", title: "Picture day" })] });
@@ -585,21 +445,19 @@ describe("an item's details", () => {
     setup({ entries: [item({ id: "i9", title: "Dentist", startTime: "09:00", endTime: "10:00", notes: "Card", assigneeContactId: "m1", assigneeName: "Sam" })] });
     const dialog = await open("Dentist");
     await userEvent.click(dialog.getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
+    const form = (await dialogTitled("Edit event"));
     expect(form.getByLabelText("Title")).toHaveValue("Dentist");
     expect(form.getByLabelText("Date")).toHaveValue(TODAY);
     expect(form.getByLabelText("Start time")).toHaveValue("09:00");
     expect(form.getByLabelText("End time")).toHaveValue("10:00");
     expect(form.getByLabelText("Notes")).toHaveValue("Card");
-    expect(form.getByText("Event or reminder")).toBeInTheDocument();
-    expect(form.queryByRole("radio")).toBeNull(); // the kind is fixed
   });
 });
 
 describe("the full form", () => {
   const openNew = async () => {
-    await userEvent.click(screen.getByRole("button", { name: "New item" }));
-    return (await dialogTitled("New item"));
+    await userEvent.click(screen.getByRole("button", { name: "New event" }));
+    return (await dialogTitled("New event"));
   };
 
   it("creates an event with every field, then closes and refreshes", async () => {
@@ -613,7 +471,7 @@ describe("the full form", () => {
     await userEvent.click(form.getByRole("combobox", { name: "Assigned to" }));
     await userEvent.click(await screen.findByTitle("Ann"));
     await userEvent.click(form.getByRole("button", { name: "Add" }));
-    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", {
+    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith({
       title: "Dentist", date: "2026-10-09", notes: "Bring the card", startTime: "09:00", endTime: "10:00", assigneeContactId: "m2",
       repeatUnit: null, repeatEvery: 1, repeatUntil: "",
     }));
@@ -630,7 +488,7 @@ describe("the full form", () => {
     fireChange(form.getByLabelText("Repeat every"), "3");
     fireChange(form.getByLabelText("Repeat until"), "2027-12-31");
     await userEvent.click(form.getByRole("button", { name: "Add" }));
-    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", expect.objectContaining({ repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" })));
+    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith(expect.objectContaining({ repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" })));
   });
 
   it("starts on the viewed or current date, for the whole household", async () => {
@@ -640,15 +498,6 @@ describe("the full form", () => {
     expect(form.getByText("Whole household")).toBeInTheDocument();
   });
 
-  it("creates a task, which takes no times", async () => {
-    setup();
-    const form = await openNew();
-    await userEvent.click(form.getByText("Task", { selector: ".ant-segmented-item-label" }));
-    expect(form.queryByLabelText("Start time")).toBeNull();
-    await userEvent.type(form.getByLabelText("Title"), "Call the vet");
-    await userEvent.click(form.getByRole("button", { name: "Add" }));
-    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith("TASK", expect.objectContaining({ title: "Call the vet", startTime: "", endTime: "", assigneeContactId: null })));
-  });
 
   it("only allows an end time once there is a start time", async () => {
     setup();
@@ -685,7 +534,7 @@ describe("the full form", () => {
     setup({ entries: [item({ id: "i9", title: "Dentist", assigneeContactId: "m1", assigneeName: "Sam" })] });
     await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
+    const form = (await dialogTitled("Edit event"));
     await userEvent.clear(form.getByLabelText("Title"));
     await userEvent.type(form.getByLabelText("Title"), "Dentist (moved)");
     await userEvent.click(form.getByRole("combobox", { name: "Assigned to" }));
@@ -701,7 +550,7 @@ describe("the full form", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText(/Every 2 weeks, until Jan 1, 2027/)).toBeInTheDocument();
     await userEvent.click(dialog.getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
+    const form = (await dialogTitled("Edit event"));
     expect(form.getByLabelText("Date")).toHaveValue("2026-09-23");
     expect(form.getByLabelText("Repeat every")).toHaveValue(2);
     expect(form.getByLabelText("Repeat until")).toHaveValue("2027-01-01");
@@ -709,18 +558,12 @@ describe("the full form", () => {
     await waitFor(() => expect(updateCalendarItemAction).toHaveBeenCalledWith("i9", expect.objectContaining({ repeatUnit: "WEEK", repeatEvery: 2, date: "2026-09-23" })));
   });
 
-  it("describes a repeating task without the series warning (it is one item that moves forward)", async () => {
-    setup({ entries: [task({ id: "t1", title: "Change filter", repeat: { unit: "MONTH", every: 3, until: null, start: TODAY } })] });
-    await userEvent.click(screen.getByRole("button", { name: /Change filter/ }));
-    const dialog = within(await screen.findByRole("dialog"));
-    expect(dialog.getByText("Every 3 months")).toBeInTheDocument();
-  });
 
   it("keeps an assignee who has since been removed, marked as removed", async () => {
     setup({ entries: [item({ id: "i9", title: "Dentist", assigneeContactId: "gone", assigneeName: "Pat" })] });
     await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
+    const form = (await dialogTitled("Edit event"));
     expect(form.getByText("Pat (removed)")).toBeInTheDocument();
     await userEvent.click(form.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateCalendarItemAction).toHaveBeenCalledWith("i9", expect.objectContaining({ assigneeContactId: "gone" })));
@@ -730,19 +573,11 @@ describe("the full form", () => {
     setup({ entries: [item({ title: "Dentist", assigneeContactId: "gone", assigneeName: null })] });
     await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
+    const form = (await dialogTitled("Edit event"));
     expect(form.getByText("Former member (removed)")).toBeInTheDocument();
     await userEvent.click(form.getByRole("combobox", { name: "Assigned to" }));
     expect(await screen.findByTitle("Sam")).toBeInTheDocument();
     expect(screen.getByTitle("Ann")).toBeInTheDocument();
   });
 
-  it("edits a task without offering times", async () => {
-    setup({ entries: [task({ id: "t1", title: "Call the vet" })] });
-    await userEvent.click(screen.getByRole("button", { name: /Call the vet/ }));
-    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
-    const form = (await dialogTitled("Edit item"));
-    expect(form.getByText("Task")).toBeInTheDocument();
-    expect(form.queryByLabelText("Start time")).toBeNull();
-  });
 });

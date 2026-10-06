@@ -4,21 +4,20 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "antd";
 
-vi.mock("@/app/(app)/lists/actions", () => ({ recordComparisonAction: vi.fn() }));
-
 import CompareClient from "@/app/(app)/lists/[id]/compare/CompareClient";
-import { recordComparisonAction } from "@/app/(app)/lists/actions";
+
+const compare = vi.fn();
 
 const two = [
-  { id: "a", text: "Fix roof", quantity: "this spring", rating: 1500, comparisonCount: 0 },
-  { id: "b", text: "Paint fence", quantity: null, rating: 1500, comparisonCount: 0 },
+  { id: "a", text: "Fix roof", detail: "this spring", rating: 1500, comparisonCount: 0 },
+  { id: "b", text: "Paint fence", detail: null, rating: 1500, comparisonCount: 0 },
 ];
-const three = [...two, { id: "c", text: "New gutters", quantity: null, rating: 1500, comparisonCount: 0 }];
+const three = [...two, { id: "c", text: "New gutters", detail: null, rating: 1500, comparisonCount: 0 }];
 
 function setup(items = two) {
   return render(
     <App>
-      <CompareClient listId="l1" items={items} />
+      <CompareClient items={items} compare={compare} backHref="/lists/l1" />
     </App>
   );
 }
@@ -27,7 +26,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Fixes the random starting point so the first card is always the first item.
   vi.spyOn(Math, "random").mockReturnValue(0);
-  vi.mocked(recordComparisonAction).mockResolvedValue({ a: 1516, b: 1484 });
+  compare.mockResolvedValue({ ok: true, a: 1516, b: 1484 });
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -50,14 +49,14 @@ describe("CompareClient", () => {
   it("records the first item as more important", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: /Fix roof/ }));
-    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "a", "b", "A"));
+    await waitFor(() => expect(compare).toHaveBeenCalledWith("a", "b", "A"));
     expect(await screen.findByText(/1 comparison made/)).toBeInTheDocument();
   });
 
   it("records the second item as more important", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Paint fence" }));
-    await waitFor(() => expect(recordComparisonAction).toHaveBeenCalledWith("l1", "a", "b", "B"));
+    await waitFor(() => expect(compare).toHaveBeenCalledWith("a", "b", "B"));
   });
 
   it("records 'about equal' and counts several comparisons", async () => {
@@ -66,7 +65,7 @@ describe("CompareClient", () => {
     await screen.findByText(/1 comparison made/);
     await userEvent.click(screen.getByRole("button", { name: "About equal" }));
     expect(await screen.findByText(/2 comparisons made/)).toBeInTheDocument();
-    expect(recordComparisonAction).toHaveBeenLastCalledWith("l1", "a", "b", "EQUAL");
+    expect(compare).toHaveBeenLastCalledWith("a", "b", "EQUAL");
   });
 
   it("moves on to a different pair after an answer when the list is longer", async () => {
@@ -80,12 +79,20 @@ describe("CompareClient", () => {
   it("skips a pair without recording anything", async () => {
     setup(three);
     await userEvent.click(screen.getByRole("button", { name: "Skip this pair" }));
-    expect(recordComparisonAction).not.toHaveBeenCalled();
+    expect(compare).not.toHaveBeenCalled();
     expect(screen.getByText("Which matters more?")).toBeInTheDocument();
   });
 
-  it("shows the error and stays on the same pair when saving fails", async () => {
-    vi.mocked(recordComparisonAction).mockRejectedValue(new Error("This list is sorted manually."));
+  it("shows the reason and stays on the same pair when the answer can't be saved", async () => {
+    compare.mockResolvedValue({ ok: false, error: "This list is sorted manually." });
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: /Fix roof/ }));
+    expect(await screen.findByText("This list is sorted manually.")).toBeInTheDocument();
+    expect(screen.getByText(/You can stop at any time/)).toBeInTheDocument();
+  });
+
+  it("shows the error and stays on the same pair when saving throws", async () => {
+    compare.mockRejectedValue(new Error("This list is sorted manually."));
     setup();
     await userEvent.click(screen.getByRole("button", { name: /Fix roof/ }));
     expect(await screen.findByText("This list is sorted manually.")).toBeInTheDocument();
@@ -93,7 +100,7 @@ describe("CompareClient", () => {
   });
 
   it("shows a generic message for a non-Error failure", async () => {
-    vi.mocked(recordComparisonAction).mockRejectedValue("nope");
+    compare.mockRejectedValue("nope");
     setup();
     await userEvent.click(screen.getByRole("button", { name: /Fix roof/ }));
     expect(await screen.findByText("Could not save that comparison")).toBeInTheDocument();
@@ -102,5 +109,14 @@ describe("CompareClient", () => {
   it("links Done back to the list", () => {
     setup();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/lists/l1");
+  });
+
+  it("can name the way back", () => {
+    render(
+      <App>
+        <CompareClient items={[two[0]]} compare={compare} backHref="/todo" backLabel="Back to the to-do list" />
+      </App>
+    );
+    expect(screen.getByRole("link", { name: "Back to the to-do list" })).toHaveAttribute("href", "/todo");
   });
 });

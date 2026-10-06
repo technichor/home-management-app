@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { pageMember } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
-import { addDays, formatCalendarDate, formatDayHeading, formatWeekRange, isDateString, weekStartOf } from "@/lib/dates";
+import { addDays, formatDayHeading, formatWeekRange, isDateString, weekStartOf } from "@/lib/dates";
 import { loadAttention } from "@/lib/homeAttention";
 import { buildTodayPanel, UPCOMING_DAYS } from "@/lib/homePanel";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { calendarHref, plannerHref, timeLabel } from "@/lib/calendarView";
 import { getMealPlanSettings } from "@/lib/mealPlan";
+import { dueLabel, dueTodos } from "@/lib/todo";
 import type { AgendaEntry } from "@/lib/agendaOrder";
 import { buildBrief } from "@/lib/weekBrief";
 import LocalToday from "@/components/LocalToday";
 import WeekDrawing from "@/components/WeekDrawing";
 
-/** Where an entry leads: an item to its day on the calendar, a contact date to the contact, a meal to the planner. */
+/** Where an entry leads: an event to its day on the calendar, a contact date to the contact, a meal to the planner. */
 function hrefOf(e: AgendaEntry, today: string): string {
   if (e.source === "contact_date") return `/contacts/${e.contactId}`;
   if (e.source === "meal") return plannerHref(e.date, today);
@@ -23,7 +24,6 @@ function hrefOf(e: AgendaEntry, today: string): string {
 function indexOf(e: AgendaEntry): string {
   if (e.source === "contact_date") return "Date";
   if (e.source === "meal") return "Meal";
-  if (e.kind === "TASK") return "Task";
   return e.startTime ? timeLabel(e.startTime, null) : "Event";
 }
 
@@ -32,10 +32,12 @@ function detailOf(e: AgendaEntry): string {
   if (e.source === "contact_date") return e.turns !== null ? `Turns ${e.turns}.` : "From your contacts.";
   if (e.source === "meal") return "Planned meal.";
   const parts = [e.assigneeName ?? "Whole household"];
-  if (e.kind === "TASK") parts.unshift(e.completed ? "Done" : "To do");
-  else if (e.startTime) parts.unshift(timeLabel(e.startTime, e.endTime));
+  if (e.startTime) parts.unshift(timeLabel(e.startTime, e.endTime));
   return `${parts.join(" · ")}.`;
 }
+
+/** Due to-dos shown on the home page before "+N more". */
+const TODOS_SHOWN = 5;
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
   const me = await pageMember();
@@ -50,18 +52,19 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const weekEnd = addDays(weekStart, 6);
 
   // The week itself shows meals always (as the brief always has); the panel follows the calendar's meals setting.
-  const [week, ahead, attention] = await Promise.all([
-    getAgenda(householdId, weekStart, weekEnd, { today, includeMeals: true }),
-    getAgenda(householdId, today, addDays(today, UPCOMING_DAYS), { today, includeMeals: calendarSettings.showMeals }),
+  const [week, ahead, attention, todos] = await Promise.all([
+    getAgenda(householdId, weekStart, weekEnd, { includeMeals: true }),
+    getAgenda(householdId, today, addDays(today, UPCOMING_DAYS), { includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
+    dueTodos(householdId, me.contactId ?? null, today),
   ]);
 
   const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
-  const panel = buildTodayPanel({ today, entries: ahead.entries, overdue: ahead.overdue });
+  const panel = buildTodayPanel({ today, entries: ahead.entries });
   const calendarWeek = calendarHref({ view: "week", today });
   const plannerWeek = plannerHref(weekStart, today);
   const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
-  const nothing = panel.overdue.length === 0 && panel.today.length === 0 && panel.upcoming.length === 0;
+  const nothing = todos.length === 0 && panel.today.length === 0 && panel.upcoming.length === 0;
 
   return (
     <>
@@ -117,28 +120,33 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <div className="brief-row brief-row-plain">
               <div>
                 <div className="brief-title">Nothing today, and nothing in the next {UPCOMING_DAYS} days</div>
-                <div className="brief-support">Events, tasks and birthdays you add to the calendar show up here.</div>
+                <div className="brief-support">Events and birthdays from the calendar, and your to-dos when they are due, show up here.</div>
               </div>
             </div>
           )}
-          {panel.overdue.length > 0 && <h3 className="brief-sub">Overdue</h3>}
-          {panel.overdue.map((t) => (
-            <Link key={t.id} href={hrefOf(t, today)} className="brief-row" data-overdue>
-              <span className="brief-index">{formatCalendarDate(t.date).replace(/, \d{4}$/, "")}</span>
-              <div>
-                <div className="brief-title">{t.title}</div>
-                <div className="brief-support">Overdue task{t.assigneeName ? ` · ${t.assigneeName}` : ""}.</div>
-              </div>
-            </Link>
-          ))}
-          {panel.overdueMore > 0 && (
-            <Link href={calendarWeek} className="brief-more">
-              +{panel.overdueMore} more overdue
+          {todos.length > 0 && <h3 className="brief-sub">Your to-dos due</h3>}
+          {todos.slice(0, TODOS_SHOWN).map((t) => {
+            const due = dueLabel(t.dueDate!, today);
+            return (
+              <Link key={t.id} href="/todo" className="brief-row" data-overdue={due.tone === "overdue" || undefined}>
+                <span className="brief-index">{due.tone === "overdue" ? due.text.replace("Overdue · ", "") : due.text}</span>
+                <div>
+                  <div className="brief-title">{t.text}</div>
+                  <div className="brief-support">
+                    {due.tone === "overdue" ? "Overdue" : "Due today"} · {t.assigneeName ?? "Anyone"}.
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+          {todos.length > TODOS_SHOWN && (
+            <Link href="/todo" className="brief-more">
+              +{todos.length - TODOS_SHOWN} more to-dos due
             </Link>
           )}
           {panel.today.length > 0 && <h3 className="brief-sub">Today</h3>}
           {panel.today.map((e) => (
-            <Link key={e.id} href={hrefOf(e, today)} className="brief-row" data-done={(e.source === "item" && e.completed) || undefined}>
+            <Link key={e.id} href={hrefOf(e, today)} className="brief-row">
               <span className="brief-index">{indexOf(e)}</span>
               <div>
                 <div className="brief-title">{e.title}</div>

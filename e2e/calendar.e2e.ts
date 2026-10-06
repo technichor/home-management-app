@@ -10,9 +10,7 @@ const iso = (offset = 0) => {
 };
 
 const quick = (page: Page) => page.locator(".cal-quickadd");
-async function quickAdd(page: Page, text: string, kind: "event" | "task" = "event") {
-  if (kind === "task") await quick(page).getByText("Task", { exact: true }).click();
-  else await quick(page).getByText("Event / reminder", { exact: true }).click();
+async function quickAdd(page: Page, text: string) {
   await quick(page).getByLabel("Title").fill(text);
   await quick(page).getByLabel("Title").press("Enter");
 }
@@ -29,24 +27,26 @@ test("the calendar: quick add, several in a row, details, edit and delete", asyn
   await quickAdd(page, "Picture day");
   await expect(todayCell(page).getByText("Picture day")).toBeVisible();
   await expect(quick(page).getByLabel("Title")).toBeFocused();
-  await quickAdd(page, "Call the vet", "task");
-  await expect(todayCell(page).getByRole("checkbox", { name: "Complete Call the vet" })).toBeVisible();
-  await quick(page).getByText("Event / reminder", { exact: true }).click();
+  await quickAdd(page, "Call the vet");
+  await expect(todayCell(page).getByText("Call the vet")).toBeVisible();
+  // Events and reminders only: tasks live on the to-do list.
+  await expect(quick(page).getByText("Task", { exact: true })).toHaveCount(0);
+  await expect(todayCell(page).getByRole("checkbox")).toHaveCount(0);
   await quick(page).getByLabel("Start time").fill("09:30");
   await quick(page).getByLabel("Title").fill("Dentist");
   await quick(page).getByLabel("Title").press("Enter");
   await expect(todayCell(page).getByText("Dentist")).toBeVisible();
   await expect(todayCell(page).getByText("9:30 AM")).toBeVisible();
 
-  // Order within the day: untimed event, then timed event, then tasks.
-  await expect(todayCell(page).locator(".cal-entry-title")).toHaveText(["Picture day", "Dentist", "Call the vet"]);
+  // Order within the day: untimed events in the order added, then timed events.
+  await expect(todayCell(page).locator(".cal-entry-title")).toHaveText(["Picture day", "Call the vet", "Dentist"]);
 
   // Details, edit, delete.
   await todayCell(page).getByRole("button", { name: /Dentist/ }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(/Event · .* · 9:30 AM/)).toBeVisible();
   await dialog.getByRole("button", { name: "Edit" }).click();
-  const form = page.getByRole("dialog").filter({ hasText: "Edit item" });
+  const form = page.getByRole("dialog").filter({ hasText: "Edit event" });
   await form.getByLabel("Title").fill("Dentist (rescheduled)");
   await form.getByLabel("Notes").fill("Bring the card\n<b>and the form</b>");
   await form.getByRole("button", { name: "Save" }).click();
@@ -120,61 +120,6 @@ test("views, navigation across month and year boundaries, and the week start sha
   await expect(page.locator(".cal-day-head").first()).toContainText("Sun");
 });
 
-test("overdue tasks roll forward until done; completed tasks stay on their date", async ({ page }) => {
-  await newOwner(page, "cal3", "The Overdues");
-  const today = iso();
-  await page.goto(`/calendar?view=week&today=${today}`);
-
-  // A task dated three days ago (from the full form).
-  await page.getByRole("button", { name: "New item" }).click();
-  const form = page.getByRole("dialog").filter({ hasText: "New item" });
-  await form.getByText("Task", { exact: true }).click();
-  await form.getByLabel("Title").fill("Renew passport");
-  await form.getByLabel("Date").fill(iso(-3));
-  await form.getByRole("button", { name: "Add" }).click();
-  await expect(page.getByRole("region", { name: "Overdue" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Overdue" }).getByText("Renew passport")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Overdue" }).getByRole("heading")).toHaveText("Overdue (1)");
-
-  // Move to today: it leaves the strip and sits on today.
-  await page.getByRole("region", { name: "Overdue" }).getByRole("button", { name: "Move to today" }).click();
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-  await expect(todayCell(page).getByText("Renew passport")).toBeVisible();
-
-  // Another overdue task, completed from the strip: it stays on its original date, crossed out.
-  await page.getByRole("button", { name: "New item" }).click();
-  const second = page.getByRole("dialog").filter({ hasText: "New item" });
-  await second.getByText("Task", { exact: true }).click();
-  await second.getByLabel("Title").fill("Old chore");
-  await second.getByLabel("Date").fill(iso(-1));
-  await second.getByRole("button", { name: "Add" }).click();
-  await page.getByRole("region", { name: "Overdue" }).getByRole("checkbox", { name: "Complete Old chore" }).click();
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-
-  // It is still on yesterday (in this week unless yesterday was last week), done.
-  await page.goto(`/calendar?view=day&date=${iso(-1)}&today=${today}`);
-  await expect(page.getByRole("checkbox", { name: "Complete Old chore" })).toBeChecked();
-  await expect(page.locator(".cal-task[data-done]")).toHaveCount(1);
-
-  // The strip only shows when the viewed range includes today, and never on the month view.
-  await quick(page).getByText("Task", { exact: true }).click();
-  await quick(page).getByLabel("Date").fill(iso(-5));
-  await quick(page).getByLabel("Title").fill("Way overdue");
-  await quick(page).getByLabel("Title").press("Enter");
-  await page.goto(`/calendar?view=week&today=${today}`);
-  await expect(page.getByRole("region", { name: "Overdue" })).toBeVisible();
-  await page.goto(`/calendar?view=week&date=${iso(21)}&today=${today}`);
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-  await page.goto(`/calendar?view=day&date=${iso(2)}&today=${today}`);
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-  await page.goto(`/calendar?view=day&today=${today}`);
-  await expect(page.getByRole("region", { name: "Overdue" })).toBeVisible();
-  await page.goto(`/calendar?view=month&today=${today}`);
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
-});
-
 test("birthdays and important dates come from contacts, read-only, and link to the contact", async ({ page }) => {
   await newOwner(page, "cal4", "The Birthdays");
   const d = new Date();
@@ -235,8 +180,8 @@ test("assignees: the household's members, and the filter shows a member's items 
   await page.goto(`/calendar?view=week&today=${today}`);
 
   async function add(title: string, who: string) {
-    await page.getByRole("button", { name: "New item" }).click();
-    const form = page.getByRole("dialog").filter({ hasText: "New item" });
+    await page.getByRole("button", { name: "New event" }).click();
+    const form = page.getByRole("dialog").filter({ hasText: "New event" });
     await form.getByLabel("Title").fill(title);
     if (who) {
       await form.getByRole("combobox", { name: "Assigned to" }).click();
@@ -395,10 +340,10 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
   await page.goto(`/calendar?view=week&today=${today}`);
   await expect(todayCell(page).locator(".cal-entry-meal")).toHaveText(["Breakfast: Pancakes", "Dinner: Leftovers"]);
 
-  // On the day view the meals sit in their own section, after the tasks.
+  // On the day view the meals sit in their own section, after the events.
   await page.goto(`/calendar?view=day&today=${today}`);
-  await quickAdd(page, "Call the vet", "task");
-  await expect(page.locator(".cal-section-title")).toHaveText(["Tasks", "Meals"]);
+  await quickAdd(page, "Call the vet");
+  await expect(page.locator(".cal-section-title")).toHaveText(["Events and reminders", "Meals"]);
 
   // Lighter than real items, read-only (no checkbox), and each links to that week in the planner.
   await page.goto(`/calendar?view=week&today=${today}`);
@@ -416,14 +361,14 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
   await expect(todayCell(page).getByText("Dinner: Leftovers")).toBeVisible();
 });
 
-test("repeating: an event shows on every occurrence and is edited as a series; a repeating task moves forward when checked", async ({ page }) => {
+test("repeating: an event shows on every occurrence of the series", async ({ page }) => {
   await newOwner(page, "cal-rep", "The Repeaters");
   const today = iso();
   await page.goto(`/calendar?view=week&today=${today}`);
 
   // A daily event that began two days ago appears today (and on the other days of the week).
-  await page.getByRole("button", { name: "New item" }).click();
-  const form = page.getByRole("dialog").filter({ hasText: "New item" });
+  await page.getByRole("button", { name: "New event" }).click();
+  const form = page.getByRole("dialog").filter({ hasText: "New event" });
   await form.getByLabel("Title").fill("Water plants");
   await form.getByLabel("Date").fill(iso(-2));
   await form.getByRole("combobox", { name: "Repeats" }).click();
@@ -433,20 +378,6 @@ test("repeating: an event shows on every occurrence and is edited as a series; a
   await todayCell(page).getByRole("button", { name: /Water plants/ }).click();
   await expect(page.getByRole("dialog").getByText(/Every day/)).toBeVisible();
   await page.keyboard.press("Escape");
-
-  // A weekly task due today: checking it moves it a week ahead instead of finishing it.
-  await page.getByRole("button", { name: "New item" }).click();
-  const task = page.getByRole("dialog").filter({ hasText: "New item" });
-  await task.getByText("Task", { exact: true }).click();
-  await task.getByLabel("Title").fill("Change filter");
-  await task.getByLabel("Date").fill(today);
-  await task.getByRole("combobox", { name: "Repeats" }).click();
-  await page.getByTitle("Repeats weekly").click();
-  await task.getByRole("button", { name: "Add" }).click();
-  await expect(todayCell(page).getByRole("checkbox", { name: "Complete Change filter" })).toBeVisible();
-  await todayCell(page).getByRole("checkbox", { name: "Complete Change filter" }).click();
-  await expect(todayCell(page).getByText("Change filter")).toHaveCount(0);
   await page.goto(`/calendar?view=week&date=${iso(7)}&today=${today}`);
-  await expect(page.getByText("Change filter")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
+  await expect(page.locator(".cal-day").getByText("Water plants")).toHaveCount(7);
 });

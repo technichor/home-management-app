@@ -7,6 +7,7 @@ import { parseListItemsCSV } from "@/lib/listCsv";
 import type { ListSortMode } from "@prisma/client";
 import { updateRatings, ComparisonOutcome, DEFAULT_RATING } from "@/lib/elo";
 import { requireHouseholdId } from "@/lib/auth";
+import { attempt, UserError } from "@/lib/actionResult";
 import { DEFAULT_GROCERY_CATEGORY, isGroceryCategory } from "@/lib/groceryCategories";
 import type { GroceryCategory } from "@prisma/client";
 
@@ -56,10 +57,13 @@ export async function deleteListAction(id: string) {
 
 // ---------- Items ----------
 
+/** One of the household's lists that these actions may touch: an ordinary list or the shopping list (its items). */
 async function requireList(listId: string) {
   const householdId = await requireHouseholdId();
   const list = await prisma.list.findUnique({ where: { id: listId } });
   if (!list || list.householdId !== householdId) throw new Error("List not found");
+  // The to-do list has its own rules (members only, due dates, ratings kept in step) in app/(app)/todo/actions.ts.
+  if (list.kind === "TODO") throw new Error("The to-do list can't be changed this way");
   return list;
 }
 
@@ -177,6 +181,7 @@ export async function importItemsAction(listId: string, csvText: string) {
   return { added: items.length, errors: [] };
 }
 
+/** One answer in Prioritize: returns the two new ratings, or `{ ok: false, error }` for an answer that can't be saved. */
 export async function recordComparisonAction(
   listId: string,
   itemAId: string,
@@ -184,42 +189,44 @@ export async function recordComparisonAction(
   outcome: ComparisonOutcome
 ) {
   const list = await requireStandardList(listId);
-  if (list.sortMode !== "PAIRWISE") {
-    throw new Error("This list is sorted manually. Switch it to pairwise ranking to compare items.");
-  }
-  if (itemAId === itemBId) throw new Error("Pick two different items");
-  if (!["A", "B", "EQUAL"].includes(outcome)) throw new Error("Invalid comparison result");
-
-  const result = await prisma.$transaction(async (tx) => {
-    const [a, b] = await Promise.all([
-      tx.listItem.findUnique({ where: { id: itemAId } }),
-      tx.listItem.findUnique({ where: { id: itemBId } }),
-    ]);
-    if (!a || !b || a.listId !== listId || b.listId !== listId) throw new Error("Item not found in this list");
-
-    const next = updateRatings(a.rating, b.rating, outcome);
-    await tx.listItem.update({
-      where: { id: a.id },
-      data: { rating: next.a, comparisonCount: { increment: 1 } },
-    });
-    await tx.listItem.update({
-      where: { id: b.id },
-      data: { rating: next.b, comparisonCount: { increment: 1 } },
-    });
-
-    // Re-sort the whole list by rating (ties keep their current relative order) and write it to position.
-    const all = await tx.listItem.findMany({ where: { listId }, orderBy: { position: "asc" } });
-    const sorted = [...all].sort((x, y) => y.rating - x.rating);
-    for (let i = 0; i < sorted.length; i++) {
-      if (sorted[i].position !== i) {
-        await tx.listItem.update({ where: { id: sorted[i].id }, data: { position: i } });
-      }
+  return attempt(async () => {
+    if (list.sortMode !== "PAIRWISE") {
+      throw new UserError("This list is sorted manually. Switch it to pairwise ranking to compare items.");
     }
-    return { a: next.a, b: next.b };
-  });
+    if (itemAId === itemBId) throw new UserError("Pick two different items");
+    if (!["A", "B", "EQUAL"].includes(outcome)) throw new UserError("Invalid comparison result");
 
-  revalidatePath(`/lists/${listId}`);
-  return result;
+    const result = await prisma.$transaction(async (tx) => {
+      const [a, b] = await Promise.all([
+        tx.listItem.findUnique({ where: { id: itemAId } }),
+        tx.listItem.findUnique({ where: { id: itemBId } }),
+      ]);
+      if (!a || !b || a.listId !== listId || b.listId !== listId) throw new UserError("Item not found in this list");
+
+      const next = updateRatings(a.rating, b.rating, outcome);
+      await tx.listItem.update({
+        where: { id: a.id },
+        data: { rating: next.a, comparisonCount: { increment: 1 } },
+      });
+      await tx.listItem.update({
+        where: { id: b.id },
+        data: { rating: next.b, comparisonCount: { increment: 1 } },
+      });
+
+      // Re-sort the whole list by rating (ties keep their current relative order) and write it to position.
+      const all = await tx.listItem.findMany({ where: { listId }, orderBy: { position: "asc" } });
+      const sorted = [...all].sort((x, y) => y.rating - x.rating);
+      for (let i = 0; i < sorted.length; i++) {
+        if (sorted[i].position !== i) {
+          await tx.listItem.update({ where: { id: sorted[i].id }, data: { position: i } });
+        }
+      }
+      return { a: next.a, b: next.b };
+    });
+
+    revalidatePath(`/lists/${listId}`);
+    return result;
+  });
 }
 
 export async function setSortModeAction(listId: string, mode: ListSortMode) {

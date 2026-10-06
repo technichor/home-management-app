@@ -1,12 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { CalendarKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
-import { dateToString, isDateString, stringToDate, type WeekStart } from "@/lib/dates";
-import { nextOccurrenceAfter } from "@/lib/recurrence";
+import { stringToDate, type WeekStart } from "@/lib/dates";
 import { updatePlanSettings } from "@/lib/mealPlan";
 import { assertMemberChoice } from "@/lib/householdMembers";
 import { calendarItemSchema, getCalendarSettings, type CalendarItemFields } from "@/lib/calendarItem";
@@ -20,8 +18,8 @@ async function loadItem(householdId: string, id: string) {
   return item;
 }
 
-function parseFields(kind: CalendarKind, fields: CalendarItemFields) {
-  const parsed = calendarItemSchema(kind).safeParse(fields);
+function parseFields(fields: CalendarItemFields) {
+  const parsed = calendarItemSchema.safeParse(fields);
   if (!parsed.success) throw new UserError(parsed.error.issues[0].message);
   return parsed.data;
 }
@@ -41,29 +39,26 @@ const dataOf = (f: ReturnType<typeof parseFields>) => ({
   repeatUnit: f.repeatUnit,
   repeatEvery: f.repeatUnit ? f.repeatEvery : 1,
   repeatUntil: f.repeatUnit && f.repeatUntil ? stringToDate(f.repeatUntil) : null,
-  // A repeating task's date moves forward as it is completed; the anchor is the day the series started on.
-  repeatAnchor: f.repeatUnit ? stringToDate(f.date) : null,
 });
 
-/** Add an event (an event with no time is a reminder) or a task. */
-export async function createCalendarItemAction(kind: CalendarKind, fields: CalendarItemFields) {
+/** Add an event (an event with no time is a reminder). */
+export async function createCalendarItemAction(fields: CalendarItemFields) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
-    if (kind !== "EVENT" && kind !== "TASK") throw new UserError("Choose event or task");
-    const data = parseFields(kind, fields);
+    const data = parseFields(fields);
     await assertMemberChoice(householdId, data.assigneeContactId);
-    const created = await prisma.calendarItem.create({ data: { householdId, kind, ...dataOf(data) } });
+    const created = await prisma.calendarItem.create({ data: { householdId, ...dataOf(data) } });
     refresh();
     return { id: created.id };
   });
 }
 
-/** Change an item. Its kind never changes, and its completion is untouched (use setTaskCompletedAction). */
+/** Change an event (a repeating one as a whole series). */
 export async function updateCalendarItemAction(id: string, fields: CalendarItemFields) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     const item = await loadItem(householdId, id);
-    const data = parseFields(item.kind, fields);
+    const data = parseFields(fields);
     await assertMemberChoice(householdId, data.assigneeContactId, item.assigneeContactId);
     await prisma.calendarItem.update({ where: { id }, data: dataOf(data) });
     refresh();
@@ -76,53 +71,6 @@ export async function deleteCalendarItemAction(id: string) {
   return attempt(async () => {
     await loadItem(householdId, id);
     await prisma.calendarItem.delete({ where: { id } });
-    refresh();
-  });
-}
-
-/**
- * Check or uncheck a task. Completing an ordinary task never changes its date. Completing a repeating task moves it to
- * its next occurrence after today (or after its own date if that is later), so missed ones are skipped, not piled up;
- * once a series has run out it is simply completed.
- */
-export async function setTaskCompletedAction(id: string, completed: boolean, today: string) {
-  const householdId = await requireHouseholdId();
-  return attempt(async () => {
-    if (!isDateString(today)) throw new UserError("Choose a valid date");
-    const item = await loadItem(householdId, id);
-    if (item.kind !== "TASK") throw new UserError("Only a task can be checked off");
-    if (item.repeatUnit && !item.completedAt) {
-      if (!completed) return;
-      const date = dateToString(item.date);
-      const next = nextOccurrenceAfter(
-        {
-          anchor: dateToString(item.repeatAnchor ?? item.date),
-          unit: item.repeatUnit,
-          every: item.repeatEvery,
-          until: item.repeatUntil ? dateToString(item.repeatUntil) : null,
-        },
-        date > today ? date : today,
-      );
-      if (next) {
-        await prisma.calendarItem.update({ where: { id }, data: { date: stringToDate(next) } });
-        refresh();
-        return;
-      }
-    }
-    await prisma.calendarItem.update({ where: { id }, data: { completedAt: completed ? new Date() : null } });
-    refresh();
-  });
-}
-
-/** Move an open task to today (the browser's date), for a task that has been left behind. */
-export async function moveTaskToTodayAction(id: string, today: string) {
-  const householdId = await requireHouseholdId();
-  return attempt(async () => {
-    if (!isDateString(today)) throw new UserError("Choose a valid date");
-    const item = await loadItem(householdId, id);
-    if (item.kind !== "TASK") throw new UserError("Only a task can be moved to today");
-    if (item.completedAt) throw new UserError("A completed task stays on its date");
-    await prisma.calendarItem.update({ where: { id }, data: { date: stringToDate(today) } });
     refresh();
   });
 }

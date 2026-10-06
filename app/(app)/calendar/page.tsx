@@ -1,6 +1,5 @@
 import { pageHouseholdId } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
-import { showsOverdueStrip } from "@/lib/agendaOrder";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { memberOptionsOf } from "@/lib/householdMembers";
 import { datesInRange, isDateString, resolveCalendarRange } from "@/lib/dates";
@@ -28,7 +27,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const includeMeals = calendarSettings.showMeals && resolved.view !== "month";
 
   const agenda = await getAgenda(householdId, resolved.range.start, resolved.range.end, {
-    today,
     assigneeContactId: assigneeFilter,
     includeMeals,
   });
@@ -48,7 +46,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         assignees={assignees}
         assigneeFilter={assigneeFilter}
         entries={agenda.entries}
-        overdue={showsOverdueStrip(resolved.view, resolved.containsToday) ? agenda.overdue : []}
       />
     </>
   );

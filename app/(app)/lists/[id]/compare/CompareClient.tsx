@@ -4,22 +4,31 @@ import { useState } from "react";
 import Link from "next/link";
 import { Alert, Button, Empty, App } from "antd";
 import { pickPair, ComparisonOutcome } from "@/lib/elo";
-import { recordComparisonAction } from "../../actions";
+import type { ActionResult } from "@/lib/actionResult";
 
 type Item = {
   id: string;
   text: string;
-  quantity: string | null;
+  /** A second line under the text (a list item's quantity, a to-do's assignee). */
+  detail: string | null;
   rating: number;
   comparisonCount: number;
 };
 
+/**
+ * "Which matters more?": two items at a time; each answer is saved by `compare` (which re-sorts the list) and the next
+ * pair is the most informative one left. Shared by Lists and the to-do list.
+ */
 export default function CompareClient({
-  listId,
   items: initialItems,
+  compare,
+  backHref,
+  backLabel = "Back to the list",
 }: {
-  listId: string;
   items: Item[];
+  compare: (itemAId: string, itemBId: string, outcome: ComparisonOutcome) => Promise<ActionResult<{ a: number; b: number }>>;
+  backHref: string;
+  backLabel?: string;
 }) {
   const { message } = App.useApp();
   const [items, setItems] = useState(initialItems);
@@ -27,13 +36,11 @@ export default function CompareClient({
   const [done, setDone] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  const backHref = `/lists/${listId}`;
-
   if (items.length < 2 || !pair) {
     return (
       <Empty description="Prioritizing needs at least two unchecked items.">
         <Link href={backHref}>
-          <Button>Back to the list</Button>
+          <Button>{backLabel}</Button>
         </Link>
       </Empty>
     );
@@ -44,7 +51,8 @@ export default function CompareClient({
   async function choose(outcome: ComparisonOutcome) {
     setBusy(true);
     try {
-      const next = await recordComparisonAction(listId, a.id, b.id, outcome);
+      const next = await compare(a.id, b.id, outcome);
+      if (!next.ok) return message.error(next.error);
       const updated = items.map((i) =>
         i.id === a.id
           ? { ...i, rating: next.a, comparisonCount: i.comparisonCount + 1 }
@@ -80,9 +88,7 @@ export default function CompareClient({
       }}
     >
       {item.text}
-      {item.quantity && (
-        <div style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)", marginTop: 4 }}>{item.quantity}</div>
-      )}
+      {item.detail && <div style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)", marginTop: 4 }}>{item.detail}</div>}
     </button>
   );
 

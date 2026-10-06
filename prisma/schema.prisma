@@ -20,6 +20,8 @@ enum ContactCategory {
 enum ListKind {
   STANDARD
   GROCERY
+  // The household's to-do list (one per household, its own module at /todo; hidden from Lists).
+  TODO
 }
 
 enum GroceryCategory {
@@ -199,8 +201,10 @@ model ListItem {
   checked             Boolean          @default(false)
   checkedAt           DateTime?
   position            Int
-  // The store section, for items of a GROCERY list (null in STANDARD lists).
+  // The store section, for items of a GROCERY list (null in other lists).
   category            GroceryCategory?
+  // When a TODO item is due (optional; never on other lists). Plain date, no time.
+  dueDate             DateTime?        @db.Date
   rating              Float            @default(1500)
   comparisonCount     Int              @default(0)
   createdAt           DateTime         @default(now())
@@ -533,15 +537,9 @@ model MealPlanSettings {
 
 // ---- Scheduling & Reminders ----
 
-enum CalendarKind {
-  EVENT
-  TASK
-}
-
-// Something the household chose to track on its calendar: an event (or reminder: an event with no time) or a
-// task. One item, one calendar date; times are plain wall-clock "HH:mm" with no time zone. Kind never changes.
-// Rules enforced in the app (Zod + service): a TASK has no times; an EVENT has no completedAt; endTime needs
-// startTime and must be after it. assigneeContactId null means the whole household.
+// Something on the household's calendar: an event, or a reminder (an event with no time). One item, one calendar
+// date; times are plain wall-clock "HH:mm" with no time zone. Rules enforced in the app (Zod): endTime needs startTime
+// and must be after it. assigneeContactId null means the whole household. (Tasks moved to the to-do list, a TODO List.)
 enum RepeatUnit {
   DAY
   WEEK
@@ -553,7 +551,6 @@ model CalendarItem {
   id                String       @id @default(cuid())
   householdId       String
   household         Household    @relation(fields: [householdId], references: [id])
-  kind              CalendarKind
   title             String
   notes             String?
   date              DateTime     @db.Date
@@ -561,14 +558,11 @@ model CalendarItem {
   endTime           String?
   assigneeContactId String?
   assignee          Contact?     @relation(fields: [assigneeContactId], references: [id], onDelete: SetNull)
-  completedAt       DateTime?
-  // Repeating (see lib/recurrence.ts): every `repeatEvery` days/weeks/months/years, optionally until a date. An EVENT's
-  // occurrences are computed from `date`. A TASK stays one row: checking it off moves `date` to the next occurrence, and
-  // `repeatAnchor` (the day it started on) keeps "the 31st" from drifting to the 28th. Null repeatUnit: does not repeat.
+  // Repeating (see lib/recurrence.ts): every `repeatEvery` days/weeks/months/years from `date`, optionally until a
+  // date; occurrences are computed on read. Null repeatUnit: does not repeat.
   repeatUnit        RepeatUnit?
   repeatEvery       Int          @default(1)
   repeatUntil       DateTime?    @db.Date
-  repeatAnchor      DateTime?    @db.Date
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 

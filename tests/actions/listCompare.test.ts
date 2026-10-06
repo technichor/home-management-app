@@ -42,6 +42,7 @@ describe("recordComparisonAction", () => {
   it("updates both ratings, bumps both counts, and returns the new ratings", async () => {
     setItems([item("a", 1500, 0), item("b", 1500, 1)]);
     const r = await recordComparisonAction("l1", "a", "b", "A");
+    if (!r.ok) throw new Error(r.error);
     expect(r.a).toBeCloseTo(1516);
     expect(r.b).toBeCloseTo(1484);
     expect(prisma.listItem.update).toHaveBeenCalledWith({
@@ -63,17 +64,17 @@ describe("recordComparisonAction", () => {
   });
 
   it("rejects comparing an item with itself", async () => {
-    await expect(recordComparisonAction("l1", "a", "a", "A")).rejects.toThrow("two different items");
+    expect(await recordComparisonAction("l1", "a", "a", "A")).toEqual({ ok: false, error: "Pick two different items" });
   });
 
   it("rejects an unknown outcome", async () => {
-    await expect(recordComparisonAction("l1", "a", "b", "C" as any)).rejects.toThrow("Invalid comparison result");
+    expect(await recordComparisonAction("l1", "a", "b", "C" as any)).toEqual({ ok: false, error: "Invalid comparison result" });
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 
   it("rejects an item from another list", async () => {
     setItems([item("a", 1500, 0), item("b", 1500, 0, "other")]);
-    await expect(recordComparisonAction("l1", "a", "b", "A")).rejects.toThrow("Item not found");
+    expect(await recordComparisonAction("l1", "a", "b", "A")).toEqual({ ok: false, error: "Item not found in this list" });
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 

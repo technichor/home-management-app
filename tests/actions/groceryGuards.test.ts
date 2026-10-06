@@ -136,3 +136,24 @@ describe("addItemsAction and sections", () => {
     await expect(addItemsAction("l1", ["milk"], "PRODUCE")).rejects.toThrow("Only the shopping list has sections");
   });
 });
+
+describe("the to-do list can't be changed through the Lists actions at all", () => {
+  it.each([
+    ["rename", () => renameListAction("t1", "Other name")],
+    ["delete", () => deleteListAction("t1")],
+    ["add to", () => addItemsAction("t1", ["Mow"])],
+    ["check an item of", () => toggleItemAction("i1", true)],
+    ["edit an item of", () => updateItemAction("i1", { assignedToContactId: "anyone-in-the-directory" })],
+    ["delete an item of", () => deleteItemAction("i1")],
+    ["compare items of", () => recordComparisonAction("t1", "i1", "i2", "A")],
+  ])("refuses to %s it, writing nothing", async (_name, call) => {
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "t1", householdId: "h1", kind: "TODO", sortMode: "MANUAL" } as any);
+    vi.mocked(prisma.listItem.findUnique).mockResolvedValue({ id: "i1", listId: "t1" } as any);
+    await expect(call()).rejects.toThrow("The to-do list can't be changed this way");
+    expect(prisma.list.update).not.toHaveBeenCalled();
+    expect(prisma.list.delete).not.toHaveBeenCalled();
+    expect(prisma.listItem.createMany).not.toHaveBeenCalled();
+    expect(prisma.listItem.update).not.toHaveBeenCalled();
+    expect(prisma.listItem.delete).not.toHaveBeenCalled();
+  });
+});

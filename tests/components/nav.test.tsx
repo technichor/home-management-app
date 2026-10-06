@@ -44,16 +44,18 @@ describe("AppNav", () => {
 
   it("links each module in the sidebar and the tab bar", () => {
     setup();
-    for (const [name, href] of [["Home", "/home"], ["Contacts", "/contacts"], ["Lists", "/lists"], ["Messages", "/messages"], ["Meals", "/meals"]]) {
+    for (const [name, href] of [["Home", "/home"], ["To-do", "/todo"], ["Lists", "/lists"], ["Messages", "/messages"], ["Meals", "/meals"]]) {
       expect(sidebar().getByRole("link", { name })).toHaveAttribute("href", href);
       expect(tabbar().getByRole("link", { name })).toHaveAttribute("href", href);
     }
   });
 
-  it("links Maintenance in the sidebar (the tab bar holds only the first five modules)", () => {
+  it("links the other modules in the sidebar only (the tab bar holds the first five; the rest are under More)", () => {
     setup();
-    expect(sidebar().getByRole("link", { name: "Maintenance" })).toHaveAttribute("href", "/maintenance");
-    expect(tabbar().queryByRole("link", { name: "Maintenance" })).toBeNull();
+    for (const [name, href] of [["Contacts", "/contacts"], ["Calendar", "/calendar"], ["Maintenance", "/maintenance"]]) {
+      expect(sidebar().getByRole("link", { name })).toHaveAttribute("href", href);
+      expect(tabbar().queryByRole("link", { name })).toBeNull();
+    }
   });
 
   it("links Accounts in the sidebar (the tab bar holds only the first five modules)", () => {

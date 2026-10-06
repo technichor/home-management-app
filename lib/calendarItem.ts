@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CalendarKind, RepeatUnit } from "@prisma/client";
+import type { RepeatUnit } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isDateString } from "@/lib/dates";
 import { optionalDate, optionalId, optionalNotes, trimToNull } from "@/lib/formFields";
@@ -17,38 +17,31 @@ const time = z
   .refine((v) => v === null || TIME_PATTERN.test(v), "Enter the time as HH:MM (24-hour)");
 
 /**
- * The fields of a calendar item, checked for the kind it is (the kind itself never changes after creation):
- *  - a TASK has no times; an EVENT may have a start time, and an end time only with a start, after it.
- * An event with no time is a reminder.
+ * The fields of a calendar event. It may have a start time, and an end time only with a start, after it. An event with
+ * no time is a reminder.
  */
-export function calendarItemSchema(kind: CalendarKind) {
-  return z
-    .object({
-      title: z.string().trim().min(1, "Give it a title").max(MAX_TITLE, `Titles can be at most ${MAX_TITLE} characters`),
-      notes: optionalNotes(MAX_NOTES),
-      date: z.string().refine(isDateString, "Choose a valid date"),
-      startTime: time,
-      endTime: time,
-      assigneeContactId: optionalId(),
-      repeatUnit: z.enum(REPEAT_UNITS as [RepeatUnit, ...RepeatUnit[]]).nullish().transform((v) => v ?? null),
-      repeatEvery: z.number().int("Repeat every a whole number of times").min(1, "Repeat every at least 1").max(MAX_EVERY, `Repeat every at most ${MAX_EVERY}`).nullish().transform((v) => v ?? 1),
-      repeatUntil: optionalDate("end date"),
-    })
-    .superRefine((v, ctx) => {
-      if (v.repeatUntil && !v.repeatUnit) ctx.addIssue({ code: "custom", message: "An end date needs a repeat", path: ["repeatUntil"] });
-      else if (v.repeatUntil && v.repeatUntil < v.date) ctx.addIssue({ code: "custom", message: "The repeat can't end before it starts", path: ["repeatUntil"] });
-      if (kind === "TASK") {
-        if (v.startTime || v.endTime) ctx.addIssue({ code: "custom", message: "Tasks don't have a time", path: [v.startTime ? "startTime" : "endTime"] });
-        return;
-      }
-      if (v.endTime && !v.startTime) ctx.addIssue({ code: "custom", message: "Add a start time before an end time", path: ["endTime"] });
-      else if (v.startTime && v.endTime && v.endTime <= v.startTime) {
-        ctx.addIssue({ code: "custom", message: "The end time must be after the start time", path: ["endTime"] });
-      }
-    });
-}
+export const calendarItemSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give it a title").max(MAX_TITLE, `Titles can be at most ${MAX_TITLE} characters`),
+    notes: optionalNotes(MAX_NOTES),
+    date: z.string().refine(isDateString, "Choose a valid date"),
+    startTime: time,
+    endTime: time,
+    assigneeContactId: optionalId(),
+    repeatUnit: z.enum(REPEAT_UNITS as [RepeatUnit, ...RepeatUnit[]]).nullish().transform((v) => v ?? null),
+    repeatEvery: z.number().int("Repeat every a whole number of times").min(1, "Repeat every at least 1").max(MAX_EVERY, `Repeat every at most ${MAX_EVERY}`).nullish().transform((v) => v ?? 1),
+    repeatUntil: optionalDate("end date"),
+  })
+  .superRefine((v, ctx) => {
+    if (v.repeatUntil && !v.repeatUnit) ctx.addIssue({ code: "custom", message: "An end date needs a repeat", path: ["repeatUntil"] });
+    else if (v.repeatUntil && v.repeatUntil < v.date) ctx.addIssue({ code: "custom", message: "The repeat can't end before it starts", path: ["repeatUntil"] });
+    if (v.endTime && !v.startTime) ctx.addIssue({ code: "custom", message: "Add a start time before an end time", path: ["endTime"] });
+    else if (v.startTime && v.endTime && v.endTime <= v.startTime) {
+      ctx.addIssue({ code: "custom", message: "The end time must be after the start time", path: ["endTime"] });
+    }
+  });
 
-export type CalendarItemFields = z.input<ReturnType<typeof calendarItemSchema>>;
+export type CalendarItemFields = z.input<typeof calendarItemSchema>;
 
 /** Household-wide calendar settings, created with the defaults (meals hidden) the first time they are read. */
 export async function getCalendarSettings(householdId: string): Promise<{ showMeals: boolean }> {

@@ -13,9 +13,9 @@ export type BriefDay = {
   weekdayLong: string;
   dayOfMonth: number;
   isToday: boolean;
-  /** How much is on the day: everything except tasks already done. */
+  /** How much is on the day. */
   load: number;
-  /** Nothing at all on the day (not even a completed task). */
+  /** Nothing at all on the day. */
   empty: boolean;
   /** The day's main thing, or "Open". */
   title: string;
@@ -85,11 +85,10 @@ function headlineFor(firstName: string, loads: number[], days: BriefDay[]): stri
   return `${adjective}, ${firstName}, with the most planned on ${joinList(busiest.map((d) => d.weekdayLong))}.`;
 }
 
-/** A day's one line about an entry, as a sentence: "9:30 AM Dentist.", "Task: Call the vet.", "Dinner: Tacos.". */
+/** A day's one line about an entry, as a sentence: "9:30 AM Dentist.", "Dinner: Tacos.". */
 function lineOf(e: AgendaEntry): string {
   if (e.source === "contact_date") return e.turns !== null ? `${e.title} (turns ${e.turns}).` : `${e.title}.`;
   if (e.source === "meal") return `${e.title}.`;
-  if (e.kind === "TASK") return `${e.completed ? "Done" : e.overdue ? "Overdue task" : "Task"}: ${e.title}.`;
   const when = timeLabel(e.startTime, e.endTime);
   return `${when ? `${when} ` : ""}${e.title}.`;
 }
@@ -97,24 +96,17 @@ function lineOf(e: AgendaEntry): string {
 /** What names a day: the entry itself, or for a meal just the dish ("Dinner: Tacos" becomes "Tacos"). */
 const nameOf = (e: AgendaEntry) => (e.source === "meal" ? e.title.replace(/^[^:]+: /, "") : e.title);
 
-const isDoneTask = (e: AgendaEntry) => e.source === "item" && e.kind === "TASK" && e.completed;
-
 /**
  * The week for the home page, from the shared agenda's entries (calendar items, contact dates and planned meals) for
- * those seven days. A day's load is what is still on it: completed tasks are done, so they don't weigh. Its main
- * item is the first thing that isn't a meal, else its dinner, else its first meal.
+ * those seven days. A day's load is how many entries it has. Its main item is the first thing that isn't a meal, else
+ * its dinner, else its first meal.
  */
 export function buildBrief(input: { firstName: string; weekStart: string; today: string; entries: AgendaEntry[] }): Brief {
   const { firstName, weekStart, today, entries } = input;
 
   const days: BriefDay[] = weekDates(weekStart).map((date) => {
     const here = entries.filter((e) => e.date === date);
-    const open = here.filter((e) => !isDoneTask(e));
-    const main =
-      open.find((e) => e.source !== "meal") ??
-      open.find((e) => e.source === "meal" && e.slot === "DINNER") ??
-      open[0] ??
-      here[0];
+    const main = here.find((e) => e.source !== "meal") ?? here.find((e) => e.source === "meal" && e.slot === "DINNER") ?? here[0];
 
     return {
       date,
@@ -122,10 +114,10 @@ export function buildBrief(input: { firstName: string; weekStart: string; today:
       weekdayLong: LONG[dayOfWeek(date)],
       dayOfMonth: Number(date.slice(8)),
       isToday: date === today,
-      load: open.length,
+      load: here.length,
       empty: here.length === 0,
       title: main ? nameOf(main) : "Open",
-      more: open.length > 1 ? `+${open.length - 1} more` : "",
+      more: here.length > 1 ? `+${here.length - 1} more` : "",
       support: main ? here.map(lineOf).join(" ") : "Nothing planned.",
     };
   });

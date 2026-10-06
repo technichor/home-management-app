@@ -6,11 +6,10 @@ import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEn
 const START = "2026-10-04";
 let n = 0;
 const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${++n}`, itemId: "item", kind: "EVENT", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
-  assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
+  source: "item", id: `i${++n}`, itemId: "item", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
+  assigneeName: null, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
 });
 const event = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { title, ...over });
-const task = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { kind: "TASK", title, ...over });
 const birthday = (date: string, title: string, turns: number | null = null): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date, title, type: "birthday", contactId: "c", turns, editable: false,
 });
@@ -66,21 +65,6 @@ describe("the days", () => {
     expect(brief([event("2026-10-06", "Picture day")]).days[2]).toMatchObject({ title: "Picture day", support: "Picture day." });
   });
 
-  it("lists tasks as to do, overdue, or done", () => {
-    const { days } = brief([task("2026-10-06", "Call the vet"), task("2026-10-06", "Renew passport", { overdue: true }), task("2026-10-06", "Pay bill", { completed: true })]);
-    expect(days[2].support).toBe("Task: Call the vet. Overdue task: Renew passport. Done: Pay bill.");
-    expect(days[2].load).toBe(2);
-  });
-
-  it("doesn't count a completed task as load, but the day isn't empty", () => {
-    const { days } = brief([task("2026-10-06", "Pay bill", { completed: true })]);
-    expect(days[2]).toMatchObject({ load: 0, empty: false, title: "Pay bill", support: "Done: Pay bill.", more: "" });
-  });
-
-  it("names a day by an open task over a finished one", () => {
-    const { days } = brief([task("2026-10-06", "Done one", { completed: true }), task("2026-10-06", "Open one")]);
-    expect(days[2]).toMatchObject({ title: "Open one", load: 1, more: "" });
-  });
 
   it("falls back to a meal when that is all there is, preferring dinner, then the first", () => {
     expect(brief([lunch("2026-10-06", "Soup"), dinner("2026-10-06", "Tacos")]).days[2].title).toBe("Tacos");
@@ -97,9 +81,6 @@ describe("the headline", () => {
     expect(brief().headline).toBe("Nothing is planned this week yet, Casey.");
   });
 
-  it("doesn't count finished tasks as something planned", () => {
-    expect(brief([task("2026-10-06", "Done", { completed: true })]).headline).toBe("Nothing is planned this week yet, Casey.");
-  });
 
   it("names the busiest day or days", () => {
     const one = brief([dinner("2026-10-05", "A"), dinner("2026-10-05", "B"), dinner("2026-10-06", "C")]);
@@ -108,8 +89,8 @@ describe("the headline", () => {
     expect(two.headline).toBe("A light week, Casey, with the most planned on Monday and Tuesday.");
   });
 
-  it("counts events, tasks and birthdays as well as meals", () => {
-    const entries = [event("2026-10-08", "A"), task("2026-10-08", "B"), birthday("2026-10-08", "Jo's birthday"), dinner("2026-10-09", "C")];
+  it("counts events and birthdays as well as meals", () => {
+    const entries = [event("2026-10-08", "A"), event("2026-10-08", "B"), birthday("2026-10-08", "Jo's birthday"), dinner("2026-10-09", "C")];
     expect(brief(entries).headline).toBe("A light week, Casey, with the most planned on Thursday.");
   });
 

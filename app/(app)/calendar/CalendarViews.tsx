@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { Button, Checkbox } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { formatCalendarDate, formatDayHeading, type CalendarView } from "@/lib/dates";
 import { CALENDAR_LIST_QUERY, MAX_CHIPS, groupByDate, plannerHref, timeLabel, weeksOf } from "@/lib/calendarView";
@@ -12,10 +11,6 @@ import type { AgendaEntry, AgendaItemEntry } from "@/lib/agendaOrder";
 export type EntryContext = {
   today: string;
   onOpen: (item: AgendaItemEntry) => void;
-  onToggle: (task: AgendaItemEntry, completed: boolean) => void;
-  /** A task's completion as the user last set it, ahead of what the server says. */
-  completedOf: (task: AgendaItemEntry) => boolean;
-  failed: Record<string, () => void>;
   onAdd: (date: string) => void;
   hrefFor: (view: CalendarView, date: string) => string;
 };
@@ -39,44 +34,13 @@ function EntryLine({ entry, ctx, compact = false }: { entry: AgendaEntry; ctx: E
     );
   }
 
-  const done = entry.kind === "TASK" && ctx.completedOf(entry);
-  const overdue = entry.overdue && !done;
   const when = timeLabel(entry.startTime, entry.endTime);
-  const body = (
-    <>
+
+  return (
+    <button type="button" className={`cal-entry cal-entry-button${compact ? " cal-chip" : ""}`} onClick={() => ctx.onOpen(entry)}>
       {when && <span className="cal-time">{when}</span>}
       <span className="cal-entry-title">{entry.title}</span>
       {entry.assigneeName && <span className="cal-muted"> {entry.assigneeName}</span>}
-    </>
-  );
-
-  if (entry.kind === "TASK" && !compact) {
-    return (
-      <div className="cal-entry cal-task" data-done={done || undefined} data-overdue={overdue || undefined}>
-        <Checkbox checked={done} onChange={(e) => ctx.onToggle(entry, e.target.checked)} aria-label={`Complete ${entry.title}`} />
-        <button type="button" className="cal-entry-button" onClick={() => ctx.onOpen(entry)}>
-          {body}
-          {overdue && <span className="cal-overdue-flag"> overdue</span>}
-        </button>
-        {ctx.failed[entry.id] && (
-          <Button size="small" danger onClick={ctx.failed[entry.id]}>
-            Couldn&apos;t save. Retry
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={`cal-entry cal-entry-button${compact ? " cal-chip" : ""}${entry.kind === "TASK" ? " cal-task" : ""}`}
-      data-done={done || undefined}
-      data-overdue={overdue || undefined}
-      onClick={() => ctx.onOpen(entry)}
-    >
-      {entry.kind === "TASK" && <span aria-hidden="true">{done ? "✓ " : "○ "}</span>}
-      {body}
     </button>
   );
 }
@@ -127,8 +91,7 @@ export function WeekView({ dates, entries, ctx }: { dates: string[]; entries: Ag
 
 const SECTIONS: { title: string; match: (e: AgendaEntry) => boolean }[] = [
   { title: "Birthdays and dates", match: (e) => e.source === "contact_date" },
-  { title: "Events and reminders", match: (e) => e.source === "item" && e.kind === "EVENT" },
-  { title: "Tasks", match: (e) => e.source === "item" && e.kind === "TASK" },
+  { title: "Events and reminders", match: (e) => e.source === "item" },
   { title: "Meals", match: (e) => e.source === "meal" },
 ];
 

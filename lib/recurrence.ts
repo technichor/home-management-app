@@ -55,16 +55,6 @@ export function occurrencesInRange(rule: RepeatRule, range: DateRange): string[]
   return dates;
 }
 
-/** The first occurrence strictly after `after`, or null once the rule has ended. */
-export function nextOccurrenceAfter(rule: RepeatRule, after: string): string | null {
-  // indexNear lands at most a couple of steps short, and occurrences only move forward, so this ends quickly.
-  for (let n = indexNear(rule, after); ; n++) {
-    const date = occurrenceAt(rule, n);
-    if (rule.until !== null && date > rule.until) return null;
-    if (date > after) return date;
-  }
-}
-
 const UNIT_WORDS: Record<RepeatUnit, [string, string]> = {
   DAY: ["day", "days"],
   WEEK: ["week", "weeks"],

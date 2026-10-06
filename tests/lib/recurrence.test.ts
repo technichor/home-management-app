@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeRepeat, nextOccurrenceAfter, occurrenceAt, occurrencesInRange, type RepeatRule } from "@/lib/recurrence";
+import { describeRepeat, occurrenceAt, occurrencesInRange, type RepeatRule } from "@/lib/recurrence";
 
 const rule = (over: Partial<RepeatRule> = {}): RepeatRule => ({ anchor: "2026-01-31", unit: "MONTH", every: 1, until: null, ...over });
 
@@ -46,19 +46,6 @@ describe("occurrencesInRange", () => {
   });
 });
 
-describe("nextOccurrenceAfter", () => {
-  it("is the first occurrence strictly after the date", () => {
-    expect(nextOccurrenceAfter(rule({ anchor: "2026-10-01", unit: "WEEK" }), "2026-10-08")).toBe("2026-10-15");
-    expect(nextOccurrenceAfter(rule({ anchor: "2026-10-01", unit: "WEEK" }), "2026-10-09")).toBe("2026-10-15");
-    expect(nextOccurrenceAfter(rule({ anchor: "2026-10-01", unit: "WEEK" }), "2026-09-01")).toBe("2026-10-01");
-  });
-  it("keeps the day of month for a series that has been moved forward", () => {
-    expect(nextOccurrenceAfter(rule(), "2026-02-28")).toBe("2026-03-31");
-  });
-  it("is null once the series has ended", () => {
-    expect(nextOccurrenceAfter(rule({ anchor: "2026-10-01", unit: "DAY", until: "2026-10-03" }), "2026-10-03")).toBeNull();
-  });
-});
 
 describe("describeRepeat", () => {
   it("reads naturally", () => {

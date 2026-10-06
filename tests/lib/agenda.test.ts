@@ -8,11 +8,10 @@ import { prisma } from "@/lib/db";
 import { getAgenda } from "@/lib/agenda";
 import { entriesInRange } from "@/lib/mealPlan";
 
-const TODAY = "2026-10-07";
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const row = (over: Record<string, unknown> = {}) => ({
   id: "i1", householdId: "h1", kind: "EVENT", title: "Dentist", notes: null, date: day("2026-10-08"),
-  startTime: null, endTime: null, assigneeContactId: null, assignee: null, completedAt: null,
+  startTime: null, endTime: null, assigneeContactId: null, assignee: null,
   createdAt: new Date("2026-10-01T10:00:00Z"), updatedAt: new Date(), ...over,
 });
 const contactRow = (over: Record<string, unknown> = {}) => ({
@@ -28,15 +27,15 @@ beforeEach(() => {
   vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
 });
 
-const run = (over: Partial<Parameters<typeof getAgenda>[3]> = {}) => getAgenda("h1", "2026-10-04", "2026-10-10", { today: TODAY, ...over });
+const run = (over: Partial<Parameters<typeof getAgenda>[3]> = {}) => getAgenda("h1", "2026-10-04", "2026-10-10", { ...over });
 const itemCalls = () => vi.mocked(prisma.calendarItem.findMany).mock.calls.map((c) => c[0]!);
 
 describe("getAgenda: what it asks the database", () => {
   it("scopes every query to the household", async () => {
     await run({ includeMeals: true });
-    const [inRangeCall, overdueCall] = itemCalls();
+    const [inRangeCall, repeatingCall] = itemCalls();
     expect(inRangeCall.where).toMatchObject({ householdId: "h1", date: { gte: day("2026-10-04"), lte: day("2026-10-10") } });
-    expect(overdueCall.where).toMatchObject({ householdId: "h1", kind: "TASK", completedAt: null, date: { lt: day(TODAY) } });
+    expect(repeatingCall.where).toMatchObject({ householdId: "h1" });
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.where).toMatchObject({ ownerHouseholdId: "h1", deletedAt: null });
     expect(vi.mocked(prisma.mealPlanEntry.findMany).mock.calls[0][0]!.where).toMatchObject({ householdId: "h1" });
     expect(prisma.mealPlanSettings.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { householdId: "h1" } }));
@@ -64,7 +63,9 @@ describe("getAgenda: what it asks the database", () => {
     expect(itemCalls()[1].where).not.toHaveProperty("OR");
     vi.mocked(prisma.calendarItem.findMany).mockClear();
     await run({ assigneeContactId: "c9" });
-    for (const call of itemCalls()) expect(call.where).toMatchObject({ OR: [{ assigneeContactId: null }, { assigneeContactId: "c9" }] });
+    const member = { OR: [{ assigneeContactId: null }, { assigneeContactId: "c9" }] };
+    expect(itemCalls()[0].where).toMatchObject(member);
+    expect(itemCalls()[1].where!.AND).toContainEqual(member);
   });
 
   it("applies no assignee condition for an empty filter either", async () => {
@@ -76,13 +77,12 @@ describe("getAgenda: what it asks the database", () => {
 describe("getAgenda: items", () => {
   it("turns rows into editable entries, in the day's order", async () => {
     vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([
-      row({ id: "t", kind: "TASK", title: "Call the vet" }),
       row({ id: "e", title: "Picture day" }),
       row({ id: "timed", title: "Dentist", startTime: "09:30", endTime: "10:15" }),
     ] as any);
     const { entries } = await run();
-    expect(entries.map((e) => e.title)).toEqual(["Picture day", "Dentist", "Call the vet"]);
-    expect(entries[1]).toMatchObject({ source: "item", id: "timed", kind: "EVENT", date: "2026-10-08", startTime: "09:30", endTime: "10:15", editable: true, completed: false, overdue: false });
+    expect(entries.map((e) => e.title)).toEqual(["Picture day", "Dentist"]);
+    expect(entries[1]).toMatchObject({ source: "item", id: "timed", date: "2026-10-08", startTime: "09:30", endTime: "10:15", editable: true });
   });
 
   it("names the assignee by nickname, keeping the name after the contact was removed", async () => {
@@ -97,48 +97,6 @@ describe("getAgenda: items", () => {
     expect(itemCalls()[0].include).toEqual({ assignee: { select: { firstName: true, nickname: true } } });
   });
 
-  it("marks an open task dated before today overdue, and keeps it on its own date", async () => {
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([row({ id: "late", kind: "TASK", date: day("2026-10-05") })] as any);
-    const { entries } = await run();
-    expect(entries[0]).toMatchObject({ id: "late", date: "2026-10-05", overdue: true, completed: false });
-  });
-
-  it("shows a completed task on its original date, done and not overdue", async () => {
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([
-      row({ id: "done", kind: "TASK", date: day("2026-10-05"), completedAt: new Date("2026-10-06T08:00:00Z") }),
-    ] as any);
-    const { entries } = await run();
-    expect(entries[0]).toMatchObject({ id: "done", date: "2026-10-05", completed: true, overdue: false });
-  });
-
-  it("is never overdue for an event, or a task today or later", async () => {
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([
-      row({ id: "ev", date: day("2026-10-04") }),
-      row({ id: "today", kind: "TASK", date: day(TODAY) }),
-      row({ id: "later", kind: "TASK", date: day("2026-10-09") }),
-    ] as any);
-    const { entries } = await run();
-    expect(entries.every((e) => (e as any).overdue === false)).toBe(true);
-  });
-});
-
-describe("getAgenda: the overdue list", () => {
-  it("is every open task before today, oldest first, whatever range is being viewed", async () => {
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([
-      row({ id: "old", kind: "TASK", date: day("2026-09-01") }),
-      row({ id: "recent", kind: "TASK", date: day("2026-10-06") }),
-    ] as any);
-    const { overdue } = await getAgenda("h1", "2027-03-01", "2027-03-07", { today: TODAY });
-    expect(overdue.map((o) => o.id)).toEqual(["old", "recent"]);
-    expect(overdue.every((o) => o.overdue)).toBe(true);
-    expect(itemCalls()[1].orderBy).toEqual([{ date: "asc" }, { createdAt: "asc" }]);
-    // It doesn't depend on the range being viewed.
-    expect(itemCalls()[1].where).not.toHaveProperty("date.gte");
-  });
-
-  it("is empty when nothing is overdue", async () => {
-    expect((await run()).overdue).toEqual([]);
-  });
 });
 
 describe("getAgenda: contact dates", () => {
@@ -161,13 +119,13 @@ describe("getAgenda: contact dates", () => {
       contactRow({ id: "dec", birthdayMonth: 12, birthdayDay: 30 }),
       contactRow({ id: "jan", birthdayMonth: 1, birthdayDay: 2 }),
     ] as any);
-    const { entries } = await getAgenda("h1", "2026-12-28", "2027-01-03", { today: TODAY });
+    const { entries } = await getAgenda("h1", "2026-12-28", "2027-01-03");
     expect(entries.map((e) => e.date)).toEqual(["2026-12-30", "2027-01-02"]);
   });
 
   it("puts a Feb 29 birthday on Feb 28 in a common year", async () => {
     vi.mocked(prisma.contact.findMany).mockResolvedValue([contactRow({ birthdayMonth: 2, birthdayDay: 29 })] as any);
-    const { entries } = await getAgenda("h1", "2027-02-22", "2027-02-28", { today: TODAY });
+    const { entries } = await getAgenda("h1", "2027-02-22", "2027-02-28");
     expect(entries.map((e) => e.date)).toEqual(["2027-02-28"]);
   });
 
@@ -196,7 +154,7 @@ describe("getAgenda: meals", () => {
       planned(),
       planned({ id: "e2", slot: "LUNCH", mealId: null, text: "Leftovers", meal: null }),
     ] as any);
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([row({ kind: "TASK", title: "Call the vet" })] as any);
+    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([row({ title: "Call the vet" })] as any);
     const { entries } = await run({ includeMeals: true });
     expect(entries.map((e) => e.title)).toEqual(["Call the vet", "Lunch: Leftovers", "Dinner: BBQ chicken"]);
     expect(entries[2]).toMatchObject({ source: "meal", slot: "DINNER", editable: false });
@@ -258,21 +216,24 @@ describe("getAgenda: repeating events", () => {
   const weekly = (over: Record<string, unknown> = {}) =>
     row({ id: "r1", title: "Trash", date: day("2026-09-23"), repeatUnit: "WEEK", repeatEvery: 1, repeatUntil: null, ...over });
   const withRepeating = (...rows: unknown[]) =>
-    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(rows as any);
+    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce(rows as any);
 
   it("asks for repeating events however long ago they began, and leaves them out of the dated query", async () => {
     await run();
-    const [dated, , repeating] = itemCalls();
-    expect(dated.where).toMatchObject({ NOT: { kind: "EVENT", repeatUnit: { not: null } } });
+    const [dated, repeating] = itemCalls();
+    expect(dated.where).toMatchObject({ repeatUnit: null });
     expect(repeating.where).toMatchObject({
-      householdId: "h1", kind: "EVENT", repeatUnit: { not: null }, date: { lte: day("2026-10-10") },
-      OR: [{ repeatUntil: null }, { repeatUntil: { gte: day("2026-10-04") } }],
+      householdId: "h1", repeatUnit: { not: null }, date: { lte: day("2026-10-10") },
+      AND: [{ OR: [{ repeatUntil: null }, { repeatUntil: { gte: day("2026-10-04") } }] }, {}],
     });
   });
 
-  it("applies the assignee filter to repeating events too", async () => {
+  it("applies the assignee filter to repeating events too, without losing the end-date condition", async () => {
     await run({ assigneeContactId: "c9" });
-    expect(itemCalls()[2].where).toMatchObject({ OR: expect.anything() });
+    expect(itemCalls()[1].where!.AND).toEqual([
+      { OR: [{ repeatUntil: null }, { repeatUntil: { gte: day("2026-10-04") } }] },
+      { OR: [{ assigneeContactId: null }, { assigneeContactId: "c9" }] },
+    ]);
   });
 
   it("shows one entry per occurrence in the range, each with its own id but the stored item's itemId", async () => {

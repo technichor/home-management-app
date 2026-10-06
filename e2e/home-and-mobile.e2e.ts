@@ -148,6 +148,8 @@ test.describe("on a phone", () => {
       `/calendar`,
       `/calendar?view=month`,
       `/calendar?view=day`,
+      `/todo`,
+      `/todo/prioritize`,
       `/maintenance`,
       `/maintenance/new`,
       `/accounts`,
@@ -184,7 +186,7 @@ test.describe("on a phone", () => {
   test("navigation stays usable: a tab bar at the bottom with every module, and the rest under More", async ({ page }) => {
     await newOwner(page, "nav", "The Navs");
     const tabs = page.getByRole("navigation", { name: "Main" });
-    for (const tab of ["Home", "Contacts", "Lists", "Messages", "More"]) {
+    for (const tab of ["Home", "To-do", "Lists", "Messages", "More"]) {
       const box = await tabs.getByText(tab, { exact: true }).boundingBox();
       expect(box, tab).not.toBeNull();
       expect(box!.y + box!.height, tab).toBeLessThanOrEqual(812); // on screen (the 375x812 phone)

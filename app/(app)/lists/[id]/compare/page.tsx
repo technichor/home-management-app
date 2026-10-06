@@ -4,6 +4,7 @@ import { Breadcrumb } from "antd";
 import { prisma } from "@/lib/db";
 import CompareClient from "./CompareClient";
 import { pageHouseholdId } from "@/lib/auth";
+import { recordComparisonAction } from "../../actions";
 
 export default async function ComparePage({
   params,
@@ -31,11 +32,12 @@ export default async function ComparePage({
         ]}
       />
       <CompareClient
-        listId={list.id}
+        backHref={`/lists/${list.id}`}
+        compare={recordComparisonAction.bind(null, list.id)}
         items={list.items.map((i) => ({
           id: i.id,
           text: i.text,
-          quantity: i.quantity,
+          detail: i.quantity,
           rating: i.rating,
           comparisonCount: i.comparisonCount,
         }))}

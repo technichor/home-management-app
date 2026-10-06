@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
   vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
   vi.mocked(memberOptionsOf).mockResolvedValue(members);
-  vi.mocked(getAgenda).mockResolvedValue({ entries: [], overdue: [] });
+  vi.mocked(getAgenda).mockResolvedValue({ entries: [] });
 });
 
 describe("CalendarPage", () => {
@@ -82,7 +82,7 @@ describe("CalendarPage", () => {
     it("filters to a current member", async () => {
       await run({ who: "m1" });
       expect(seen.client.assigneeFilter).toBe("m1");
-      expect(agendaArgs()[3]).toMatchObject({ assigneeContactId: "m1", today: "2026-10-07" });
+      expect(agendaArgs()[3]).toMatchObject({ assigneeContactId: "m1" });
     });
 
     it("ignores anyone who isn't a current member (someone removed, or another household's contact)", async () => {
@@ -121,33 +121,9 @@ describe("CalendarPage", () => {
     });
   });
 
-  describe("the overdue strip", () => {
-    const overdue = [{ id: "t1" }];
-    beforeEach(() => vi.mocked(getAgenda).mockResolvedValue({ entries: [], overdue: overdue as any }));
-
-    it("is passed on the current week and on today's day view", async () => {
-      await run();
-      expect(seen.client.overdue).toEqual(overdue);
-      await run({ view: "day", date: "2026-10-07" });
-      expect(seen.client.overdue).toEqual(overdue);
-    });
-
-    it("is left out when the viewed range doesn't include today", async () => {
-      await run({ date: "2026-10-18" });
-      expect(seen.client.overdue).toEqual([]);
-      await run({ view: "day", date: "2026-10-08" });
-      expect(seen.client.overdue).toEqual([]);
-    });
-
-    it("is never on the month view", async () => {
-      await run({ view: "month" });
-      expect(seen.client.overdue).toEqual([]);
-    });
-  });
-
   it("passes the agenda's entries through", async () => {
     const entries = [{ source: "item", id: "i1" }];
-    vi.mocked(getAgenda).mockResolvedValue({ entries: entries as any, overdue: [] });
+    vi.mocked(getAgenda).mockResolvedValue({ entries: entries as any });
     await run();
     expect(seen.client.entries).toEqual(entries);
   });

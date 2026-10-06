@@ -19,9 +19,7 @@ import { prisma } from "@/lib/db";
 import {
   createCalendarItemAction,
   deleteCalendarItemAction,
-  moveTaskToTodayAction,
   setShowMealsAction,
-  setTaskCompletedAction,
   setWeekStartAction,
   updateCalendarItemAction,
 } from "@/app/(app)/calendar/actions";
@@ -31,8 +29,8 @@ import { updateMealPlanSettingsAction } from "@/app/(app)/meals/actions";
 
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const item = (over: Record<string, unknown> = {}) => ({
-  id: "i1", householdId: "h1", kind: "EVENT", title: "Dentist", notes: null, date: day("2026-10-08"),
-  startTime: null, endTime: null, assigneeContactId: null, completedAt: null, ...over,
+  id: "i1", householdId: "h1", title: "Dentist", notes: null, date: day("2026-10-08"),
+  startTime: null, endTime: null, assigneeContactId: null, ...over,
 });
 const members = [{ id: "m1", firstName: "Sam", lastName: "Doe", nickname: null }, { id: "m2", firstName: "Ann", lastName: "Doe", nickname: "Annie" }];
 
@@ -52,11 +50,9 @@ const fields = { title: "Dentist", date: "2026-10-08" };
 
 describe("authentication", () => {
   it.each([
-    ["create", () => createCalendarItemAction("EVENT", fields)],
+    ["create", () => createCalendarItemAction(fields)],
     ["update", () => updateCalendarItemAction("i1", fields)],
     ["delete", () => deleteCalendarItemAction("i1")],
-    ["complete", () => setTaskCompletedAction("i1", true, "2026-10-07")],
-    ["move to today", () => moveTaskToTodayAction("i1", "2026-10-07")],
     ["show meals", () => setShowMealsAction(true)],
     ["week start", () => setWeekStartAction("MONDAY")],
   ])("%s refuses a caller with no session, touching nothing", async (_n, call) => {
@@ -73,50 +69,37 @@ describe("authentication", () => {
 
 describe("createCalendarItemAction", () => {
   it("adds an event in the session's household, with trimmed fields and a date-only value", async () => {
-    const result = await createCalendarItemAction("EVENT", { title: "  Picture day ", notes: "Wear blue\nsmile", date: "2026-10-08", startTime: "09:00", endTime: "10:00" });
+    const result = await createCalendarItemAction({ title: "  Picture day ", notes: "Wear blue\nsmile", date: "2026-10-08", startTime: "09:00", endTime: "10:00" });
     expect(result).toEqual({ ok: true, id: "new1" });
     expect(prisma.calendarItem.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", kind: "EVENT", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, repeatAnchor: null },
+      data: { householdId: "h1", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/calendar");
     expect(revalidatePath).toHaveBeenCalledWith("/home");
   });
 
-  it("adds a reminder (an event with no time) and a task", async () => {
-    await createCalendarItemAction("EVENT", fields);
-    expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({ kind: "EVENT", startTime: null, endTime: null });
-    await createCalendarItemAction("TASK", fields);
-    expect(vi.mocked(prisma.calendarItem.create).mock.calls[1][0].data).toMatchObject({ kind: "TASK", startTime: null });
-  });
-
-  it("starts a task not completed (it has no completion in its data)", async () => {
-    await createCalendarItemAction("TASK", fields);
-    expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).not.toHaveProperty("completedAt");
-  });
-
-  it("rejects a kind that isn't event or task", async () => {
-    expect(await createCalendarItemAction("MEETING" as any, fields)).toEqual({ ok: false, error: "Choose event or task" });
-    expect(prisma.calendarItem.create).not.toHaveBeenCalled();
+  it("adds a reminder (an event with no time)", async () => {
+    await createCalendarItemAction(fields);
+    expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({ startTime: null, endTime: null });
   });
 
   it.each([
-    ["a task with a time", () => createCalendarItemAction("TASK", { ...fields, startTime: "09:00" }), "Tasks don't have a time"],
-    ["an end time without a start", () => createCalendarItemAction("EVENT", { ...fields, endTime: "10:00" }), "Add a start time before an end time"],
-    ["an end before the start", () => createCalendarItemAction("EVENT", { ...fields, startTime: "10:00", endTime: "09:00" }), "The end time must be after the start time"],
-    ["a blank title", () => createCalendarItemAction("EVENT", { ...fields, title: " " }), "Give it a title"],
-    ["a bad date", () => createCalendarItemAction("EVENT", { ...fields, date: "2026-02-30" }), "Choose a valid date"],
-    ["a bad time", () => createCalendarItemAction("EVENT", { ...fields, startTime: "9am" }), "Enter the time as HH:MM (24-hour)"],
+    ["an end time without a start", () => createCalendarItemAction({ ...fields, endTime: "10:00" }), "Add a start time before an end time"],
+    ["an end before the start", () => createCalendarItemAction({ ...fields, startTime: "10:00", endTime: "09:00" }), "The end time must be after the start time"],
+    ["a blank title", () => createCalendarItemAction({ ...fields, title: " " }), "Give it a title"],
+    ["a bad date", () => createCalendarItemAction({ ...fields, date: "2026-02-30" }), "Choose a valid date"],
+    ["a bad time", () => createCalendarItemAction({ ...fields, startTime: "9am" }), "Enter the time as HH:MM (24-hour)"],
   ])("rejects %s, writing nothing", async (_n, call, error) => {
     expect(await call()).toEqual({ ok: false, error });
     expect(prisma.calendarItem.create).not.toHaveBeenCalled();
   });
 
-  it("stores a repeat with its anchor, and nothing when it doesn't repeat", async () => {
-    await createCalendarItemAction("EVENT", { ...fields, repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" });
+  it("stores a repeat, and nothing when it doesn't repeat", async () => {
+    await createCalendarItemAction({ ...fields, repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" });
     expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({
-      repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: day("2027-12-31"), repeatAnchor: day("2026-10-08"),
+      repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: day("2027-12-31"),
     });
-    await createCalendarItemAction("EVENT", { ...fields, repeatUnit: "DAY" });
+    await createCalendarItemAction({ ...fields, repeatUnit: "DAY" });
     expect(vi.mocked(prisma.calendarItem.create).mock.calls[1][0].data).toMatchObject({ repeatUnit: "DAY", repeatEvery: 1, repeatUntil: null });
   });
 
@@ -128,25 +111,25 @@ describe("createCalendarItemAction", () => {
     ["a fraction", { repeatUnit: "DAY", repeatEvery: 1.5 }, "Repeat every a whole number of times"],
     ["too many", { repeatUnit: "DAY", repeatEvery: 100 }, "Repeat every at most 99"],
   ])("rejects a repeat with %s", async (_n, extra, error) => {
-    expect(await createCalendarItemAction("EVENT", { ...fields, ...extra } as any)).toEqual({ ok: false, error });
+    expect(await createCalendarItemAction({ ...fields, ...extra } as any)).toEqual({ ok: false, error });
     expect(prisma.calendarItem.create).not.toHaveBeenCalled();
   });
 
   it("assigns to one of the household's own members, found only through the session's household", async () => {
-    await createCalendarItemAction("EVENT", { ...fields, assigneeContactId: "m1" });
+    await createCalendarItemAction({ ...fields, assigneeContactId: "m1" });
     expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({ assigneeContactId: "m1" });
     expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]!.where).toMatchObject({ ownerHouseholdId: "h1", householdId: "h1", category: "FAMILY_FRIEND", deletedAt: null });
   });
 
   it("refuses an assignee who isn't one of the household's members (another household's contact, a service provider, a removed member)", async () => {
-    expect(await createCalendarItemAction("EVENT", { ...fields, assigneeContactId: "someone-elses" })).toEqual({
+    expect(await createCalendarItemAction({ ...fields, assigneeContactId: "someone-elses" })).toEqual({
       ok: false, error: "Choose one of your household's members",
     });
     expect(prisma.calendarItem.create).not.toHaveBeenCalled();
   });
 
   it("doesn't look anyone up when there is no assignee", async () => {
-    await createCalendarItemAction("EVENT", fields);
+    await createCalendarItemAction(fields);
     expect(prisma.contact.findMany).not.toHaveBeenCalled();
   });
 });
@@ -157,7 +140,7 @@ describe("updateCalendarItemAction", () => {
     expect(prisma.calendarItem.findFirst).toHaveBeenCalledWith({ where: { id: "i1", householdId: "h1" } });
     expect(prisma.calendarItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
-      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, repeatAnchor: null },
+      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null },
     });
   });
 
@@ -167,17 +150,8 @@ describe("updateCalendarItemAction", () => {
     expect(prisma.calendarItem.update).not.toHaveBeenCalled();
   });
 
-  it("never changes the kind or the completion", async () => {
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK", completedAt: new Date() }) as any);
-    await updateCalendarItemAction("i1", { ...fields, title: "Renamed" });
-    const data = vi.mocked(prisma.calendarItem.update).mock.calls[0][0].data;
-    expect(data).not.toHaveProperty("kind");
-    expect(data).not.toHaveProperty("completedAt");
-  });
-
-  it("validates against the item's own kind: a task can't gain a time", async () => {
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK" }) as any);
-    expect(await updateCalendarItemAction("i1", { ...fields, startTime: "09:00" })).toEqual({ ok: false, error: "Tasks don't have a time" });
+  it("validates the new fields: an end time needs a start", async () => {
+    expect(await updateCalendarItemAction("i1", { ...fields, endTime: "09:00" })).toEqual({ ok: false, error: "Add a start time before an end time" });
     expect(prisma.calendarItem.update).not.toHaveBeenCalled();
   });
 
@@ -227,100 +201,7 @@ describe("deleteCalendarItemAction", () => {
   });
 });
 
-describe("setTaskCompletedAction", () => {
-  beforeEach(() => vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK", date: day("2026-10-01") }) as any));
 
-  it("completes a task now, without touching its date", async () => {
-    expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: true });
-    const call = vi.mocked(prisma.calendarItem.update).mock.calls[0][0];
-    expect(call.where).toEqual({ id: "i1" });
-    expect(call.data).toEqual({ completedAt: expect.any(Date) });
-    expect(call.data).not.toHaveProperty("date");
-  });
-
-  it("unchecks it", async () => {
-    await setTaskCompletedAction("i1", false, "2026-10-07");
-    expect(vi.mocked(prisma.calendarItem.update).mock.calls[0][0].data).toEqual({ completedAt: null });
-  });
-
-  it("only works on a task", async () => {
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "EVENT" }) as any);
-    expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: false, error: "Only a task can be checked off" });
-    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-  });
-
-  it("refuses an invalid date for today", async () => {
-    expect(await setTaskCompletedAction("i1", true, "nope")).toEqual({ ok: false, error: "Choose a valid date" });
-    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-  });
-
-  describe("a repeating task", () => {
-    const repeating = (over: Record<string, unknown> = {}) =>
-      vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(
-        item({ kind: "TASK", date: day("2026-10-01"), repeatUnit: "WEEK", repeatEvery: 1, repeatUntil: null, repeatAnchor: day("2026-09-17"), ...over }) as any,
-      );
-
-    it("moves to its next occurrence after today instead of being completed, skipping the ones missed", async () => {
-      repeating();
-      expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: true });
-      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-08") } });
-    });
-
-    it("completed early, moves to the occurrence after its own date", async () => {
-      repeating({ date: day("2026-10-15") });
-      await setTaskCompletedAction("i1", true, "2026-10-07");
-      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-22") } });
-    });
-
-    it("uses its own date as the anchor when none was stored", async () => {
-      repeating({ repeatAnchor: null });
-      await setTaskCompletedAction("i1", true, "2026-10-07");
-      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-08") } });
-    });
-
-    it("is completed for good once the series has run out", async () => {
-      repeating({ repeatUntil: day("2026-10-05") });
-      await setTaskCompletedAction("i1", true, "2026-10-07");
-      expect(vi.mocked(prisma.calendarItem.update).mock.calls[0][0].data).toEqual({ completedAt: expect.any(Date) });
-    });
-
-    it("has nothing to uncheck", async () => {
-      repeating();
-      expect(await setTaskCompletedAction("i1", false, "2026-10-07")).toEqual({ ok: true });
-      expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-    });
-  });
-
-  it("treats another household's task as gone", async () => {
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(null);
-    expect(await setTaskCompletedAction("theirs", true, "2026-10-07")).toEqual({ ok: false, error: "That item isn't on your calendar any more" });
-    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-  });
-});
-
-describe("moveTaskToTodayAction", () => {
-  beforeEach(() => vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK", date: day("2026-10-01") }) as any));
-
-  it("moves an open task to the browser's today (not the server's)", async () => {
-    expect(await moveTaskToTodayAction("i1", "2026-10-07")).toEqual({ ok: true });
-    expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-07") } });
-  });
-
-  it("refuses a bad date, an event, and a completed task", async () => {
-    expect(await moveTaskToTodayAction("i1", "yesterday")).toEqual({ ok: false, error: "Choose a valid date" });
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "EVENT" }) as any);
-    expect(await moveTaskToTodayAction("i1", "2026-10-07")).toEqual({ ok: false, error: "Only a task can be moved to today" });
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK", completedAt: new Date() }) as any);
-    expect(await moveTaskToTodayAction("i1", "2026-10-07")).toEqual({ ok: false, error: "A completed task stays on its date" });
-    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-  });
-
-  it("treats another household's task as gone", async () => {
-    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(null);
-    expect(await moveTaskToTodayAction("theirs", "2026-10-07")).toMatchObject({ ok: false });
-    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
-  });
-});
 
 describe("setShowMealsAction", () => {
   it("saves the household's choice, creating the settings row first if needed", async () => {

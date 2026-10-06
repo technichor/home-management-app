@@ -10,8 +10,7 @@ import { MAX_NOTES, MAX_TITLE, TIME_PATTERN, calendarItemSchema, getCalendarSett
 beforeEach(() => vi.resetAllMocks());
 
 const base = { title: "Dentist", date: "2026-10-08" };
-const event = (over: object = {}) => calendarItemSchema("EVENT").safeParse({ ...base, ...over });
-const task = (over: object = {}) => calendarItemSchema("TASK").safeParse({ ...base, ...over });
+const event = (over: object = {}) => calendarItemSchema.safeParse({ ...base, ...over });
 const firstError = (r: { success: boolean; error?: { issues: { message: string; path: PropertyKey[] }[] } }) => r.error!.issues[0];
 
 describe("the time format", () => {
@@ -23,7 +22,7 @@ describe("common fields", () => {
   it("trims the title and requires one", () => {
     expect(event({ title: "  Dentist  " }).data?.title).toBe("Dentist");
     expect(firstError(event({ title: "   " }))).toMatchObject({ message: "Give it a title", path: ["title"] });
-    expect(firstError(calendarItemSchema("EVENT").safeParse({ date: "2026-10-08" }))).toMatchObject({ path: ["title"] });
+    expect(firstError(calendarItemSchema.safeParse({ date: "2026-10-08" }))).toMatchObject({ path: ["title"] });
   });
 
   it("limits the title to 200 characters", () => {
@@ -88,19 +87,6 @@ describe("an event", () => {
   });
 });
 
-describe("a task", () => {
-  it("has no times", () => {
-    expect(task().data).toMatchObject({ startTime: null, endTime: null });
-    expect(task({ startTime: "", endTime: null }).success).toBe(true);
-    expect(firstError(task({ startTime: "09:00" }))).toMatchObject({ message: "Tasks don't have a time", path: ["startTime"] });
-    expect(firstError(task({ endTime: "10:00" }))).toMatchObject({ message: "Tasks don't have a time", path: ["endTime"] });
-  });
-
-  it("still needs a title and a date", () => {
-    expect(task({ title: "" }).success).toBe(false);
-    expect(task({ date: "nope" }).success).toBe(false);
-  });
-});
 
 describe("getCalendarSettings", () => {
   it("creates the household's row with defaults on first read (meals hidden)", async () => {

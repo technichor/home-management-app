@@ -4,10 +4,8 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 import {
   compareAgenda,
-  isOverdue,
   orderAgenda,
   sectionOf,
-  showsOverdueStrip,
   visibleToAssignee,
   type AgendaContactDateEntry,
   type AgendaEntry,
@@ -20,8 +18,8 @@ let n = 0;
 const created = () => `2026-10-01T00:00:${String(n++).padStart(2, "0")}.000Z`;
 
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${n}`, itemId: "item", kind: "EVENT", date: D, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: created(), repeat: null, editable: true, ...over,
+  source: "item", id: `i${n}`, itemId: "item", date: D, title: "Item", notes: null, startTime: null, endTime: null,
+  assigneeContactId: null, assigneeName: null, createdAt: created(), repeat: null, editable: true, ...over,
 });
 const contactDate = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${n++}`, date: D, title: "Date", type: "birthday", contactId: "c", turns: null, editable: false, ...over,
@@ -32,23 +30,21 @@ const meal = (over: Partial<AgendaMealEntry> = {}): AgendaMealEntry => ({
 const titles = (entries: AgendaEntry[]) => entries.map((e) => e.title);
 
 describe("the order of a day", () => {
-  it("is contact dates, untimed events, timed events, tasks, then meals", () => {
+  it("is contact dates, untimed events, timed events, then meals", () => {
     const entries = orderAgenda([
       meal({ title: "Dinner: Tacos" }),
-      item({ kind: "TASK", title: "Task" }),
       item({ title: "Timed", startTime: "09:00" }),
       item({ title: "Untimed" }),
       contactDate({ title: "Jo's birthday" }),
     ]);
-    expect(titles(entries)).toEqual(["Jo's birthday", "Untimed", "Timed", "Task", "Dinner: Tacos"]);
+    expect(titles(entries)).toEqual(["Jo's birthday", "Untimed", "Timed", "Dinner: Tacos"]);
   });
 
   it("names each section", () => {
     expect(sectionOf(contactDate())).toBe(0);
     expect(sectionOf(item())).toBe(1);
     expect(sectionOf(item({ startTime: "08:00" }))).toBe(2);
-    expect(sectionOf(item({ kind: "TASK" }))).toBe(3);
-    expect(sectionOf(meal())).toBe(4);
+    expect(sectionOf(meal())).toBe(3);
   });
 
   it("puts birthdays before other important dates, then by title", () => {
@@ -78,16 +74,6 @@ describe("the order of a day", () => {
     expect(titles(entries)).toEqual(["Early", "Tie A", "Tie B", "Late"]);
   });
 
-  it("puts open tasks before completed ones (crossed out), each in the order added", () => {
-    const entries = orderAgenda([
-      item({ kind: "TASK", title: "Done 1", completed: true }),
-      item({ kind: "TASK", title: "Open 1" }),
-      item({ kind: "TASK", title: "Done 2", completed: true }),
-      item({ kind: "TASK", title: "Open 2" }),
-    ]);
-    expect(titles(entries)).toEqual(["Open 1", "Open 2", "Done 1", "Done 2"]);
-  });
-
   it("orders meals breakfast, lunch, dinner, then the order added", () => {
     const entries = orderAgenda([
       meal({ slot: "DINNER", title: "Dinner: A" }),
@@ -102,9 +88,9 @@ describe("the order of a day", () => {
     const entries = orderAgenda([
       item({ title: "Tuesday event", date: "2026-10-06" }),
       contactDate({ title: "Wednesday birthday", date: "2026-10-07" }),
-      item({ title: "Monday task", kind: "TASK", date: "2026-10-05" }),
+      item({ title: "Monday event", date: "2026-10-05" }),
     ]);
-    expect(titles(entries)).toEqual(["Monday task", "Tuesday event", "Wednesday birthday"]);
+    expect(titles(entries)).toEqual(["Monday event", "Tuesday event", "Wednesday birthday"]);
   });
 
   it("doesn't change the list it is given, and a lone entry is fine", () => {
@@ -126,52 +112,6 @@ describe("the order of a day", () => {
     // (Different sections, so the untimed one always comes first.)
     expect(compareAgenda(item({ startTime: "10:00" }), item())).toBeGreaterThan(0);
     expect(compareAgenda(item(), item({ startTime: "10:00" }))).toBeLessThan(0);
-  });
-});
-
-describe("overdue", () => {
-  const today = "2026-10-07";
-
-  it("is an open task dated before today", () => {
-    expect(isOverdue({ kind: "TASK", date: "2026-10-06", completed: false }, today)).toBe(true);
-    expect(isOverdue({ kind: "TASK", date: "2020-01-01", completed: false }, today)).toBe(true);
-  });
-
-  it("is not a task for today or later", () => {
-    expect(isOverdue({ kind: "TASK", date: today, completed: false }, today)).toBe(false);
-    expect(isOverdue({ kind: "TASK", date: "2026-10-08", completed: false }, today)).toBe(false);
-  });
-
-  it("is not a completed task, which stays on its date but is done", () => {
-    expect(isOverdue({ kind: "TASK", date: "2026-10-01", completed: true }, today)).toBe(false);
-  });
-
-  it("is never an event, however old", () => {
-    expect(isOverdue({ kind: "EVENT", date: "2026-10-01", completed: false }, today)).toBe(false);
-  });
-
-  it("rolls forward: a task is overdue again tomorrow, and the day after", () => {
-    const task = { kind: "TASK" as const, date: "2026-10-05", completed: false };
-    expect([isOverdue(task, "2026-10-05"), isOverdue(task, "2026-10-06"), isOverdue(task, "2026-10-20")]).toEqual([false, true, true]);
-  });
-
-  it("stops being overdue once completed", () => {
-    expect(isOverdue({ kind: "TASK", date: "2026-10-05", completed: false }, today)).toBe(true);
-    expect(isOverdue({ kind: "TASK", date: "2026-10-05", completed: true }, today)).toBe(false);
-  });
-});
-
-describe("the overdue strip", () => {
-  it("shows on the week and day views when they include today, never on the month", () => {
-    expect(showsOverdueStrip("week", true)).toBe(true);
-    expect(showsOverdueStrip("day", true)).toBe(true);
-    expect(showsOverdueStrip("month", true)).toBe(false);
-  });
-
-  it("is hidden when the viewed range doesn't include today", () => {
-    expect(showsOverdueStrip("week", false)).toBe(false);
-    expect(showsOverdueStrip("day", false)).toBe(false);
-    expect(showsOverdueStrip("month", false)).toBe(false);
   });
 });
 

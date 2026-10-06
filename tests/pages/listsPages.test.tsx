@@ -166,10 +166,12 @@ describe("ComparePage", () => {
   it("passes the unchecked items with their ratings", async () => {
     vi.mocked(prisma.list.findUnique).mockResolvedValue(dbList({ sortMode: "PAIRWISE" }) as any);
     render(await ComparePage({ params: idParams }));
-    expect(seen.compare).toEqual({
-      listId: "l1",
-      items: [{ id: "i1", text: "milk", quantity: "2", rating: 1500, comparisonCount: 0 }],
+    expect(seen.compare).toMatchObject({
+      backHref: "/lists/l1",
+      items: [{ id: "i1", text: "milk", detail: "2", rating: 1500, comparisonCount: 0 }],
     });
+    // The answer is saved through the list's own comparison action, bound to this list.
+    expect(seen.compare.compare).toEqual(expect.any(Function));
     expect(screen.getByText("Prioritize")).toBeInTheDocument();
   });
 
