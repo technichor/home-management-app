@@ -1,10 +1,10 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything through Messaging, the admin area, the rebrand and the UI refresh is merged and live. **Meal Planning (stages 1-5) is on branch `meal-planning`, not yet merged or deployed, and its migrations 0020-0022 are not yet applied to the production database** (see `docs/domains/meal-planning.md`, which also lists what still needs a manual browser check). **Scheduling & Reminders (stages 1-7) is on branch `scheduling`, not yet merged or deployed, and migration 0023 is not yet applied to production** (see `docs/domains/scheduling.md`; the Contacts birthday change is in `docs/domains/contacts.md`).
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-05 after Meal Planning and Scheduling were deployed) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and live at https://domata.app, including Meal Planning and Scheduling & Reminders. Production migrations 0001-0023 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). Work on a branch per piece of work and ask before merging to `main` (it auto-deploys).
 
 ## One-paragraph summary
 
-A Next.js 16 / Prisma / Postgres app for a household. Four modules are built and tested (the first three live in production, **Meal Planning on a branch awaiting deploy**): **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (Slack-style channels with explicit members, a General channel per household, and household-to-household "sync" so channels can include people from synced households), and **Meal Planning** (meal library, a week planner, one shared shopping list, rules-based suggestions). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
+A Next.js 16 / Prisma / Postgres app for a household. Five modules are built and tested (all live in production): **Contacts & Households** (CSV import/export), **Lists** (items, drag reorder, CSV import, optional pairwise Elo ranking), and **Messaging** (Slack-style channels with explicit members, a General channel per household, and household-to-household "sync" so channels can include people from synced households), and **Meal Planning** (meal library, a week planner, one shared shopping list, rules-based suggestions). Production is https://domata.app. The owner has logged in successfully on production. **None of the Lists or Messaging screens have been exercised in a real browser yet** (only in automated tests); see "Verify by hand".
 
 ## Stack and tooling
 
@@ -17,7 +17,7 @@ A Next.js 16 / Prisma / Postgres app for a household. Four modules are built and
 ## Quality bar (the owner cares about this)
 
 - **100% coverage is enforced**: `vitest.config.mts` has thresholds of 100 for statements, branches, functions and lines over `lib/**`, `app/**`, `components/**`. `npm run test:coverage` exits non-zero if it drops. Keep it green.
-- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check on `meal-planning`: 1,257 unit tests plus 65 browser tests, all passing.
+- Also keep `npx eslint .` and `npx tsc --noEmit` clean, and `npx next build` passing before pushing. At last check (end of Scheduling, 2026-10-05): 1,631 unit tests plus 81 browser tests, passing (one shopping phone test is occasionally flaky).
 - The owner wants to move fast to production but also wants things tested. Working style that has been confirmed: work in stages, check in after each, commit with the `Co-Authored-By` trailer from the session's attribution reminder, and **push to `main` when a stage is verified** (the owner said "push all changes when possible").
 
 ## Environment variables
@@ -70,7 +70,7 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
 /meals                  week planner (?week=&today=); /library (+ /new, /[id], /[id]/edit); /shopping (the shopping list)
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0023 in prisma/migrations; 0020-0022 are Meal Planning and 0023 is Scheduling, none yet applied to production)
+### Data model (prisma/schema.prisma; migrations 0001–0023 in prisma/migrations, all applied to production; 0020-0022 are Meal Planning and 0023 is Scheduling)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY), `ListItem.category`, Meal, MealPlanEntry, MealPlanSettings (Meal Planning) · CalendarItem (`CalendarKind` EVENT|TASK), CalendarSettings, `Contact.birthdayMonth/Day/Year` (Scheduling). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
@@ -85,9 +85,9 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), (a *pending* invite can be revoked from the sync card on the contact page; an *active* sync can be ended by an owner on `/household`, see `docs/domains/messaging.md`).
 
-**Scheduling & Reminders**: stages 1-7 done per `docs/domains/scheduling.md` (calendar items, derived contact dates, meals layer, home panel; Calendar is a sixth module, so under More on phones). **Not built** (deliberately): integrations/ICS, recurrence, multi-day events, notifications.
+**Scheduling & Reminders**: stages 1-7 done and deployed per `docs/domains/scheduling.md` (calendar items, derived contact dates, meals layer, home panel; Calendar is a sixth module, so under More on phones). **Not built** (deliberately): integrations/ICS, recurrence, multi-day events, notifications.
 
-**Meal Planning**: stages 1-5 done per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions), on branch `meal-planning`. **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
+**Meal Planning**: stages 1-5 done and deployed per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions). **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
 
 ## Known gaps and suggestions for next work
 

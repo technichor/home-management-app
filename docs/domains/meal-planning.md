@@ -1,6 +1,6 @@
 # Domain: Meal Planning
 
-Status: **Built on branch `meal-planning` (stages 1-5), not yet merged or deployed.** Migrations 0020, 0021 and 0022 are additive and have **not** been applied to the production database. This file summarizes what was built, the rules it enforces, the decisions made along the way, and what still needs a manual check in a real browser.
+Status: **Built and deployed to production.** Migrations 0020, 0021 and 0022 are additive and applied to the production database.
 
 ## What this domain is
 

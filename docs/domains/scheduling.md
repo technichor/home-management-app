@@ -1,6 +1,6 @@
 # Domain: Scheduling & Reminders
 
-Status: **Built on branch `scheduling` (stages 1-7), not yet merged or deployed.** Migration 0023 is additive and has **not** been applied to the production database.
+Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database.
 
 ## What this domain is
 
