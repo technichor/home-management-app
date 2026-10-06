@@ -362,3 +362,56 @@ test("another household's calendar is separate", async ({ browser }) => {
   await a.context.close();
   await b.context.close();
 });
+
+test("the meals layer follows the planner: its visible meals, one-offs, the right order, and a link to the planner week", async ({ page }) => {
+  const { email } = await newOwner(page, "cal9", "The Layers");
+  await page.goto("/meals/library/new");
+  await page.getByLabel("Name").fill("Pancakes");
+  await page.getByRole("button", { name: "Add meal" }).click();
+  await expect(page).toHaveURL(/\/meals\/library\/(?!new)[a-z0-9]+/);
+  const today = iso();
+  await seedPlanEntry(email, "Pancakes", today, "BREAKFAST");
+
+  // A one-off dinner, added in the planner like anyone would.
+  await page.goto(`/meals?today=${today}`);
+  const now = new Date();
+  const dayLabel = `${now.toLocaleDateString("en-US", { weekday: "short" })} ${now.toLocaleDateString("en-US", { month: "short" })} ${now.getDate()}`;
+  await page.getByRole("button", { name: `Add to Dinner on ${dayLabel}` }).click();
+  await page.getByRole("dialog").getByLabel("Meal").fill("Leftovers");
+  await page.getByRole("dialog").getByRole("button", { name: "Add as one-off (not saved to library)" }).click();
+  await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Leftovers"]);
+  await page.reload();
+
+  // Breakfast is hidden in the planner by default, so the calendar leaves it out too; dinner is in.
+  await page.goto(`/calendar?view=week&today=${today}`);
+  await page.getByRole("switch", { name: "Show meals" }).click();
+  await expect(todayCell(page).getByText("Dinner: Leftovers")).toBeVisible();
+  await expect(todayCell(page).getByText("Breakfast: Pancakes")).toHaveCount(0);
+
+  // Switch breakfast on in the planner and it appears on the calendar, before dinner.
+  await page.goto(`/meals?today=${today}`);
+  await page.getByRole("button", { name: "Breakfast", exact: true }).click();
+  await expect(page.locator('.planner-cell[data-slot="BREAKFAST"]')).toHaveCount(7);
+  await page.goto(`/calendar?view=week&today=${today}`);
+  await expect(todayCell(page).locator(".cal-entry-meal")).toHaveText(["Breakfast: Pancakes", "Dinner: Leftovers"]);
+
+  // On the day view the meals sit in their own section, after the tasks.
+  await page.goto(`/calendar?view=day&today=${today}`);
+  await quickAdd(page, "Call the vet", "task");
+  await expect(page.locator(".cal-section-title")).toHaveText(["Tasks", "Meals"]);
+
+  // Lighter than real items, read-only (no checkbox), and each links to that week in the planner.
+  await page.goto(`/calendar?view=week&today=${today}`);
+  const meal = todayCell(page).getByRole("link", { name: "Dinner: Leftovers" });
+  await expect(meal.locator("xpath=..")).not.toContainText("Complete");
+  await meal.click();
+  await expect(page).toHaveURL(new RegExp(`/meals\\?week=${today}`));
+  await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Leftovers"]);
+
+  // Hiding a meal in the planner removes it from the calendar again.
+  await page.getByRole("button", { name: "Breakfast", exact: true }).click();
+  await expect(page.locator('.planner-cell[data-slot="BREAKFAST"]')).toHaveCount(0);
+  await page.goto(`/calendar?view=week&today=${today}`);
+  await expect(todayCell(page).getByText("Breakfast: Pancakes")).toHaveCount(0);
+  await expect(todayCell(page).getByText("Dinner: Leftovers")).toBeVisible();
+});
