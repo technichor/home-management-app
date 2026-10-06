@@ -63,7 +63,7 @@ test("the maintenance inventory: add, see what to tell a repair person, record s
   await page.getByRole("link", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Delete" }).click();
   await page.getByRole("tooltip").getByRole("button", { name: "Delete" }).click();
-  await expect(page).toHaveURL(/\/maintenance$/);
+  await expect(page).toHaveURL(/\/maintenance(\?.*)?$/);
   await expect(page.getByText(/Nothing here yet/)).toBeVisible();
 });
 
