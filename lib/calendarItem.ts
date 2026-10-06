@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { isDateString } from "@/lib/dates";
 import { optionalDate, optionalId, optionalNotes, trimToNull } from "@/lib/formFields";
 import { MAX_EVERY, REPEAT_UNITS } from "@/lib/recurrence";
+import { retryOnUniqueViolation } from "@/lib/prismaErrors";
 
 export const MAX_TITLE = 200;
 export const MAX_NOTES = 5000;
@@ -45,6 +46,6 @@ export type CalendarItemFields = z.input<typeof calendarItemSchema>;
 
 /** Household-wide calendar settings, created with the defaults (meals hidden) the first time they are read. */
 export async function getCalendarSettings(householdId: string): Promise<{ showMeals: boolean }> {
-  const row = await prisma.calendarSettings.upsert({ where: { householdId }, create: { householdId }, update: {} });
+  const row = await retryOnUniqueViolation(() => prisma.calendarSettings.upsert({ where: { householdId }, create: { householdId }, update: {} }));
   return { showMeals: row.showMeals };
 }

@@ -32,6 +32,14 @@ describe("getMealPlanSettings", () => {
     expect(await getMealPlanSettings("h1")).toEqual(settings());
     expect(prisma.mealPlanSettings.upsert).toHaveBeenCalledWith({ where: { householdId: "h1" }, create: { householdId: "h1" }, update: {} });
   });
+
+  it("survives two first reads at once (the loser of the create race reads the row instead)", async () => {
+    vi.mocked(prisma.mealPlanSettings.upsert)
+      .mockRejectedValueOnce({ code: "P2002" })
+      .mockResolvedValueOnce({ householdId: "h1", updatedAt: new Date(), ...settings() } as any);
+    expect(await getMealPlanSettings("h1")).toEqual(settings());
+    expect(prisma.mealPlanSettings.upsert).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("weekEntries", () => {

@@ -95,6 +95,12 @@ describe("getCalendarSettings", () => {
     expect(prisma.calendarSettings.upsert).toHaveBeenCalledWith({ where: { householdId: "h1" }, create: { householdId: "h1" }, update: {} });
   });
 
+  it("survives two first reads at once (the loser of the create race reads the row instead)", async () => {
+    vi.mocked(prisma.calendarSettings.upsert).mockRejectedValueOnce({ code: "P2002" }).mockResolvedValueOnce({ householdId: "h1", showMeals: false } as any);
+    expect(await getCalendarSettings("h1")).toEqual({ showMeals: false });
+    expect(prisma.calendarSettings.upsert).toHaveBeenCalledTimes(2);
+  });
+
   it("returns what is saved", async () => {
     vi.mocked(prisma.calendarSettings.upsert).mockResolvedValue({ householdId: "h1", showMeals: true } as any);
     expect(await getCalendarSettings("h1")).toEqual({ showMeals: true });

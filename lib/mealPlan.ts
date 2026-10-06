@@ -2,6 +2,7 @@ import type { MealSlot, WeekStartDay } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { addDays, dateToString, stringToDate } from "@/lib/dates";
 import { mealPlanSettingsSchema } from "@/lib/validations";
+import { retryOnUniqueViolation } from "@/lib/prismaErrors";
 
 export const SLOTS: readonly MealSlot[] = ["BREAKFAST", "LUNCH", "DINNER"];
 
@@ -28,7 +29,7 @@ const pick = (s: PlanSettings): PlanSettings => ({
 
 /** The household's planner settings, created with the defaults (Sunday, lunch and dinner) on first read. */
 export async function getMealPlanSettings(householdId: string): Promise<PlanSettings> {
-  const row = await prisma.mealPlanSettings.upsert({ where: { householdId }, create: { householdId }, update: {} });
+  const row = await retryOnUniqueViolation(() => prisma.mealPlanSettings.upsert({ where: { householdId }, create: { householdId }, update: {} }));
   return pick(row);
 }
 
