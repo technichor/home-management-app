@@ -1,6 +1,6 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything through Messaging, the admin area, the rebrand and the UI refresh is merged and live. **Meal Planning (stages 1-5) is on branch `meal-planning`, not yet merged or deployed, and its migrations 0020-0022 are not yet applied to the production database** (see `docs/domains/meal-planning.md`, which also lists what still needs a manual browser check).
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything through Messaging, the admin area, the rebrand and the UI refresh is merged and live. **Meal Planning (stages 1-5) is on branch `meal-planning`, not yet merged or deployed, and its migrations 0020-0022 are not yet applied to the production database** (see `docs/domains/meal-planning.md`, which also lists what still needs a manual browser check). **Scheduling & Reminders (stages 1-7) is on branch `scheduling`, not yet merged or deployed, and migration 0023 is not yet applied to production** (see `docs/domains/scheduling.md`; the Contacts birthday change is in `docs/domains/contacts.md`).
 
 ## One-paragraph summary
 
@@ -60,17 +60,18 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
 /account                choose/create the Contact the signed-in user acts as; change email; change password
 /admin  /admin/users/[id]     SUPERUSERS ONLY (404 for everyone else): all users, per-user details, password reset links, grant/revoke superuser, audit log
 /change-email/[token]          confirm a new login email (opened from the email sent to the new address)
-/home                         HOME, a weekly brief (landing page; where login, signup, invite-accept and household creation all land): the week's headline sentence, a one-line drawing of the week (height = planned meals + contact dates per day), three stretch summaries, then Needs attention (unread messages by channel, join requests for owners, unanswered sync invites you sent), Day by day (meals per day, with the dates that fall in the week), and Coming up (dates in the next 30 days). Layout borrowed from a design reference ("weekly view"), styled with Domata's own tokens. Waits for the browser's `?today=` like the planner. Logic: `lib/weekBrief.ts` (pure: headline, stretches, days, drawing path), `lib/homeAttention.ts`. To add data from a future Scheduling module, add its items to the `entries`/`dates` passed to `buildBrief`
+/home                         HOME, a weekly brief (landing page; where login, signup, invite-accept and household creation all land): the week's headline sentence, a one-line drawing of the week (height = what is still on each day, from the shared agenda: calendar items, contact dates, meals), then Needs attention (unread messages by channel, join requests for owners, unanswered sync invites you sent), Today & coming up (overdue tasks, today in full, the next 7 days' events and contact dates), and Day by day. Waits for the browser's `?today=`. Logic: `lib/weekBrief.ts`, `lib/homePanel.ts`, `lib/homeAttention.ts`, data from `lib/agenda.ts`
 /contacts               people list, filters; /new add form; /[id] detail (+ sync card), /[id]/edit; /households, /households/[id];
                                /import (two-file CSV, diff + confirm); /removed (soft-deleted + restore);
                                /api/export?file=households|contacts
 /lists                  active lists; /archived; /[id] items; /[id]/compare (pairwise ranking)
 /messages               channel list (?archived=1) and New channel; /[id] channel view with People panel
+/calendar               day/week/month calendar (?view=&date=&who=&today=): events, reminders, tasks, overdue strip, derived contact dates, optional meals layer
 /meals                  week planner (?week=&today=); /library (+ /new, /[id], /[id]/edit); /shopping (the shopping list)
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0022 in prisma/migrations; 0020-0022 are Meal Planning and not yet applied to production)
-User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY), `ListItem.category`, Meal, MealPlanEntry, MealPlanSettings (Meal Planning). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
+### Data model (prisma/schema.prisma; migrations 0001–0023 in prisma/migrations; 0020-0022 are Meal Planning and 0023 is Scheduling, none yet applied to production)
+User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY), `ListItem.category`, Meal, MealPlanEntry, MealPlanSettings (Meal Planning) · CalendarItem (`CalendarKind` EVENT|TASK), CalendarSettings, `Contact.birthdayMonth/Day/Year` (Scheduling). Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
 - `lib/csv.ts`, `lib/listCsv.ts` CSV parse/export/diff · `lib/elo.ts` Elo + pair selection · `lib/messaging.ts` **`channelsFor`** (the one messaging access rule: membership) · `lib/channels.ts` (who can be added, General, leaving) · `lib/dates.ts` calendar-date + week math, `lib/meals.ts`/`lib/mealPlan.ts`/`lib/shopping.ts`/`lib/suggestions.ts`/`lib/groceryCategories.ts` (Meal Planning) · `lib/syncToken.ts` invite-token hashing · `lib/validations.ts` all Zod schemas.
@@ -83,6 +84,8 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 **Lists**: complete per `docs/domains/lists.md`, including the pairwise Elo mode (a list is either manually sorted or pairwise, set per list; switching to pairwise keeps the order and resets all ratings to 1500). Not built: single-list CSV export (nice-to-have).
 
 **Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), (a *pending* invite can be revoked from the sync card on the contact page; an *active* sync can be ended by an owner on `/household`, see `docs/domains/messaging.md`).
+
+**Scheduling & Reminders**: stages 1-7 done per `docs/domains/scheduling.md` (calendar items, derived contact dates, meals layer, home panel; Calendar is a sixth module, so under More on phones). **Not built** (deliberately): integrations/ICS, recurrence, multi-day events, notifications.
 
 **Meal Planning**: stages 1-5 done per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions), on branch `meal-planning`. **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
 
@@ -105,6 +108,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 3b. **Contacts**: Add contact (Family & Friend needs a household; others show an Address field), edit it, check the activity log shows the change, remove it and restore it from Removed; a household member's own profile can't be removed.
 4. **Messages**: New channel with a household member, send a message (shows your own name), People panel (add/remove/rename/archive/leave), General.
 5a. **Meal Planning**: the checklist is at the end of `docs/domains/meal-planning.md` (real phone, evening "today", slow connection on the shopping list, two devices, dark mode, a long pasted recipe).
+5b. **Scheduling**: the checklist is at the end of `docs/domains/scheduling.md`.
 5. **Sync, end to end**: two separate households. In one, open a contact and **Request sync**, copy the link, open it as a user of the other household, **Accept**. Syncing creates no channel; start one with a person from the other household and messages arrive within ~5s labelled with their household.
 
 ## Mobile / responsive

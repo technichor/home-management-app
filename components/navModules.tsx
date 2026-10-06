@@ -1,4 +1,4 @@
-import { CoffeeOutlined, ContactsOutlined, HomeOutlined, MessageOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import { CalendarOutlined, CoffeeOutlined, ContactsOutlined, HomeOutlined, MessageOutlined, UnorderedListOutlined } from "@ant-design/icons";
 import type { ReactNode } from "react";
 
 export type NavModule = { key: string; label: string; href: string; icon: ReactNode };
@@ -13,6 +13,7 @@ export const MODULES: NavModule[] = [
   { key: "lists", label: "Lists", href: "/lists", icon: <UnorderedListOutlined aria-hidden /> },
   { key: "messages", label: "Messages", href: "/messages", icon: <MessageOutlined aria-hidden /> },
   { key: "meals", label: "Meals", href: "/meals", icon: <CoffeeOutlined aria-hidden /> },
+  { key: "calendar", label: "Calendar", href: "/calendar", icon: <CalendarOutlined aria-hidden /> },
 ];
 
 export const TAB_BAR_COUNT = 5;
