@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { pageHouseholdId } from "@/lib/auth";
-import { dateOr, dateToString, utcDateString } from "@/lib/dates";
+import { dateOr, utcDateString } from "@/lib/dates";
+import { toMaintenanceView } from "@/lib/maintenance";
 import LocalToday from "@/components/LocalToday";
 import MaintenanceDetailClient from "./MaintenanceDetailClient";
 
@@ -21,24 +22,7 @@ export default async function MaintenanceItemPage({
   return (
     <>
       <LocalToday />
-      <MaintenanceDetailClient
-        today={today}
-        item={{
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          location: item.location,
-          brand: item.brand,
-          modelNumber: item.modelNumber,
-          serialNumber: item.serialNumber,
-          installedYear: item.installedYear,
-          warrantyUntil: item.warrantyUntil ? dateToString(item.warrantyUntil) : null,
-          serviceEveryMonths: item.serviceEveryMonths,
-          lastServicedOn: item.lastServicedOn ? dateToString(item.lastServicedOn) : null,
-          manualUrl: item.manualUrl,
-          notes: item.notes,
-        }}
-      />
+      <MaintenanceDetailClient today={today} item={toMaintenanceView(item)} />
     </>
   );
 }

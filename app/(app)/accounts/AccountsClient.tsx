@@ -4,17 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button, Empty, Input, Select, Tag, Typography } from "antd";
 import type { AccountKind, AccountStatus } from "@prisma/client";
-import { accountSummary, ACCOUNT_KINDS, ACCOUNT_STATUSES, KIND_LABELS, STATUS_LABELS } from "@/lib/accounts";
+import { accountSummary, ACCOUNT_KINDS, type AccountView, ACCOUNT_STATUSES, KIND_LABELS, STATUS_LABELS } from "@/lib/accounts";
 
-export type AccountRow = {
-  id: string;
-  name: string;
-  kind: AccountKind;
-  status: AccountStatus;
-  institution: string | null;
-  lastFour: string | null;
-  ownerName: string | null;
-};
+export type AccountRow = Pick<AccountView, "id" | "name" | "kind" | "status" | "institution" | "lastFour" | "ownerName">;
 
 /** "open" is everything not closed: the default view. */
 type StatusFilter = AccountStatus | "open" | "all";

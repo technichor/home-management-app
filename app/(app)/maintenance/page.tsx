@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { pageHouseholdId } from "@/lib/auth";
-import { dateOr, dateToString, utcDateString } from "@/lib/dates";
+import { dateOr, utcDateString } from "@/lib/dates";
+import { toMaintenanceView } from "@/lib/maintenance";
 import LocalToday from "@/components/LocalToday";
 import MaintenanceClient from "./MaintenanceClient";
 
@@ -14,17 +15,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
       <LocalToday />
       <MaintenanceClient
         today={today}
-        items={items.map((i) => ({
-          id: i.id,
-          name: i.name,
-          category: i.category,
-          location: i.location,
-          brand: i.brand,
-          modelNumber: i.modelNumber,
-          installedYear: i.installedYear,
-          serviceEveryMonths: i.serviceEveryMonths,
-          lastServicedOn: i.lastServicedOn ? dateToString(i.lastServicedOn) : null,
-        }))}
+        items={items.map(toMaintenanceView)}
       />
     </>
   );

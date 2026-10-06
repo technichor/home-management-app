@@ -4,19 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button, Empty, Input, Select, Typography } from "antd";
 import type { MaintenanceCategory } from "@prisma/client";
-import { ageLabel, ageYears, CATEGORY_LABELS, MAINTENANCE_CATEGORIES, serviceStatus } from "@/lib/maintenance";
+import { ageLabel, ageYears, CATEGORY_LABELS, MAINTENANCE_CATEGORIES, serviceStatus, type MaintenanceView } from "@/lib/maintenance";
 
-export type InventoryRow = {
-  id: string;
-  name: string;
-  category: MaintenanceCategory;
-  location: string | null;
-  brand: string | null;
-  modelNumber: string | null;
-  installedYear: number | null;
-  serviceEveryMonths: number | null;
-  lastServicedOn: string | null;
-};
+export type InventoryRow = Pick<
+  MaintenanceView,
+  "id" | "name" | "category" | "location" | "brand" | "modelNumber" | "installedYear" | "serviceEveryMonths" | "lastServicedOn"
+>;
 
 type Sort = "name" | "oldest";
 

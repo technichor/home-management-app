@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonthsToDate, ageLabel, ageYears, maintenanceItemSchema, serviceStatus } from "@/lib/maintenance";
+import { ageLabel, ageYears, maintenanceItemSchema, serviceStatus } from "@/lib/maintenance";
 
 const base = { name: "Furnace", category: "HVAC" as const };
 
@@ -41,16 +41,6 @@ describe("maintenanceItemSchema", () => {
     const result = maintenanceItemSchema.safeParse({ ...base, ...over });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].message).toBe(message);
-  });
-});
-
-describe("addMonthsToDate", () => {
-  it("keeps the day, clamping to the end of a shorter month", () => {
-    expect(addMonthsToDate("2026-01-15", 3)).toBe("2026-04-15");
-    expect(addMonthsToDate("2026-01-31", 1)).toBe("2026-02-28");
-    expect(addMonthsToDate("2028-01-31", 1)).toBe("2028-02-29");
-    expect(addMonthsToDate("2026-11-30", 3)).toBe("2027-02-28");
-    expect(addMonthsToDate("2026-12-01", 12)).toBe("2027-12-01");
   });
 });
 

@@ -9,6 +9,7 @@ import { mealSchema, planEntrySchema, planPositionSchema } from "@/lib/validatio
 import { updatePlanSettings } from "@/lib/mealPlan";
 import { stringToDate } from "@/lib/dates";
 import type { MealSlot } from "@prisma/client";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 // Server actions are public endpoints: each one takes the household from the session and only ever touches
 // meals of that household. A meal id from the client that belongs to another household is "not found".
@@ -30,8 +31,6 @@ async function assertNameFree(householdId: string, name: string, exceptId?: stri
   const existing = await prisma.meal.findUnique({ where: { householdId_nameKey: { householdId, nameKey: mealKey(name) } } });
   if (existing && existing.id !== exceptId) throw new UserError(`"${existing.name}" is already in your library`);
 }
-
-const isUniqueViolation = (e: unknown) => (e as { code?: string }).code === "P2002";
 
 function refresh(id?: string) {
   revalidatePath("/meals/library");

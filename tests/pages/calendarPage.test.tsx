@@ -6,14 +6,16 @@ vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn().mockResolvedValue({ householdId: "h1" }) }));
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
-vi.mock("@/lib/calendarItem", () => ({ assigneeOptionsOf: vi.fn(), getCalendarSettings: vi.fn() }));
+vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
+vi.mock("@/lib/householdMembers", () => ({ memberOptionsOf: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/calendar/CalendarClient", () => ({ default: (p: any) => ((seen.client = p), <div>calendar client</div>) }));
 
 import { getAgenda } from "@/lib/agenda";
-import { assigneeOptionsOf, getCalendarSettings } from "@/lib/calendarItem";
+import { getCalendarSettings } from "@/lib/calendarItem";
+import { memberOptionsOf } from "@/lib/householdMembers";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import CalendarPage from "@/app/(app)/calendar/page";
 
@@ -26,7 +28,7 @@ beforeEach(() => {
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
   vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
-  vi.mocked(assigneeOptionsOf).mockResolvedValue(members);
+  vi.mocked(memberOptionsOf).mockResolvedValue(members);
   vi.mocked(getAgenda).mockResolvedValue({ entries: [], overdue: [] });
 });
 

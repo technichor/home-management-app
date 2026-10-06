@@ -158,10 +158,11 @@ test("on a phone: the full page fits, with finger-sized rows", async ({ browser 
   await expect(page.getByRole("checkbox", { name: "Bread" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 
-  const row = await page.locator(".shop-row").first().boundingBox();
-  expect(row!.height).toBeGreaterThanOrEqual(52);
-  const head = await page.locator(".shop-section-head").first().boundingBox();
-  expect(head!.height).toBeGreaterThanOrEqual(44);
+  // Measured with retries: a row is re-rendered when the saved copy replaces the optimistic one, and a detached element
+  // has no box for that instant.
+  const heightOf = (selector: string) => async () => (await page.locator(selector).first().boundingBox())?.height ?? 0;
+  await expect.poll(heightOf(".shop-row")).toBeGreaterThanOrEqual(52);
+  await expect.poll(heightOf(".shop-section-head")).toBeGreaterThanOrEqual(44);
   await page.getByRole("checkbox", { name: "Bread" }).check();
   await expect(page.getByRole("checkbox", { name: "Bread" })).toBeChecked();
   await context.close();

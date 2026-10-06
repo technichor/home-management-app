@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
-import { assigneeOptionsOf } from "@/lib/calendarItem";
+import { assertMemberChoice } from "@/lib/householdMembers";
 import { accountRecordSchema, type AccountRecordFields } from "@/lib/accounts";
 
 // Server actions are public endpoints: each one takes the household from the session and only ever touches that
@@ -20,16 +20,6 @@ function parseFields(fields: AccountRecordFields) {
   const parsed = accountRecordSchema.safeParse(fields);
   if (!parsed.success) throw new UserError(parsed.error.issues[0].message);
   return parsed.data;
-}
-
-/**
- * Whether someone can be the owner: one of the household's own members who hasn't been removed. (A record already
- * owned by someone later removed keeps them; only choosing a new owner is checked.)
- */
-async function assertOwner(householdId: string, ownerContactId: string | null, current: string | null = null) {
-  if (ownerContactId === null || ownerContactId === current) return;
-  const options = await assigneeOptionsOf(householdId);
-  if (!options.some((o) => o.id === ownerContactId)) throw new UserError("Choose one of your household's members");
 }
 
 const dataOf = (f: ReturnType<typeof parseFields>) => ({
@@ -53,7 +43,7 @@ export async function createAccountRecordAction(fields: AccountRecordFields) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     const data = parseFields(fields);
-    await assertOwner(householdId, data.ownerContactId);
+    await assertMemberChoice(householdId, data.ownerContactId);
     const created = await prisma.accountRecord.create({ data: { householdId, ...dataOf(data) } });
     refresh();
     return { id: created.id };
@@ -65,7 +55,7 @@ export async function updateAccountRecordAction(id: string, fields: AccountRecor
   return attempt(async () => {
     const record = await loadRecord(householdId, id);
     const data = parseFields(fields);
-    await assertOwner(householdId, data.ownerContactId, record.ownerContactId);
+    await assertMemberChoice(householdId, data.ownerContactId, record.ownerContactId);
     await prisma.accountRecord.update({ where: { id }, data: dataOf(data) });
     refresh(id);
   });

@@ -7,7 +7,7 @@ import { App, Button, Select, Switch, Typography } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { CALENDAR_VIEWS, type CalendarView, type WeekStart } from "@/lib/dates";
 import { CALENDAR_POLL_MS, calendarHref, defaultQuickAddDate, rangeTitle } from "@/lib/calendarView";
-import type { AssigneeOption } from "@/lib/calendarItem";
+import type { MemberOption } from "@/lib/householdMembers";
 import type { AgendaEntry, AgendaItemEntry } from "@/lib/agendaOrder";
 import { moveTaskToTodayAction, setShowMealsAction, setTaskCompletedAction, setWeekStartAction } from "./actions";
 import { DayView, MonthView, WeekView, type EntryContext } from "./CalendarViews";
@@ -41,7 +41,7 @@ export default function CalendarClient({
   today: string;
   weekStartsOn: WeekStart;
   showMeals: boolean;
-  assignees: AssigneeOption[];
+  assignees: MemberOption[];
   assigneeFilter: string | null;
   entries: AgendaEntry[];
   overdue: AgendaItemEntry[];

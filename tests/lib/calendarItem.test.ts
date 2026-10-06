@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { MAX_NOTES, MAX_TITLE, TIME_PATTERN, assigneeOptionsOf, calendarItemSchema, getCalendarSettings } from "@/lib/calendarItem";
+import { MAX_NOTES, MAX_TITLE, TIME_PATTERN, calendarItemSchema, getCalendarSettings } from "@/lib/calendarItem";
 
 beforeEach(() => vi.resetAllMocks());
 
@@ -99,23 +99,6 @@ describe("a task", () => {
   it("still needs a title and a date", () => {
     expect(task({ title: "" }).success).toBe(false);
     expect(task({ date: "nope" }).success).toBe(false);
-  });
-});
-
-describe("assigneeOptionsOf", () => {
-  it("lists the household's own members (Family & Friend in its household), by nickname, not removed contacts", async () => {
-    vi.mocked(prisma.contact.findMany).mockResolvedValue([
-      { id: "a", firstName: "Elizabeth", lastName: "Doe", nickname: "Ellie" },
-      { id: "b", firstName: "Sam", lastName: "Doe", nickname: null },
-    ] as any);
-    expect(await assigneeOptionsOf("h1")).toEqual([
-      { id: "a", name: "Ellie", fullName: "Elizabeth Doe" },
-      { id: "b", name: "Sam", fullName: "Sam Doe" },
-    ]);
-    expect(vi.mocked(prisma.contact.findMany).mock.calls[0][0]).toMatchObject({
-      where: { ownerHouseholdId: "h1", householdId: "h1", category: "FAMILY_FRIEND", deletedAt: null },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    });
   });
 });
 

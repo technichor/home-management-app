@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getIronSession } from "iron-session";
@@ -22,6 +23,13 @@ export async function getSessionUser() {
   }
   return user;
 }
+
+/**
+ * getSessionUser, looked up once per page render: the (app) layout and the page it wraps both need the user, and this
+ * shares one lookup between them. For rendering only; server actions call getSessionUser, so an action that changes
+ * the user (a password, a household) never reads a stale copy.
+ */
+export const currentUser = cache(getSessionUser);
 
 type SignedInUser = {
   id: string;
@@ -78,7 +86,7 @@ export async function requireHouseholdId(): Promise<string> {
 
 /** The same for pages: a signed-out visitor is sent to log in, a household-less user to onboarding. */
 export async function pageMember() {
-  const user = await getSessionUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
   if (!user.householdId || !user.household || user.household.deletedAt) redirect("/onboarding");
   return { ...user, householdId: user.householdId, household: user.household };
@@ -100,8 +108,8 @@ export async function getSuperuser() {
 
 /** For admin pages and layouts: anyone but a superuser gets the 404 page. */
 export async function pageSuperuser() {
-  const user = await getSuperuser();
-  if (!user) notFound();
+  const user = await currentUser();
+  if (!user?.isSuperuser) notFound();
   return user;
 }
 

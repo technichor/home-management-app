@@ -7,7 +7,7 @@ import type { CalendarKind, RepeatUnit } from "@prisma/client";
 import { formatCalendarDate } from "@/lib/dates";
 import { timeLabel } from "@/lib/calendarView";
 import { describeRepeat } from "@/lib/recurrence";
-import type { AssigneeOption } from "@/lib/calendarItem";
+import type { MemberOption } from "@/lib/householdMembers";
 import type { AgendaItemEntry } from "@/lib/agendaOrder";
 import { createCalendarItemAction, deleteCalendarItemAction, updateCalendarItemAction } from "./actions";
 
@@ -75,7 +75,7 @@ export function ItemFormDialog({
   onClose,
 }: {
   target: FormTarget | null;
-  assignees: AssigneeOption[];
+  assignees: MemberOption[];
   onClose: () => void;
 }) {
   return (
@@ -86,7 +86,7 @@ export function ItemFormDialog({
   );
 }
 
-function FormBody({ target, assignees, onClose }: { target: FormTarget; assignees: AssigneeOption[]; onClose: () => void }) {
+function FormBody({ target, assignees, onClose }: { target: FormTarget; assignees: MemberOption[]; onClose: () => void }) {
   const router = useRouter();
   const editing = target.mode === "edit" ? target.item : null;
   const [kind, setKind] = useState<CalendarKind>(editing?.kind ?? "EVENT");

@@ -1,5 +1,5 @@
 import type { RepeatUnit } from "@prisma/client";
-import { addDays, daysBetween, formatCalendarDate, type DateRange } from "@/lib/dates";
+import { addDays, addMonthsKeepingDay, daysBetween, formatCalendarDate, type DateRange } from "@/lib/dates";
 
 /**
  * Repeating calendar items. A rule is "every N days/weeks/months/years from an anchor date, optionally until a date".
@@ -16,15 +16,6 @@ const MAX_EVERY = 99;
 export const REPEAT_UNITS: readonly RepeatUnit[] = ["DAY", "WEEK", "MONTH", "YEAR"];
 export { MAX_EVERY };
 
-function addMonthsClamped(anchor: string, months: number): string {
-  const [y, m, d] = anchor.split("-").map(Number);
-  const total = y * 12 + (m - 1) + months;
-  const year = Math.floor(total / 12);
-  const month = total % 12;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
-}
-
 /** The nth occurrence (0 is the anchor itself). */
 export function occurrenceAt(rule: RepeatRule, n: number): string {
   switch (rule.unit) {
@@ -33,9 +24,9 @@ export function occurrenceAt(rule: RepeatRule, n: number): string {
     case "WEEK":
       return addDays(rule.anchor, n * rule.every * 7);
     case "MONTH":
-      return addMonthsClamped(rule.anchor, n * rule.every);
+      return addMonthsKeepingDay(rule.anchor, n * rule.every);
     case "YEAR":
-      return addMonthsClamped(rule.anchor, n * rule.every * 12);
+      return addMonthsKeepingDay(rule.anchor, n * rule.every * 12);
   }
 }
 

@@ -330,13 +330,6 @@ html[data-pending] body {
   }
 }
 
-/* The home page's summary cards: one column on a phone, as many as fit on a wide screen. */
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
-}
-
 /* ---- Meal planner (app/(app)/meals): a week grid, or a list of days on a narrow screen ---- */
 
 .planner {

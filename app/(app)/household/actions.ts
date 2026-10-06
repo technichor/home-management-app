@@ -8,6 +8,7 @@ import { generateInviteToken } from "@/lib/syncToken";
 import { generateJoinCode } from "@/lib/joinCode";
 import { dropDisconnectedMembers } from "@/lib/channels";
 import { detachUser, INVITE_TTL_MS, joinHouseholdTx, MembershipError } from "@/lib/membership";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 export type HouseholdActionResult = { ok: true } | { ok: false; error: string };
 
@@ -54,7 +55,7 @@ export async function setJoinCodeAction(
     await prisma.household.update({ where: { id: owner.householdId }, data: { joinCode } });
   } catch (e) {
     // The new code collided with another household's; the caller can just try again.
-    if ((e as { code?: string }).code === "P2002") return { ok: false, error: "Could not make a code. Try again." };
+    if (isUniqueViolation(e)) return { ok: false, error: "Could not make a code. Try again." };
     throw e;
   }
   refresh();

@@ -1,7 +1,8 @@
 import { pageHouseholdId } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
 import { showsOverdueStrip } from "@/lib/agendaOrder";
-import { assigneeOptionsOf, getCalendarSettings } from "@/lib/calendarItem";
+import { getCalendarSettings } from "@/lib/calendarItem";
+import { memberOptionsOf } from "@/lib/householdMembers";
 import { datesInRange, isDateString, resolveCalendarRange } from "@/lib/dates";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import LocalToday from "@/components/LocalToday";
@@ -19,7 +20,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const [mealSettings, calendarSettings, assignees] = await Promise.all([
     getMealPlanSettings(householdId),
     getCalendarSettings(householdId),
-    assigneeOptionsOf(householdId),
+    memberOptionsOf(householdId),
   ]);
   const resolved = resolveCalendarRange({ view, date, today, weekStartsOn: mealSettings.weekStartsOn });
   // A member's view is only offered for a current member; anything else in the URL means everyone.

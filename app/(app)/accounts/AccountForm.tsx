@@ -3,42 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import FormField from "@/components/FormField";
 import { Alert, Button, Input, Select, Space, Typography } from "antd";
 import type { AccountKind, AccountStatus } from "@prisma/client";
-import type { AssigneeOption } from "@/lib/calendarItem";
-import { ACCOUNT_KINDS, ACCOUNT_STATUSES, KIND_LABELS, MAX_FIELD, MAX_LAST_FOUR, MAX_NOTES, MAX_URL, STATUS_LABELS } from "@/lib/accounts";
+import type { MemberOption } from "@/lib/householdMembers";
+import { ACCOUNT_KINDS, ACCOUNT_STATUSES, type AccountView, KIND_LABELS, MAX_FIELD, MAX_LAST_FOUR, MAX_NOTES, MAX_URL, STATUS_LABELS } from "@/lib/accounts";
 import { createAccountRecordAction, updateAccountRecordAction } from "./actions";
 
-export type AccountFormRecord = {
-  id: string;
-  name: string;
-  kind: AccountKind;
-  status: AccountStatus;
-  institution: string | null;
-  lastFour: string | null;
-  ownerContactId: string | null;
-  /** The owner's name, kept even after they are removed from the household. */
-  ownerName: string | null;
-  website: string | null;
-  phone: string | null;
-  notes: string | null;
-};
+export type AccountFormRecord = AccountView;
 
 const EVERYONE = "";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
-        {label}
-      </Typography.Text>
-      {children}
-    </div>
-  );
-}
-
 /** Add an account (no `record`) or edit one. */
-export default function AccountForm({ record, owners }: { record?: AccountFormRecord; owners: AssigneeOption[] }) {
+export default function AccountForm({ record, owners }: { record?: AccountFormRecord; owners: MemberOption[] }) {
   const router = useRouter();
   const [name, setName] = useState(record?.name ?? "");
   const [kind, setKind] = useState<AccountKind>(record?.kind ?? "BANK");
@@ -87,37 +64,37 @@ export default function AccountForm({ record, owners }: { record?: AccountFormRe
       </Typography.Title>
       <Alert type="info" showIcon title="Never enter a password, a balance or a full account number here. This is only a list of what exists." />
       {error && <Alert type="error" showIcon title={error} />}
-      <Field label="Name">
+      <FormField label="Name">
         <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={MAX_FIELD} placeholder="e.g. Corey's HSA" aria-label="Name" autoFocus />
-      </Field>
+      </FormField>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Kind">
+        <FormField label="Kind">
           <Select<AccountKind> value={kind} onChange={setKind} aria-label="Kind" style={{ width: 220 }} options={ACCOUNT_KINDS.map((k) => ({ value: k, label: KIND_LABELS[k] }))} />
-        </Field>
-        <Field label="Status">
+        </FormField>
+        <FormField label="Status">
           <Select<AccountStatus> value={status} onChange={setStatus} aria-label="Status" style={{ width: 240 }} options={ACCOUNT_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))} />
-        </Field>
+        </FormField>
       </Space>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Institution">
+        <FormField label="Institution">
           <Input value={institution} onChange={(e) => setInstitution(e.target.value)} maxLength={MAX_FIELD} placeholder="e.g. Fidelity" aria-label="Institution" style={{ width: 260 }} />
-        </Field>
-        <Field label="Last 4 of the account number">
+        </FormField>
+        <FormField label="Last 4 of the account number">
           <Input value={lastFour} onChange={(e) => setLastFour(e.target.value)} maxLength={MAX_LAST_FOUR} aria-label="Last 4" style={{ width: 120 }} />
-        </Field>
+        </FormField>
       </Space>
-      <Field label="Whose account">
+      <FormField label="Whose account">
         <Select value={owner} onChange={setOwner} options={ownerOptions} aria-label="Whose account" style={{ width: "100%" }} />
-      </Field>
+      </FormField>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Website">
+        <FormField label="Website">
           <Input value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={MAX_URL} placeholder="https://" aria-label="Website" style={{ width: 320 }} />
-        </Field>
-        <Field label="Phone">
+        </FormField>
+        <FormField label="Phone">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={MAX_FIELD} aria-label="Phone" style={{ width: 200 }} />
-        </Field>
+        </FormField>
       </Space>
-      <Field label="Notes">
+      <FormField label="Notes">
         <Input.TextArea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -127,7 +104,7 @@ export default function AccountForm({ record, owners }: { record?: AccountFormRe
           placeholder="e.g. Old employer plan. Roll into the IRA."
           aria-label="Notes"
         />
-      </Field>
+      </FormField>
       <Space>
         <Button type="primary" loading={busy} disabled={!name.trim()} onClick={save}>
           {record ? "Save" : "Add account"}

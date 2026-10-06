@@ -14,6 +14,7 @@ import {
 } from "@/lib/rateLimit";
 import { requireMember, startSession } from "@/lib/auth";
 import { contactIsIn } from "@/lib/scope";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 const TAKEN = "Someone else already acts as that contact";
 
@@ -33,7 +34,7 @@ export async function linkAccountContactAction(contactId: string) {
   try {
     await prisma.user.update({ where: { id: user.id }, data: { contactId } });
   } catch (e) {
-    if ((e as { code?: string }).code === "P2002") throw new Error(TAKEN);
+    if (isUniqueViolation(e)) throw new Error(TAKEN);
     throw e;
   }
   revalidatePath("/account");

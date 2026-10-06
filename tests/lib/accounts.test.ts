@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { accountRecordSchema, accountSummary } from "@/lib/accounts";
-import { isHttpUrl } from "@/lib/urls";
+import { isHttpUrl } from "@/lib/formFields";
 
 const base = { name: "Corey's HSA", kind: "HEALTH_SAVINGS" as const, status: "ACTIVE" as const };
 

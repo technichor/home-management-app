@@ -145,6 +145,19 @@ export function addMonths(date: string, months: number): string {
 }
 
 /**
+ * The date `months` after (or before) `date`, on the same day of the month, or the month's last day when it is
+ * shorter (Jan 31 + 1 month is Feb 28, or 29 in a leap year). Compare addMonths, which gives the first of the month.
+ */
+export function addMonthsKeepingDay(date: string, months: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const year = Math.floor(total / 12);
+  const month = total % 12;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
+}
+
+/**
  * The date a view is anchored on: the day itself, the first day of its week (honoring the week-start setting), or
  * the first day of its month. A URL's `date` can be any date inside the range; this is what it is normalized to.
  */

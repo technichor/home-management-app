@@ -3,39 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import FormField from "@/components/FormField";
 import { Alert, Button, Input, Select, Space, Typography } from "antd";
 import type { MaintenanceCategory } from "@prisma/client";
-import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES, MAX_FIELD, MAX_NOTES, MAX_URL } from "@/lib/maintenance";
+import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES, type MaintenanceView, MAX_FIELD, MAX_NOTES, MAX_URL } from "@/lib/maintenance";
 import { createMaintenanceItemAction, updateMaintenanceItemAction } from "./actions";
 
-export type MaintenanceFormItem = {
-  id: string;
-  name: string;
-  category: MaintenanceCategory;
-  location: string | null;
-  brand: string | null;
-  modelNumber: string | null;
-  serialNumber: string | null;
-  installedYear: number | null;
-  warrantyUntil: string | null;
-  serviceEveryMonths: number | null;
-  lastServicedOn: string | null;
-  manualUrl: string | null;
-  notes: string | null;
-};
+export type MaintenanceFormItem = MaintenanceView;
 
 const toNumber = (v: string) => (v.trim() === "" ? null : Number(v));
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
-        {label}
-      </Typography.Text>
-      {children}
-    </div>
-  );
-}
 
 /** Add an item (no `item`) or edit one. */
 export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }) {
@@ -88,10 +64,10 @@ export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }
         {item ? "Edit item" : "Add item"}
       </Typography.Title>
       {error && <Alert type="error" showIcon title={error} />}
-      <Field label="Name">
+      <FormField label="Name">
         <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={MAX_FIELD} placeholder="e.g. Upstairs furnace" aria-label="Name" autoFocus />
-      </Field>
-      <Field label="Category">
+      </FormField>
+      <FormField label="Category">
         <Select<MaintenanceCategory>
           value={category}
           onChange={setCategory}
@@ -99,43 +75,43 @@ export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }
           style={{ width: "100%" }}
           options={MAINTENANCE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))}
         />
-      </Field>
-      <Field label="Location">
+      </FormField>
+      <FormField label="Location">
         <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={MAX_FIELD} placeholder="e.g. Basement" aria-label="Location" />
-      </Field>
+      </FormField>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Brand">
+        <FormField label="Brand">
           <Input value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={MAX_FIELD} aria-label="Brand" style={{ width: 220 }} />
-        </Field>
-        <Field label="Model number">
+        </FormField>
+        <FormField label="Model number">
           <Input value={modelNumber} onChange={(e) => setModelNumber(e.target.value)} maxLength={MAX_FIELD} aria-label="Model number" style={{ width: 220 }} />
-        </Field>
-        <Field label="Serial number">
+        </FormField>
+        <FormField label="Serial number">
           <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} maxLength={MAX_FIELD} aria-label="Serial number" style={{ width: 220 }} />
-        </Field>
+        </FormField>
       </Space>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Year installed">
+        <FormField label="Year installed">
           <Input type="number" value={installedYear} onChange={(e) => setInstalledYear(e.target.value)} placeholder="e.g. 2004" aria-label="Year installed" style={{ width: 160 }} />
-        </Field>
-        <Field label="Warranty until">
+        </FormField>
+        <FormField label="Warranty until">
           <Input type="date" value={warrantyUntil} onChange={(e) => setWarrantyUntil(e.target.value)} aria-label="Warranty until" style={{ width: 180 }} />
-        </Field>
+        </FormField>
       </Space>
       <Space wrap style={{ width: "100%" }} align="start">
-        <Field label="Service every (months)">
+        <FormField label="Service every (months)">
           <Input type="number" min={1} value={serviceEveryMonths} onChange={(e) => setServiceEveryMonths(e.target.value)} placeholder="e.g. 3" aria-label="Service every (months)" style={{ width: 200 }} />
-        </Field>
-        <Field label="Last serviced">
+        </FormField>
+        <FormField label="Last serviced">
           <Input type="date" value={lastServicedOn} onChange={(e) => setLastServicedOn(e.target.value)} aria-label="Last serviced" style={{ width: 180 }} />
-        </Field>
+        </FormField>
       </Space>
-      <Field label="Manual or product page (link)">
+      <FormField label="Manual or product page (link)">
         <Input value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} maxLength={MAX_URL} placeholder="https://" aria-label="Manual link" />
-      </Field>
-      <Field label="Notes">
+      </FormField>
+      <FormField label="Notes">
         <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} autoSize={{ minRows: 4, maxRows: 20 }} maxLength={MAX_NOTES} showCount aria-label="Notes" />
-      </Field>
+      </FormField>
       <Space>
         <Button type="primary" loading={busy} disabled={!name.trim()} onClick={save}>
           {item ? "Save" : "Add item"}

@@ -1,6 +1,7 @@
 import { z } from "zod";
-import type { AccountKind, AccountStatus } from "@prisma/client";
-import { isHttpUrl } from "@/lib/urls";
+import type { AccountKind, AccountRecord, AccountStatus } from "@prisma/client";
+import { calendarName } from "@/lib/contactDates";
+import { optionalHttpUrl, optionalId, optionalNotes, optionalText, trimToNull } from "@/lib/formFields";
 
 export const ACCOUNT_KINDS: readonly AccountKind[] = [
   "BANK", "CREDIT_CARD", "LOAN", "INVESTMENT", "RETIREMENT", "HEALTH_SAVINGS", "INSURANCE", "UTILITY", "SUBSCRIPTION", "OTHER",
@@ -32,14 +33,6 @@ export const MAX_URL = 500;
 export const MAX_NOTES = 5000;
 export const MAX_LAST_FOUR = 4;
 
-const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v : null);
-const short = (label: string) =>
-  z
-    .string()
-    .max(MAX_FIELD, `${label} can be at most ${MAX_FIELD} characters`)
-    .nullish()
-    .transform((v) => (v && v.trim() ? v.trim() : null));
-
 /**
  * The fields of an account record. This directory never holds secrets or money: the account number is capped at its
  * last four characters (so a full number can't be saved by accident), and there is no field for a password or balance.
@@ -48,25 +41,16 @@ export const accountRecordSchema = z.object({
   name: z.string().trim().min(1, "Give it a name").max(MAX_FIELD, `The name can be at most ${MAX_FIELD} characters`),
   kind: z.enum(ACCOUNT_KINDS as [AccountKind, ...AccountKind[]], "Choose what kind of account it is"),
   status: z.enum(ACCOUNT_STATUSES as [AccountStatus, ...AccountStatus[]], "Choose a status"),
-  institution: short("The institution"),
+  institution: optionalText("The institution", MAX_FIELD),
   lastFour: z
     .string()
     .nullish()
-    .transform((v) => (v && v.trim() ? v.trim() : null))
+    .transform(trimToNull)
     .refine((v) => v === null || /^[A-Za-z0-9]{1,4}$/.test(v), "Enter only the last 4 letters or digits of the account number (never the whole number)"),
-  ownerContactId: z.string().nullish().transform(blankToNull),
-  website: z
-    .string()
-    .max(MAX_URL, `The website can be at most ${MAX_URL} characters`)
-    .nullish()
-    .transform((v) => (v && v.trim() ? v.trim() : null))
-    .refine((v) => v === null || isHttpUrl(v), "The website must start with http:// or https://"),
-  phone: short("The phone number"),
-  notes: z
-    .string()
-    .max(MAX_NOTES, `Notes can be at most ${MAX_NOTES.toLocaleString("en-US")} characters`)
-    .nullish()
-    .transform(blankToNull),
+  ownerContactId: optionalId(),
+  website: optionalHttpUrl("The website", MAX_URL),
+  phone: optionalText("The phone number", MAX_FIELD),
+  notes: optionalNotes(MAX_NOTES),
 });
 
 export type AccountRecordFields = z.input<typeof accountRecordSchema>;
@@ -75,3 +59,26 @@ export type AccountRecordFields = z.input<typeof accountRecordSchema>;
 export function accountSummary(a: { institution: string | null; lastFour: string | null }): string {
   return [a.institution, a.lastFour ? `····${a.lastFour}` : null].filter(Boolean).join(" ");
 }
+
+/** Include this when loading a record, so toAccountView can name its owner. */
+export const OWNER_NAME = { owner: { select: { firstName: true, nickname: true } } } as const;
+
+/** A stored record (loaded with OWNER_NAME) as the pages hand it to the browser, with the owner's short name. */
+export function toAccountView(record: AccountRecord & { owner: { firstName: string; nickname: string | null } | null }) {
+  return {
+    id: record.id,
+    name: record.name,
+    kind: record.kind,
+    status: record.status,
+    institution: record.institution,
+    lastFour: record.lastFour,
+    ownerContactId: record.ownerContactId,
+    /** Kept even after the owner is removed from the household. */
+    ownerName: record.owner ? calendarName(record.owner) : null,
+    website: record.website,
+    phone: record.phone,
+    notes: record.notes,
+  };
+}
+
+export type AccountView = ReturnType<typeof toAccountView>;

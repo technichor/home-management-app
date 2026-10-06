@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   CALENDAR_VIEWS,
   addDays,
+  addMonthsKeepingDay,
   addMonths,
   datesInRange,
   daysBetween,
@@ -341,5 +342,16 @@ describe("resolveCalendarRange", () => {
     expect(seen).toEqual(["2026-12-06", "2026-12-13", "2026-12-20", "2026-12-27", "2027-01-03"]);
     for (let i = 0; i < 4; i++) anchor = resolve({ view: "week", date: anchor }).prev;
     expect(anchor).toBe("2026-12-13");
+  });
+});
+
+describe("addMonthsKeepingDay", () => {
+  it("keeps the day, clamping to the end of a shorter month, across years and backwards", () => {
+    expect(addMonthsKeepingDay("2026-01-15", 3)).toBe("2026-04-15");
+    expect(addMonthsKeepingDay("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addMonthsKeepingDay("2028-01-31", 1)).toBe("2028-02-29");
+    expect(addMonthsKeepingDay("2026-11-30", 3)).toBe("2027-02-28");
+    expect(addMonthsKeepingDay("2026-12-01", 12)).toBe("2027-12-01");
+    expect(addMonthsKeepingDay("2026-03-31", -1)).toBe("2026-02-28");
   });
 });

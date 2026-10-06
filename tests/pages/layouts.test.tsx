@@ -13,7 +13,11 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   }),
 }));
-vi.mock("@/lib/auth", async (orig) => ({ ...(await orig<typeof import("@/lib/auth")>()), getSessionUser: vi.fn() }));
+vi.mock("@/lib/auth", async (orig) => {
+  // The layout reads the per-render currentUser; it is the same lookup as getSessionUser, which the tests control.
+  const getSessionUser = vi.fn();
+  return { ...(await orig<typeof import("@/lib/auth")>()), getSessionUser, currentUser: () => getSessionUser() };
+});
 vi.mock("@ant-design/nextjs-registry", () => ({
   AntdRegistry: ({ children }: any) => <>{children}</>,
 }));

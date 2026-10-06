@@ -1,8 +1,8 @@
 import { pageHouseholdId } from "@/lib/auth";
-import { assigneeOptionsOf } from "@/lib/calendarItem";
+import { memberOptionsOf } from "@/lib/householdMembers";
 import AccountForm from "../AccountForm";
 
 export default async function NewAccountPage() {
   const householdId = await pageHouseholdId();
-  return <AccountForm owners={await assigneeOptionsOf(householdId)} />;
+  return <AccountForm owners={await memberOptionsOf(householdId)} />;
 }

@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth";
 import { findValidChangeToken, sendEmailChangedNotice } from "@/lib/emailChange";
 import { hashInviteToken } from "@/lib/syncToken";
 import type { AuthState } from "@/app/signup/actions";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 const INVALID = "This confirmation link is not valid or has expired. Request the change again from your account page.";
 
@@ -33,7 +34,7 @@ export async function confirmEmailChangeAction(token: string): Promise<AuthState
     });
   } catch (e) {
     // Someone registered that address after the link was sent.
-    if ((e as { code?: string }).code === "P2002") return { error: "An account already uses that email address." };
+    if (isUniqueViolation(e)) return { error: "An account already uses that email address." };
     throw e;
   }
   if (!done) return { error: INVALID };

@@ -7,6 +7,7 @@ import { homePathFor, startSession } from "@/lib/auth";
 import { safeNext } from "@/lib/redirect";
 import { sendVerificationEmail } from "@/lib/emailVerification";
 import { signupSchema } from "@/lib/validations";
+import { isUniqueViolation } from "@/lib/prismaErrors";
 
 export type AuthState = { error: string } | null;
 
@@ -37,7 +38,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     });
   } catch (e) {
     // Lost a race with another signup for the same email.
-    if ((e as { code?: string }).code === "P2002") return { error: EMAIL_TAKEN };
+    if (isUniqueViolation(e)) return { error: EMAIL_TAKEN };
     throw e;
   }
 

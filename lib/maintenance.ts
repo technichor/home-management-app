@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { MaintenanceCategory } from "@prisma/client";
-import { formatCalendarDate, isDateString } from "@/lib/dates";
-import { isHttpUrl } from "@/lib/urls";
+import type { MaintenanceCategory, MaintenanceItem } from "@prisma/client";
+import { addMonthsKeepingDay, dateToString, formatCalendarDate } from "@/lib/dates";
+import { optionalDate, optionalHttpUrl, optionalNotes, optionalText } from "@/lib/formFields";
 
 export const MAINTENANCE_CATEGORIES: readonly MaintenanceCategory[] = ["HVAC", "APPLIANCE", "PLUMBING", "ELECTRICAL", "EXTERIOR", "YARD", "VEHICLE", "OTHER"];
 
@@ -23,27 +23,13 @@ export const MIN_YEAR = 1900;
 export const MAX_YEAR = 2100;
 export const MAX_INTERVAL_MONTHS = 600;
 
-const blankToNull = (v: string | null | undefined) => (v && v.trim() ? v : null);
-const short = (label: string) =>
-  z
-    .string()
-    .max(MAX_FIELD, `${label} can be at most ${MAX_FIELD} characters`)
-    .nullish()
-    .transform((v) => (v && v.trim() ? v.trim() : null));
-const optionalDate = (label: string) =>
-  z
-    .string()
-    .nullish()
-    .transform(blankToNull)
-    .refine((v) => v === null || isDateString(v), `Choose a valid ${label}`);
-
 export const maintenanceItemSchema = z.object({
   name: z.string().trim().min(1, "Give it a name").max(MAX_FIELD, `The name can be at most ${MAX_FIELD} characters`),
   category: z.enum(MAINTENANCE_CATEGORIES as [MaintenanceCategory, ...MaintenanceCategory[]], "Choose a category"),
-  location: short("The location"),
-  brand: short("The brand"),
-  modelNumber: short("The model number"),
-  serialNumber: short("The serial number"),
+  location: optionalText("The location", MAX_FIELD),
+  brand: optionalText("The brand", MAX_FIELD),
+  modelNumber: optionalText("The model number", MAX_FIELD),
+  serialNumber: optionalText("The serial number", MAX_FIELD),
   installedYear: z
     .number()
     .int("The year must be a whole number")
@@ -60,30 +46,11 @@ export const maintenanceItemSchema = z.object({
     .nullish()
     .transform((v) => v ?? null),
   lastServicedOn: optionalDate("service date"),
-  manualUrl: z
-    .string()
-    .max(MAX_URL, `The manual link can be at most ${MAX_URL} characters`)
-    .nullish()
-    .transform((v) => (v && v.trim() ? v.trim() : null))
-    .refine((v) => v === null || isHttpUrl(v), "The manual link must start with http:// or https://"),
-  notes: z
-    .string()
-    .max(MAX_NOTES, `Notes can be at most ${MAX_NOTES.toLocaleString("en-US")} characters`)
-    .nullish()
-    .transform(blankToNull),
+  manualUrl: optionalHttpUrl("The manual link", MAX_URL),
+  notes: optionalNotes(MAX_NOTES),
 });
 
 export type MaintenanceItemFields = z.input<typeof maintenanceItemSchema>;
-
-/** The date `months` after `date`, on the same day of the month (or the month's last day when it is shorter). */
-export function addMonthsToDate(date: string, months: number): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const total = y * 12 + (m - 1) + months;
-  const year = Math.floor(total / 12);
-  const month = total % 12;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  return `${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-${String(Math.min(d, lastDay)).padStart(2, "0")}`;
-}
 
 export type ServiceStatus = { text: string; overdue: boolean };
 
@@ -94,7 +61,7 @@ export type ServiceStatus = { text: string; overdue: boolean };
 export function serviceStatus(item: { serviceEveryMonths: number | null; lastServicedOn: string | null }, today: string): ServiceStatus | null {
   if (item.serviceEveryMonths === null) return null;
   if (item.lastServicedOn === null) return { text: "No service recorded yet", overdue: false };
-  const due = addMonthsToDate(item.lastServicedOn, item.serviceEveryMonths);
+  const due = addMonthsKeepingDay(item.lastServicedOn, item.serviceEveryMonths);
   return due < today
     ? { text: `Service was due ${formatCalendarDate(due)}`, overdue: true }
     : { text: `Next service ${formatCalendarDate(due)}`, overdue: false };
@@ -110,3 +77,24 @@ export function ageLabel(age: number | null): string | null {
   if (age === 0) return "Installed this year";
   return age === 1 ? "1 year old" : `${age} years old`;
 }
+
+/** A stored item as the pages hand it to the browser: dates as plain YYYY-MM-DD strings. */
+export function toMaintenanceView(item: MaintenanceItem) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    location: item.location,
+    brand: item.brand,
+    modelNumber: item.modelNumber,
+    serialNumber: item.serialNumber,
+    installedYear: item.installedYear,
+    warrantyUntil: item.warrantyUntil ? dateToString(item.warrantyUntil) : null,
+    serviceEveryMonths: item.serviceEveryMonths,
+    lastServicedOn: item.lastServicedOn ? dateToString(item.lastServicedOn) : null,
+    manualUrl: item.manualUrl,
+    notes: item.notes,
+  };
+}
+
+export type MaintenanceView = ReturnType<typeof toMaintenanceView>;

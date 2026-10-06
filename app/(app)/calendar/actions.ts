@@ -8,7 +8,8 @@ import { attempt, UserError } from "@/lib/actionResult";
 import { dateToString, isDateString, stringToDate, type WeekStart } from "@/lib/dates";
 import { nextOccurrenceAfter } from "@/lib/recurrence";
 import { updatePlanSettings } from "@/lib/mealPlan";
-import { assigneeOptionsOf, calendarItemSchema, getCalendarSettings, type CalendarItemFields } from "@/lib/calendarItem";
+import { assertMemberChoice } from "@/lib/householdMembers";
+import { calendarItemSchema, getCalendarSettings, type CalendarItemFields } from "@/lib/calendarItem";
 
 // Server actions are public endpoints: each one takes the household from the session and only ever touches that
 // household's items. An item id or assignee id sent from the browser that isn't the household's is "not found".
@@ -23,16 +24,6 @@ function parseFields(kind: CalendarKind, fields: CalendarItemFields) {
   const parsed = calendarItemSchema(kind).safeParse(fields);
   if (!parsed.success) throw new UserError(parsed.error.issues[0].message);
   return parsed.data;
-}
-
-/**
- * Whether someone can be the assignee: one of the household's own members who hasn't been removed. (An item that is
- * already assigned to someone later removed keeps them; only choosing a new assignee is checked.)
- */
-async function assertAssignee(householdId: string, assigneeContactId: string | null, current: string | null = null) {
-  if (assigneeContactId === null || assigneeContactId === current) return;
-  const options = await assigneeOptionsOf(householdId);
-  if (!options.some((o) => o.id === assigneeContactId)) throw new UserError("Choose one of your household's members");
 }
 
 function refresh() {
@@ -60,7 +51,7 @@ export async function createCalendarItemAction(kind: CalendarKind, fields: Calen
   return attempt(async () => {
     if (kind !== "EVENT" && kind !== "TASK") throw new UserError("Choose event or task");
     const data = parseFields(kind, fields);
-    await assertAssignee(householdId, data.assigneeContactId);
+    await assertMemberChoice(householdId, data.assigneeContactId);
     const created = await prisma.calendarItem.create({ data: { householdId, kind, ...dataOf(data) } });
     refresh();
     return { id: created.id };
@@ -73,7 +64,7 @@ export async function updateCalendarItemAction(id: string, fields: CalendarItemF
   return attempt(async () => {
     const item = await loadItem(householdId, id);
     const data = parseFields(item.kind, fields);
-    await assertAssignee(householdId, data.assigneeContactId, item.assigneeContactId);
+    await assertMemberChoice(householdId, data.assigneeContactId, item.assigneeContactId);
     await prisma.calendarItem.update({ where: { id }, data: dataOf(data) });
     refresh();
   });
