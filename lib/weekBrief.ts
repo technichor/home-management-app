@@ -1,15 +1,11 @@
-import type { MealSlot } from "@prisma/client";
 import { dayOfWeek, weekDates } from "@/lib/dates";
-import { SLOT_LABELS } from "@/lib/mealPlan";
+import { timeLabel } from "@/lib/calendarView";
+import type { AgendaEntry } from "@/lib/agendaOrder";
 
 /** What the home page's weekly brief says about a week, built from the household's real data. */
 
 const SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-export type BriefEntry = { date: string; slot: MealSlot; label: string };
-/** A birthday, anniversary or other important date of a contact that falls in the week. */
-export type BriefDate = { date: string; name: string; label: string };
 
 export type BriefDay = {
   date: string;
@@ -17,8 +13,10 @@ export type BriefDay = {
   weekdayLong: string;
   dayOfMonth: number;
   isToday: boolean;
-  /** How much is on: planned meals plus important dates. */
+  /** How much is on the day: everything except tasks already done. */
   load: number;
+  /** Nothing at all on the day (not even a completed task). */
+  empty: boolean;
   /** The day's main thing, or "Open". */
   title: string;
   /** "+2 more" when there is more on the day than its title, else empty. (For the narrow strip under the drawing.) */
@@ -76,8 +74,6 @@ export function buildDrawing(loads: number[], labels: string[], todayIndex: numb
   return { width, height, baseline, path, points };
 }
 
-const possessive = (name: string) => `${name}'s`;
-
 function headlineFor(firstName: string, loads: number[], days: BriefDay[]): string {
   const total = loads.reduce((a, b) => a + b, 0);
   if (total === 0) return `Nothing is planned this week yet, ${firstName}.`;
@@ -89,26 +85,36 @@ function headlineFor(firstName: string, loads: number[], days: BriefDay[]): stri
   return `${adjective}, ${firstName}, with the most planned on ${joinList(busiest.map((d) => d.weekdayLong))}.`;
 }
 
-export function buildBrief(input: {
-  firstName: string;
-  weekStart: string;
-  today: string;
-  slots: MealSlot[];
-  entries: BriefEntry[];
-  dates: BriefDate[];
-}): Brief {
-  const { firstName, weekStart, today, slots, entries, dates } = input;
+/** A day's one line about an entry, as a sentence: "9:30 AM Dentist.", "Task: Call the vet.", "Dinner: Tacos.". */
+function lineOf(e: AgendaEntry): string {
+  if (e.source === "contact_date") return e.turns !== null ? `${e.title} (turns ${e.turns}).` : `${e.title}.`;
+  if (e.source === "meal") return `${e.title}.`;
+  if (e.kind === "TASK") return `${e.completed ? "Done" : e.overdue ? "Overdue task" : "Task"}: ${e.title}.`;
+  const when = timeLabel(e.startTime, e.endTime);
+  return `${when ? `${when} ` : ""}${e.title}.`;
+}
+
+/** What names a day: the entry itself, or for a meal just the dish ("Dinner: Tacos" becomes "Tacos"). */
+const nameOf = (e: AgendaEntry) => (e.source === "meal" ? e.title.replace(/^[^:]+: /, "") : e.title);
+
+const isDoneTask = (e: AgendaEntry) => e.source === "item" && e.kind === "TASK" && e.completed;
+
+/**
+ * The week for the home page, from the shared agenda's entries (calendar items, contact dates and planned meals) for
+ * those seven days. A day's load is what is still on it: completed tasks are done, so they don't weigh. Its main
+ * item is the first thing that isn't a meal, else its dinner, else its first meal.
+ */
+export function buildBrief(input: { firstName: string; weekStart: string; today: string; entries: AgendaEntry[] }): Brief {
+  const { firstName, weekStart, today, entries } = input;
 
   const days: BriefDay[] = weekDates(weekStart).map((date) => {
-    const meals = entries.filter((e) => e.date === date);
-    const events = dates.filter((d) => d.date === date);
-    const dinner = meals.find((e) => e.slot === "DINNER");
-    const lines = slots.flatMap((slot) => {
-      const here = meals.filter((e) => e.slot === slot).map((e) => e.label);
-      return here.length ? [`${SLOT_LABELS[slot]}: ${here.join(", ")}.`] : [];
-    });
-    const eventLines = events.map((e) => `${possessive(e.name)} ${e.label.toLowerCase()}.`);
-    const main = dinner?.label ?? meals[0]?.label ?? (events[0] ? `${possessive(events[0].name)} ${events[0].label.toLowerCase()}` : null);
+    const here = entries.filter((e) => e.date === date);
+    const open = here.filter((e) => !isDoneTask(e));
+    const main =
+      open.find((e) => e.source !== "meal") ??
+      open.find((e) => e.source === "meal" && e.slot === "DINNER") ??
+      open[0] ??
+      here[0];
 
     return {
       date,
@@ -116,10 +122,11 @@ export function buildBrief(input: {
       weekdayLong: LONG[dayOfWeek(date)],
       dayOfMonth: Number(date.slice(8)),
       isToday: date === today,
-      load: meals.length + events.length,
-      title: main ?? "Open",
-      more: meals.length + events.length > 1 ? `+${meals.length + events.length - 1} more` : "",
-      support: main ? [...lines, ...eventLines].join(" ") : "Nothing planned.",
+      load: open.length,
+      empty: here.length === 0,
+      title: main ? nameOf(main) : "Open",
+      more: open.length > 1 ? `+${open.length - 1} more` : "",
+      support: main ? here.map(lineOf).join(" ") : "Nothing planned.",
     };
   });
 

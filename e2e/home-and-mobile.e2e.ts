@@ -30,13 +30,13 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   await page.locator(".brief-row", { hasText: "Dinner: Tacos." }).click();
   await expect(page).toHaveURL(/\/meals\?week=\d{4}-\d{2}-\d{2}/);
 
-  // A contact's birthday today is in the week; one a few weeks out is under Coming up.
+  // A contact's birthday today is in the week; one a few days out is under Today & coming up.
   const iso = (offset: number) => {
     const d = new Date();
     d.setDate(d.getDate() + offset);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
-  for (const [first, last, date] of [["Bertie", "Birthday", iso(0)], ["Later", "Person", iso(21)]]) {
+  for (const [first, last, date] of [["Bertie", "Birthday", iso(0)], ["Later", "Person", iso(5)]]) {
     await page.goto(`/contacts/new`);
     await page.getByLabel("First name").fill(first);
     await page.getByLabel("Last name").fill(last);
@@ -48,9 +48,11 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   }
   await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByText("Bertie Birthday's birthday").first()).toBeVisible();
-  const coming = page.locator("section", { has: page.getByRole("heading", { name: "Coming up" }) });
+  const coming = page.locator("section", { has: page.getByRole("heading", { name: "Today & coming up" }) });
+  await expect(coming.getByText("Bertie Birthday's birthday")).toBeVisible();
   await expect(coming.getByText("Later Person's birthday")).toBeVisible();
-  await expect(coming.getByText("Bertie Birthday")).toHaveCount(0);
+  await expect(coming.getByText("Next 7 days")).toBeVisible();
+  await expect(coming.getByRole("link", { name: "View calendar" })).toHaveAttribute("href", /\/calendar\?view=week/);
 
   // What needs attention: a message from someone else in the household shows up with a link to it.
   const mate = await addMember(browser, page, "homemate");

@@ -1,18 +1,41 @@
 import Link from "next/link";
-import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
-import { addDays, formatCalendarDate, formatWeekRange, isDateString, stringToDate, weekStartOf } from "@/lib/dates";
+import { getAgenda } from "@/lib/agenda";
+import { addDays, formatCalendarDate, formatDayHeading, formatWeekRange, isDateString, weekStartOf } from "@/lib/dates";
 import { loadAttention } from "@/lib/homeAttention";
-import { inDays, upcomingDates } from "@/lib/home";
-import { getMealPlanSettings, visibleSlots, weekEntries } from "@/lib/mealPlan";
-import { contactsOf } from "@/lib/scope";
+import { buildTodayPanel, UPCOMING_DAYS } from "@/lib/homePanel";
+import { getCalendarSettings } from "@/lib/calendarItem";
+import { calendarHref, plannerHref, timeLabel } from "@/lib/calendarView";
+import { getMealPlanSettings } from "@/lib/mealPlan";
+import type { AgendaEntry } from "@/lib/agendaOrder";
 import { buildBrief } from "@/lib/weekBrief";
 import LocalToday from "@/components/LocalToday";
 import WeekDrawing from "@/components/WeekDrawing";
 
-/** How far ahead of today the "Coming up" list reaches. */
-const COMING_UP_DAYS = 30;
-const COMING_UP_SHOWN = 5;
+/** Where an entry leads: an item to its day on the calendar, a contact date to the contact, a meal to the planner. */
+function hrefOf(e: AgendaEntry, today: string): string {
+  if (e.source === "contact_date") return `/contacts/${e.contactId}`;
+  if (e.source === "meal") return plannerHref(e.date, today);
+  return calendarHref({ view: "day", date: e.date, today });
+}
+
+/** The short label in a row's left column: a time, or what kind of thing it is. */
+function indexOf(e: AgendaEntry): string {
+  if (e.source === "contact_date") return "Date";
+  if (e.source === "meal") return "Meal";
+  if (e.kind === "TASK") return "Task";
+  return e.startTime ? timeLabel(e.startTime, null) : "Event";
+}
+
+/** The sentence under an entry's title. */
+function detailOf(e: AgendaEntry): string {
+  if (e.source === "contact_date") return e.turns !== null ? `Turns ${e.turns}.` : "From your contacts.";
+  if (e.source === "meal") return "Planned meal.";
+  const parts = [e.assigneeName ?? "Whole household"];
+  if (e.kind === "TASK") parts.unshift(e.completed ? "Done" : "To do");
+  else if (e.startTime) parts.unshift(timeLabel(e.startTime, e.endTime));
+  return `${parts.join(" · ")}.`;
+}
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
   const me = await pageMember();
@@ -22,44 +45,23 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   if (!isDateString(today)) return <LocalToday />;
 
   const householdId = me.householdId;
-  const settings = await getMealPlanSettings(householdId);
-  const weekStart = weekStartOf(today, settings.weekStartsOn);
-  const slots = visibleSlots(settings);
+  const [mealSettings, calendarSettings] = await Promise.all([getMealPlanSettings(householdId), getCalendarSettings(householdId)]);
+  const weekStart = weekStartOf(today, mealSettings.weekStartsOn);
+  const weekEnd = addDays(weekStart, 6);
 
-  const [entries, contacts, attention] = await Promise.all([
-    weekEntries(householdId, weekStart),
-    prisma.contact.findMany({
-      where: {
-        ...contactsOf(householdId),
-        deletedAt: null,
-        OR: [{ importantDate1: { not: null } }, { importantDate2: { not: null } }],
-      },
-      select: {
-        id: true, firstName: true, lastName: true,
-        importantDate1: true, importantDate1Label: true, importantDate2: true, importantDate2Label: true,
-      },
-    }),
+  // The week itself shows meals always (as the brief always has); the panel follows the calendar's meals setting.
+  const [week, ahead, attention] = await Promise.all([
+    getAgenda(householdId, weekStart, weekEnd, { today, includeMeals: true }),
+    getAgenda(householdId, today, addDays(today, UPCOMING_DAYS), { today, includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
   ]);
 
-  // Dates inside the week (judged from the week's first day), and the ones after it.
-  const weekEnd = addDays(weekStart, 6);
-  const inWeek = upcomingDates(contacts, stringToDate(weekStart), 6).map((d) => ({ date: d.next, name: d.name, label: d.label }));
-  const after = upcomingDates(contacts, stringToDate(today), COMING_UP_DAYS)
-    .filter((d) => d.next > weekEnd)
-    .slice(0, COMING_UP_SHOWN);
-
-  const brief = buildBrief({
-    firstName: me.firstName,
-    weekStart,
-    today,
-    slots,
-    entries: entries.filter((e) => slots.includes(e.slot)).map((e) => ({ date: e.date, slot: e.slot, label: e.label })),
-    dates: inWeek,
-  });
-
-  const plannerHref = `/meals?week=${weekStart}&today=${today}`;
+  const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
+  const panel = buildTodayPanel({ today, entries: ahead.entries, overdue: ahead.overdue });
+  const calendarWeek = calendarHref({ view: "week", today });
+  const plannerWeek = plannerHref(weekStart, today);
   const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
+  const nothing = panel.overdue.length === 0 && panel.today.length === 0 && panel.upcoming.length === 0;
 
   return (
     <>
@@ -71,7 +73,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <WeekDrawing drawing={brief.drawing} description={description} />
           <div className="brief-strip">
             {brief.days.map((d) => (
-              <div key={d.date} className="brief-day" data-today={d.isToday || undefined} data-open={d.load === 0 || undefined}>
+              <div key={d.date} className="brief-day" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
                 <strong className="brief-day-name">
                   <span className="brief-day-full">{d.weekday}</span>
                   <span className="brief-day-initial" aria-hidden="true">
@@ -109,10 +111,67 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           )}
         </section>
 
+        <section aria-label="Today and coming up">
+          <h2 className="brief-section">Today &amp; coming up</h2>
+          {nothing && (
+            <div className="brief-row brief-row-plain">
+              <div>
+                <div className="brief-title">Nothing today, and nothing in the next {UPCOMING_DAYS} days</div>
+                <div className="brief-support">Events, tasks and birthdays you add to the calendar show up here.</div>
+              </div>
+            </div>
+          )}
+          {panel.overdue.length > 0 && <h3 className="brief-sub">Overdue</h3>}
+          {panel.overdue.map((t) => (
+            <Link key={t.id} href={hrefOf(t, today)} className="brief-row" data-overdue>
+              <span className="brief-index">{formatCalendarDate(t.date).replace(/, \d{4}$/, "")}</span>
+              <div>
+                <div className="brief-title">{t.title}</div>
+                <div className="brief-support">Overdue task{t.assigneeName ? ` · ${t.assigneeName}` : ""}.</div>
+              </div>
+            </Link>
+          ))}
+          {panel.overdueMore > 0 && (
+            <Link href={calendarWeek} className="brief-more">
+              +{panel.overdueMore} more overdue
+            </Link>
+          )}
+          {panel.today.length > 0 && <h3 className="brief-sub">Today</h3>}
+          {panel.today.map((e) => (
+            <Link key={e.id} href={hrefOf(e, today)} className="brief-row" data-done={(e.source === "item" && e.completed) || undefined}>
+              <span className="brief-index">{indexOf(e)}</span>
+              <div>
+                <div className="brief-title">{e.title}</div>
+                <div className="brief-support">{detailOf(e)}</div>
+              </div>
+            </Link>
+          ))}
+          {panel.upcoming.length > 0 && <h3 className="brief-sub">Next {UPCOMING_DAYS} days</h3>}
+          {panel.upcoming.map((e) => (
+            <Link key={e.id} href={hrefOf(e, today)} className="brief-row">
+              <span className="brief-index">
+                {formatDayHeading(e.date).weekday} {Number(e.date.slice(8))}
+              </span>
+              <div>
+                <div className="brief-title">{e.title}</div>
+                <div className="brief-support">{detailOf(e)}</div>
+              </div>
+            </Link>
+          ))}
+          {panel.upcomingMore > 0 && (
+            <Link href={calendarWeek} className="brief-more">
+              +{panel.upcomingMore} more
+            </Link>
+          )}
+          <p className="brief-link">
+            <Link href={calendarWeek}>View calendar</Link>
+          </p>
+        </section>
+
         <section>
           <h2 className="brief-section">Day by day</h2>
           {brief.days.map((d) => (
-            <Link key={d.date} href={plannerHref} className="brief-row" data-today={d.isToday || undefined} data-open={d.load === 0 || undefined}>
+            <Link key={d.date} href={plannerWeek} className="brief-row" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
               <span className="brief-index">
                 {d.weekday}
                 {d.isToday && <span className="sr-only"> (today)</span>}
@@ -124,23 +183,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </Link>
           ))}
         </section>
-
-        {after.length > 0 && (
-          <section>
-            <h2 className="brief-section">Coming up</h2>
-            {after.map((d) => (
-              <Link key={`${d.contactId}-${d.label}-${d.next}`} href={`/contacts/${d.contactId}`} className="brief-row">
-                <span className="brief-index">{formatCalendarDate(d.next).replace(/, \d{4}$/, "")}</span>
-                <div>
-                  <div className="brief-title">
-                    {d.name}&apos;s {d.label.toLowerCase()}
-                  </div>
-                  <div className="brief-support">{inDays(d.daysUntil)}.</div>
-                </div>
-              </Link>
-            ))}
-          </section>
-        )}
       </div>
     </>
   );

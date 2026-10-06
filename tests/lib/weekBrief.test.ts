@@ -1,17 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("@/lib/db", () => ({ prisma: {} }));
-
-import { DRAWING, buildBrief, buildDrawing, joinList, type BriefEntry } from "@/lib/weekBrief";
+import { describe, it, expect } from "vitest";
+import { DRAWING, buildBrief, buildDrawing, joinList } from "@/lib/weekBrief";
+import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 
 // The week of Sun 4 Oct 2026 to Sat 10 Oct.
 const START = "2026-10-04";
-const SLOTS = ["LUNCH", "DINNER"] as const;
-const dinner = (date: string, label: string): BriefEntry => ({ date, slot: "DINNER", label });
-const lunch = (date: string, label: string): BriefEntry => ({ date, slot: "LUNCH", label });
+let n = 0;
+const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
+  source: "item", id: `i${++n}`, kind: "EVENT", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
+  assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, editable: true, ...over,
+});
+const event = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { title, ...over });
+const task = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { kind: "TASK", title, ...over });
+const birthday = (date: string, title: string, turns: number | null = null): AgendaContactDateEntry => ({
+  source: "contact_date", id: `c${++n}`, date, title, type: "birthday", contactId: "c", turns, editable: false,
+});
+const dinner = (date: string, dish: string): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, createdAt: "2026-10-01T00:00:00Z", editable: false });
+const lunch = (date: string, dish: string): AgendaMealEntry => ({ ...dinner(date, dish), slot: "LUNCH", title: `Lunch: ${dish}` });
 
-const brief = (over: Partial<Parameters<typeof buildBrief>[0]> = {}) =>
-  buildBrief({ firstName: "Casey", weekStart: START, today: "2026-10-07", slots: [...SLOTS], entries: [], dates: [], ...over });
+const brief = (entries: AgendaEntry[] = [], over: Partial<Parameters<typeof buildBrief>[0]> = {}) =>
+  buildBrief({ firstName: "Casey", weekStart: START, today: "2026-10-07", entries, ...over });
 
 describe("joinList", () => {
   it("reads naturally", () => {
@@ -32,37 +39,56 @@ describe("the days", () => {
   });
 
   it("starts on Monday when the week does", () => {
-    expect(brief({ weekStart: "2026-10-05" }).days.map((d) => d.weekday)[0]).toBe("Mon");
+    expect(brief([], { weekStart: "2026-10-05" }).days.map((d) => d.weekday)[0]).toBe("Mon");
   });
 
   it("says Open with nothing planned for an empty day", () => {
-    const [sun] = brief().days;
-    expect(sun).toMatchObject({ title: "Open", support: "Nothing planned.", load: 0 });
+    expect(brief().days[0]).toMatchObject({ title: "Open", support: "Nothing planned.", load: 0, empty: true, more: "" });
   });
 
-  it("titles a day by its dinner and lists each meal of the day in order", () => {
-    const { days } = brief({ entries: [dinner("2026-10-05", "Tacos"), lunch("2026-10-05", "Soup"), dinner("2026-10-05", "Rice")] });
-    expect(days[1]).toMatchObject({ title: "Tacos", load: 3, support: "Lunch: Soup. Dinner: Tacos, Rice." });
+  it("names a meal-only day by its dish, with each meal listed", () => {
+    const { days } = brief([lunch("2026-10-05", "Soup"), dinner("2026-10-05", "Tacos"), dinner("2026-10-05", "Rice")]);
+    expect(days[1]).toMatchObject({ title: "Tacos", load: 3, more: "+2 more", support: "Lunch: Soup. Dinner: Tacos. Dinner: Rice." });
   });
 
-  it("titles a day with no dinner by its first meal", () => {
-    const { days } = brief({ entries: [lunch("2026-10-06", "Sandwiches")] });
-    expect(days[2]).toMatchObject({ title: "Sandwiches", support: "Lunch: Sandwiches." });
+  it("names a day with only a lunch by that dish", () => {
+    expect(brief([lunch("2026-10-06", "Sandwiches")]).days[2].title).toBe("Sandwiches");
   });
 
-  it("includes a contact's important date, and titles a day by it when there are no meals", () => {
-    const { days } = brief({ dates: [{ date: "2026-10-08", name: "Jo Jones", label: "Birthday" }] });
-    expect(days[4]).toMatchObject({ title: "Jo Jones's birthday", support: "Jo Jones's birthday.", load: 1 });
+  it("prefers an event or a date to a meal as the day's main item", () => {
+    const { days } = brief([event("2026-10-08", "Dentist", { startTime: "09:30", endTime: "10:15" }), dinner("2026-10-08", "Pasta")]);
+    expect(days[4]).toMatchObject({ title: "Dentist", support: "9:30 AM \u2013 10:15 AM Dentist. Dinner: Pasta.", load: 2 });
+    const withBirthday = brief([birthday("2026-10-08", "Jo's birthday", 41), dinner("2026-10-08", "Pasta")]).days[4];
+    expect(withBirthday).toMatchObject({ title: "Jo's birthday", support: "Jo's birthday (turns 41). Dinner: Pasta." });
   });
 
-  it("adds a date after a day's meals", () => {
-    const { days } = brief({ entries: [dinner("2026-10-08", "Pasta")], dates: [{ date: "2026-10-08", name: "Jo", label: "Anniversary" }] });
-    expect(days[4]).toMatchObject({ title: "Pasta", load: 2, support: "Dinner: Pasta. Jo's anniversary." });
+  it("lists a reminder with no time plainly", () => {
+    expect(brief([event("2026-10-06", "Picture day")]).days[2]).toMatchObject({ title: "Picture day", support: "Picture day." });
   });
 
-  it("only mentions meals of the slots in view", () => {
-    const { days } = brief({ slots: ["DINNER"], entries: [lunch("2026-10-05", "Soup"), dinner("2026-10-05", "Tacos")] });
-    expect(days[1].support).toBe("Dinner: Tacos.");
+  it("lists tasks as to do, overdue, or done", () => {
+    const { days } = brief([task("2026-10-06", "Call the vet"), task("2026-10-06", "Renew passport", { overdue: true }), task("2026-10-06", "Pay bill", { completed: true })]);
+    expect(days[2].support).toBe("Task: Call the vet. Overdue task: Renew passport. Done: Pay bill.");
+    expect(days[2].load).toBe(2);
+  });
+
+  it("doesn't count a completed task as load, but the day isn't empty", () => {
+    const { days } = brief([task("2026-10-06", "Pay bill", { completed: true })]);
+    expect(days[2]).toMatchObject({ load: 0, empty: false, title: "Pay bill", support: "Done: Pay bill.", more: "" });
+  });
+
+  it("names a day by an open task over a finished one", () => {
+    const { days } = brief([task("2026-10-06", "Done one", { completed: true }), task("2026-10-06", "Open one")]);
+    expect(days[2]).toMatchObject({ title: "Open one", load: 1, more: "" });
+  });
+
+  it("falls back to a meal when that is all there is, preferring dinner, then the first", () => {
+    expect(brief([lunch("2026-10-06", "Soup"), dinner("2026-10-06", "Tacos")]).days[2].title).toBe("Tacos");
+    expect(brief([lunch("2026-10-06", "Soup"), { ...lunch("2026-10-06", "Eggs"), slot: "BREAKFAST", title: "Breakfast: Eggs" }]).days[2].title).toBe("Soup");
+  });
+
+  it("ignores entries from other days", () => {
+    expect(brief([event("2026-10-20", "Elsewhere")]).days.every((d) => d.empty)).toBe(true);
   });
 });
 
@@ -71,42 +97,47 @@ describe("the headline", () => {
     expect(brief().headline).toBe("Nothing is planned this week yet, Casey.");
   });
 
+  it("doesn't count finished tasks as something planned", () => {
+    expect(brief([task("2026-10-06", "Done", { completed: true })]).headline).toBe("Nothing is planned this week yet, Casey.");
+  });
+
   it("names the busiest day or days", () => {
-    const one = brief({ entries: [dinner("2026-10-05", "A"), dinner("2026-10-05", "B"), dinner("2026-10-06", "C")] });
+    const one = brief([dinner("2026-10-05", "A"), dinner("2026-10-05", "B"), dinner("2026-10-06", "C")]);
     expect(one.headline).toBe("A light week, Casey, with the most planned on Monday.");
-    const two = brief({ entries: [dinner("2026-10-05", "A"), dinner("2026-10-06", "B")] });
+    const two = brief([dinner("2026-10-05", "A"), event("2026-10-06", "B")]);
     expect(two.headline).toBe("A light week, Casey, with the most planned on Monday and Tuesday.");
   });
 
+  it("counts events, tasks and birthdays as well as meals", () => {
+    const entries = [event("2026-10-08", "A"), task("2026-10-08", "B"), birthday("2026-10-08", "Jo's birthday"), dinner("2026-10-09", "C")];
+    expect(brief(entries).headline).toBe("A light week, Casey, with the most planned on Thursday.");
+  });
+
   it("calls the week light, steady or full by how much is on", () => {
-    const some = (n: number) => Array.from({ length: n }, (_, i) => dinner(`2026-10-0${5 + (i % 5)}`, `M${i}`));
-    expect(brief({ entries: some(4) }).headline.startsWith("A light week")).toBe(true);
-    expect(brief({ entries: some(5) }).headline.startsWith("A steady week")).toBe(true);
-    expect(brief({ entries: some(13) }).headline.startsWith("A steady week")).toBe(true);
-    expect(brief({ entries: some(14) }).headline.startsWith("A full week")).toBe(true);
+    const some = (count: number) => Array.from({ length: count }, (_, i) => dinner(`2026-10-0${5 + (i % 5)}`, `M${i}`));
+    expect(brief(some(4)).headline.startsWith("A light week")).toBe(true);
+    expect(brief(some(5)).headline.startsWith("A steady week")).toBe(true);
+    expect(brief(some(13)).headline.startsWith("A steady week")).toBe(true);
+    expect(brief(some(14)).headline.startsWith("A full week")).toBe(true);
   });
 
   it("calls an even week even", () => {
     const entries = ["04", "05", "06", "07", "08", "09", "10"].map((d) => dinner(`2026-10-${d}`, "Same"));
-    expect(brief({ entries }).headline).toBe("A steady week, Casey, planned evenly across the days.");
+    expect(brief(entries).headline).toBe("A steady week, Casey, planned evenly across the days.");
   });
 
   it("doesn't list more than three busiest days", () => {
-    const entries = ["04", "05", "06", "07"].flatMap((d) => [dinner(`2026-10-${d}`, "X")]).concat(dinner("2026-10-08", "Y"), dinner("2026-10-08", "Z"), dinner("2026-10-08", "W"));
-    // Thursday has 3; make four days tie on the maximum instead.
     const tie = ["04", "05", "06", "07"].map((d) => dinner(`2026-10-${d}`, "X")).concat(dinner("2026-10-09", "Y"));
-    expect(brief({ entries: tie }).headline).toBe("A steady week, Casey, with plans spread across the week.");
-    expect(brief({ entries }).headline).toContain("most planned on Thursday");
+    expect(brief(tie).headline).toBe("A steady week, Casey, with plans spread across the week.");
+    const thursday = ["04", "05", "06", "07"].map((d) => dinner(`2026-10-${d}`, "X")).concat(dinner("2026-10-08", "Y"), dinner("2026-10-08", "Z"), dinner("2026-10-08", "W"));
+    expect(brief(thursday).headline).toContain("most planned on Thursday");
   });
 });
 
 describe("the strip under the drawing", () => {
   it("says what is more on a day than its title", () => {
-    const { days } = brief({
-      entries: [dinner("2026-10-05", "Tacos"), lunch("2026-10-05", "Soup"), dinner("2026-10-06", "Pasta")],
-      dates: [{ date: "2026-10-05", name: "Jo", label: "Birthday" }],
-    });
-    expect(days[1].more).toBe("+2 more"); // 2 meals and a birthday
+    const { days } = brief([dinner("2026-10-05", "Tacos"), lunch("2026-10-05", "Soup"), birthday("2026-10-05", "Jo's birthday"), event("2026-10-06", "Picture day")]);
+    expect(days[1].more).toBe("+2 more"); // 3 things
     expect(days[2].more).toBe(""); // just its title
     expect(days[0].more).toBe(""); // an open day
   });
@@ -153,13 +184,13 @@ describe("the drawing", () => {
   });
 
   it("is built into the brief from the days' loads", () => {
-    const b = brief({ entries: [dinner("2026-10-05", "A")] });
+    const b = brief([dinner("2026-10-05", "A")]);
     expect(b.drawing.points.map((p) => p.load)).toEqual([0, 1, 0, 0, 0, 0, 0]);
     expect(b.total).toBe(1);
     expect(b.drawing.points.filter((p) => p.isToday).map((p) => p.label)).toEqual(["Wed"]);
   });
 
   it("has no day marked as today when today is outside the week", () => {
-    expect(brief({ today: "2026-12-25" }).drawing.points.some((p) => p.isToday)).toBe(false);
+    expect(brief([], { today: "2026-12-25" }).drawing.points.some((p) => p.isToday)).toBe(false);
   });
 });

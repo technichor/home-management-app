@@ -1149,3 +1149,33 @@ a.brief-row:hover {
     text-decoration: none;
   }
 }
+
+/* Home: sub-headings and links inside "Today & coming up" */
+.brief-sub {
+  margin: 16px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.brief-more,
+.brief-more:hover {
+  display: block;
+  padding: 8px 0 2px 72px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+.brief-link {
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+.brief-row[data-overdue] .brief-index,
+.brief-row[data-overdue] .brief-title {
+  color: var(--danger);
+}
+.brief-row[data-done] .brief-title {
+  text-decoration: line-through;
+  color: var(--faint);
+}
