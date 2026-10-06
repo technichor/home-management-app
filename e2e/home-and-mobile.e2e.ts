@@ -47,10 +47,10 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
     await expect(page.getByRole("heading", { name: new RegExp(`${first} ${last}`) })).toBeVisible();
   }
   await page.getByRole("link", { name: "Home", exact: true }).click();
-  await expect(page.getByText("Bertie Birthday's birthday").first()).toBeVisible();
+  await expect(page.getByText("Bertie: Birthday").first()).toBeVisible();
   const coming = page.locator("section", { has: page.getByRole("heading", { name: "Today & coming up" }) });
-  await expect(coming.getByText("Bertie Birthday's birthday")).toBeVisible();
-  await expect(coming.getByText("Later Person's birthday")).toBeVisible();
+  await expect(coming.getByText("Bertie: Birthday")).toBeVisible();
+  await expect(coming.getByText("Later: Birthday")).toBeVisible();
   await expect(coming.getByText("Next 7 days")).toBeVisible();
   await expect(coming.getByRole("link", { name: "View calendar" })).toHaveAttribute("href", /\/calendar\?view=week/);
 
