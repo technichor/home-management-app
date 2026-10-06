@@ -84,6 +84,7 @@ model Household {
   mealPlanSettings MealPlanSettings?
   calendarItems    CalendarItem[]
   calendarSettings CalendarSettings?
+  maintenanceItems MaintenanceItem[]
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -566,4 +567,41 @@ model CalendarSettings {
   household   Household @relation(fields: [householdId], references: [id])
   showMeals   Boolean   @default(false)
   updatedAt   DateTime  @updatedAt
+}
+
+enum MaintenanceCategory {
+  HVAC
+  APPLIANCE
+  PLUMBING
+  ELECTRICAL
+  EXTERIOR
+  YARD
+  VEHICLE
+  OTHER
+}
+
+// Something the household has to take care of (a furnace, a refrigerator, the air filters): what it is, so it can be
+// described to a repair person, how old it is, and how often it needs service. `installedYear` is a year because a
+// year is what is usually known. Next service is derived (lastServicedOn + serviceEveryMonths), never stored.
+// `manualUrl` is a link only: there is no file storage yet.
+model MaintenanceItem {
+  id                 String              @id @default(cuid())
+  householdId        String
+  household          Household           @relation(fields: [householdId], references: [id])
+  name               String
+  category           MaintenanceCategory @default(OTHER)
+  location           String?
+  brand              String?
+  modelNumber        String?
+  serialNumber       String?
+  installedYear      Int?
+  warrantyUntil      DateTime?           @db.Date
+  serviceEveryMonths Int?
+  lastServicedOn     DateTime?           @db.Date
+  manualUrl          String?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([householdId])
 }
