@@ -1,6 +1,6 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-05 after Meal Planning and Scheduling were deployed) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and live at https://domata.app, including Meal Planning and Scheduling & Reminders. Production migrations 0001-0023 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). Work on a branch per piece of work and ask before merging to `main` (it auto-deploys).
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-05 after Meal Planning and Scheduling were deployed) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and live at https://domata.app, including Meal Planning and Scheduling & Reminders. Production migrations 0001-0023 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). **In progress on branch `scheduling-recurrence` (2026-10-05, not merged): repeating calendar items, migration 0024 (see `docs/domains/scheduling.md`).** Work on a branch per piece of work and ask before merging to `main` (it auto-deploys).
 
 ## One-paragraph summary
 
@@ -85,7 +85,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Messaging**: stages 1–3 done per `docs/domains/messaging.md`. **Not built**: attachments (no file storage exists; `attachmentIds` is always empty), email delivery of invites (replaced by a copyable link), (a *pending* invite can be revoked from the sync card on the contact page; an *active* sync can be ended by an owner on `/household`, see `docs/domains/messaging.md`).
 
-**Scheduling & Reminders**: stages 1-7 done and deployed per `docs/domains/scheduling.md` (calendar items, derived contact dates, meals layer, home panel; Calendar is a sixth module, so under More on phones). **Not built** (deliberately): integrations/ICS, recurrence, multi-day events, notifications.
+**Scheduling & Reminders**: stages 1-7 done and deployed per `docs/domains/scheduling.md` (calendar items, derived contact dates, meals layer, home panel; Calendar is a sixth module, so under More on phones). **Not built** (deliberately): integrations/ICS, multi-day events, notifications. Recurrence is on branch `scheduling-recurrence`.
 
 **Meal Planning**: stages 1-5 done and deployed per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions). **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
 

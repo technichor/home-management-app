@@ -1,8 +1,9 @@
 import { z } from "zod";
-import type { CalendarKind } from "@prisma/client";
+import type { CalendarKind, RepeatUnit } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isDateString } from "@/lib/dates";
 import { calendarName } from "@/lib/contactDates";
+import { MAX_EVERY, REPEAT_UNITS } from "@/lib/recurrence";
 
 export const MAX_TITLE = 200;
 export const MAX_NOTES = 5000;
@@ -35,8 +36,13 @@ export function calendarItemSchema(kind: CalendarKind) {
       startTime: time,
       endTime: time,
       assigneeContactId: z.string().nullish().transform(blankToNull),
+      repeatUnit: z.enum(REPEAT_UNITS as [RepeatUnit, ...RepeatUnit[]]).nullish().transform((v) => v ?? null),
+      repeatEvery: z.number().int("Repeat every a whole number of times").min(1, "Repeat every at least 1").max(MAX_EVERY, `Repeat every at most ${MAX_EVERY}`).nullish().transform((v) => v ?? 1),
+      repeatUntil: z.string().nullish().transform(blankToNull).refine((v) => v === null || isDateString(v), "Choose a valid end date"),
     })
     .superRefine((v, ctx) => {
+      if (v.repeatUntil && !v.repeatUnit) ctx.addIssue({ code: "custom", message: "An end date needs a repeat", path: ["repeatUntil"] });
+      else if (v.repeatUntil && v.repeatUntil < v.date) ctx.addIssue({ code: "custom", message: "The repeat can't end before it starts", path: ["repeatUntil"] });
       if (kind === "TASK") {
         if (v.startTime || v.endTime) ctx.addIssue({ code: "custom", message: "Tasks don't have a time", path: [v.startTime ? "startTime" : "endTime"] });
         return;

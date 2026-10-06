@@ -55,7 +55,7 @@ describe("authentication", () => {
     ["create", () => createCalendarItemAction("EVENT", fields)],
     ["update", () => updateCalendarItemAction("i1", fields)],
     ["delete", () => deleteCalendarItemAction("i1")],
-    ["complete", () => setTaskCompletedAction("i1", true)],
+    ["complete", () => setTaskCompletedAction("i1", true, "2026-10-07")],
     ["move to today", () => moveTaskToTodayAction("i1", "2026-10-07")],
     ["show meals", () => setShowMealsAction(true)],
     ["week start", () => setWeekStartAction("MONDAY")],
@@ -76,7 +76,7 @@ describe("createCalendarItemAction", () => {
     const result = await createCalendarItemAction("EVENT", { title: "  Picture day ", notes: "Wear blue\nsmile", date: "2026-10-08", startTime: "09:00", endTime: "10:00" });
     expect(result).toEqual({ ok: true, id: "new1" });
     expect(prisma.calendarItem.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", kind: "EVENT", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null },
+      data: { householdId: "h1", kind: "EVENT", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, repeatAnchor: null },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/calendar");
     expect(revalidatePath).toHaveBeenCalledWith("/home");
@@ -111,6 +111,27 @@ describe("createCalendarItemAction", () => {
     expect(prisma.calendarItem.create).not.toHaveBeenCalled();
   });
 
+  it("stores a repeat with its anchor, and nothing when it doesn't repeat", async () => {
+    await createCalendarItemAction("EVENT", { ...fields, repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" });
+    expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({
+      repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: day("2027-12-31"), repeatAnchor: day("2026-10-08"),
+    });
+    await createCalendarItemAction("EVENT", { ...fields, repeatUnit: "DAY" });
+    expect(vi.mocked(prisma.calendarItem.create).mock.calls[1][0].data).toMatchObject({ repeatUnit: "DAY", repeatEvery: 1, repeatUntil: null });
+  });
+
+  it.each([
+    ["an end date with no repeat", { repeatUntil: "2027-01-01" }, "An end date needs a repeat"],
+    ["an end before the start", { repeatUnit: "DAY", repeatUntil: "2026-10-01" }, "The repeat can't end before it starts"],
+    ["a bad end date", { repeatUnit: "DAY", repeatUntil: "2027-02-30" }, "Choose a valid end date"],
+    ["zero", { repeatUnit: "DAY", repeatEvery: 0 }, "Repeat every at least 1"],
+    ["a fraction", { repeatUnit: "DAY", repeatEvery: 1.5 }, "Repeat every a whole number of times"],
+    ["too many", { repeatUnit: "DAY", repeatEvery: 100 }, "Repeat every at most 99"],
+  ])("rejects a repeat with %s", async (_n, extra, error) => {
+    expect(await createCalendarItemAction("EVENT", { ...fields, ...extra } as any)).toEqual({ ok: false, error });
+    expect(prisma.calendarItem.create).not.toHaveBeenCalled();
+  });
+
   it("assigns to one of the household's own members, found only through the session's household", async () => {
     await createCalendarItemAction("EVENT", { ...fields, assigneeContactId: "m1" });
     expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({ assigneeContactId: "m1" });
@@ -136,7 +157,7 @@ describe("updateCalendarItemAction", () => {
     expect(prisma.calendarItem.findFirst).toHaveBeenCalledWith({ where: { id: "i1", householdId: "h1" } });
     expect(prisma.calendarItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
-      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null },
+      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, repeatAnchor: null },
     });
   });
 
@@ -210,7 +231,7 @@ describe("setTaskCompletedAction", () => {
   beforeEach(() => vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "TASK", date: day("2026-10-01") }) as any));
 
   it("completes a task now, without touching its date", async () => {
-    expect(await setTaskCompletedAction("i1", true)).toEqual({ ok: true });
+    expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: true });
     const call = vi.mocked(prisma.calendarItem.update).mock.calls[0][0];
     expect(call.where).toEqual({ id: "i1" });
     expect(call.data).toEqual({ completedAt: expect.any(Date) });
@@ -218,19 +239,61 @@ describe("setTaskCompletedAction", () => {
   });
 
   it("unchecks it", async () => {
-    await setTaskCompletedAction("i1", false);
+    await setTaskCompletedAction("i1", false, "2026-10-07");
     expect(vi.mocked(prisma.calendarItem.update).mock.calls[0][0].data).toEqual({ completedAt: null });
   });
 
   it("only works on a task", async () => {
     vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ kind: "EVENT" }) as any);
-    expect(await setTaskCompletedAction("i1", true)).toEqual({ ok: false, error: "Only a task can be checked off" });
+    expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: false, error: "Only a task can be checked off" });
     expect(prisma.calendarItem.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses an invalid date for today", async () => {
+    expect(await setTaskCompletedAction("i1", true, "nope")).toEqual({ ok: false, error: "Choose a valid date" });
+    expect(prisma.calendarItem.update).not.toHaveBeenCalled();
+  });
+
+  describe("a repeating task", () => {
+    const repeating = (over: Record<string, unknown> = {}) =>
+      vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(
+        item({ kind: "TASK", date: day("2026-10-01"), repeatUnit: "WEEK", repeatEvery: 1, repeatUntil: null, repeatAnchor: day("2026-09-17"), ...over }) as any,
+      );
+
+    it("moves to its next occurrence after today instead of being completed, skipping the ones missed", async () => {
+      repeating();
+      expect(await setTaskCompletedAction("i1", true, "2026-10-07")).toEqual({ ok: true });
+      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-08") } });
+    });
+
+    it("completed early, moves to the occurrence after its own date", async () => {
+      repeating({ date: day("2026-10-15") });
+      await setTaskCompletedAction("i1", true, "2026-10-07");
+      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-22") } });
+    });
+
+    it("uses its own date as the anchor when none was stored", async () => {
+      repeating({ repeatAnchor: null });
+      await setTaskCompletedAction("i1", true, "2026-10-07");
+      expect(prisma.calendarItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { date: day("2026-10-08") } });
+    });
+
+    it("is completed for good once the series has run out", async () => {
+      repeating({ repeatUntil: day("2026-10-05") });
+      await setTaskCompletedAction("i1", true, "2026-10-07");
+      expect(vi.mocked(prisma.calendarItem.update).mock.calls[0][0].data).toEqual({ completedAt: expect.any(Date) });
+    });
+
+    it("has nothing to uncheck", async () => {
+      repeating();
+      expect(await setTaskCompletedAction("i1", false, "2026-10-07")).toEqual({ ok: true });
+      expect(prisma.calendarItem.update).not.toHaveBeenCalled();
+    });
   });
 
   it("treats another household's task as gone", async () => {
     vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(null);
-    expect(await setTaskCompletedAction("theirs", true)).toEqual({ ok: false, error: "That item isn't on your calendar any more" });
+    expect(await setTaskCompletedAction("theirs", true, "2026-10-07")).toEqual({ ok: false, error: "That item isn't on your calendar any more" });
     expect(prisma.calendarItem.update).not.toHaveBeenCalled();
   });
 });

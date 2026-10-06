@@ -415,3 +415,38 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
   await expect(todayCell(page).getByText("Breakfast: Pancakes")).toHaveCount(0);
   await expect(todayCell(page).getByText("Dinner: Leftovers")).toBeVisible();
 });
+
+test("repeating: an event shows on every occurrence and is edited as a series; a repeating task moves forward when checked", async ({ page }) => {
+  await newOwner(page, "cal-rep", "The Repeaters");
+  const today = iso();
+  await page.goto(`/calendar?view=week&today=${today}`);
+
+  // A daily event that began two days ago appears today (and on the other days of the week).
+  await page.getByRole("button", { name: "New item" }).click();
+  const form = page.getByRole("dialog").filter({ hasText: "New item" });
+  await form.getByLabel("Title").fill("Water plants");
+  await form.getByLabel("Date").fill(iso(-2));
+  await form.getByRole("combobox", { name: "Repeats" }).click();
+  await page.getByTitle("Repeats daily").click();
+  await form.getByRole("button", { name: "Add" }).click();
+  await expect(todayCell(page).getByText("Water plants")).toBeVisible();
+  await todayCell(page).getByRole("button", { name: /Water plants/ }).click();
+  await expect(page.getByRole("dialog").getByText(/Every day/)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // A weekly task due today: checking it moves it a week ahead instead of finishing it.
+  await page.getByRole("button", { name: "New item" }).click();
+  const task = page.getByRole("dialog").filter({ hasText: "New item" });
+  await task.getByText("Task", { exact: true }).click();
+  await task.getByLabel("Title").fill("Change filter");
+  await task.getByLabel("Date").fill(today);
+  await task.getByRole("combobox", { name: "Repeats" }).click();
+  await page.getByTitle("Repeats weekly").click();
+  await task.getByRole("button", { name: "Add" }).click();
+  await expect(todayCell(page).getByRole("checkbox", { name: "Complete Change filter" })).toBeVisible();
+  await todayCell(page).getByRole("checkbox", { name: "Complete Change filter" }).click();
+  await expect(todayCell(page).getByText("Change filter")).toHaveCount(0);
+  await page.goto(`/calendar?view=week&date=${iso(7)}&today=${today}`);
+  await expect(page.getByText("Change filter")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Overdue" })).toHaveCount(0);
+});

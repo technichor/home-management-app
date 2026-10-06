@@ -34,8 +34,8 @@ import {
 const TODAY = "2026-10-07";
 let n = 0;
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${++n}`, kind: "EVENT", date: TODAY, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, editable: true, ...over,
+  source: "item", id: `i${++n}`, itemId: over.id ?? `i${n}`, kind: "EVENT", date: TODAY, title: "Item", notes: null, startTime: null, endTime: null,
+  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
 });
 const task = (over: Partial<AgendaItemEntry> = {}) => item({ kind: "TASK", title: "Task", ...over });
 const birthday = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
@@ -350,14 +350,14 @@ describe("checking tasks off", () => {
     setup({ entries: [task({ id: "t1", title: "Call the vet" })] });
     await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
     expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).toBeChecked();
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true);
+    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true, TODAY);
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 
   it("unchecks a done task", async () => {
     setup({ entries: [task({ id: "t1", title: "Call the vet", completed: true })] });
     await userEvent.click(screen.getByRole("checkbox", { name: "Complete Call the vet" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", false);
+    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", false, TODAY);
     expect(screen.getByRole("checkbox", { name: "Complete Call the vet" })).not.toBeChecked();
   });
 
@@ -382,7 +382,7 @@ describe("checking tasks off", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "Complete Second task" }));
     expect(screen.getByRole("checkbox", { name: "Complete First task" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Complete Second task" })).toBeChecked();
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("tb", true);
+    expect(setTaskCompletedAction).toHaveBeenCalledWith("tb", true, TODAY);
   });
 
   it("takes the server's word once new data arrives", async () => {
@@ -417,7 +417,7 @@ describe("the overdue strip", () => {
   it("completes a task straight from the strip, and it leaves the strip at once", async () => {
     setup({ overdue: [late({ id: "t9" })] });
     await userEvent.click(screen.getByRole("checkbox", { name: "Complete Late task" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t9", true);
+    expect(setTaskCompletedAction).toHaveBeenCalledWith("t9", true, TODAY);
     expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull();
   });
 
@@ -558,7 +558,7 @@ describe("an item's details", () => {
     const dialog = await open("Call the vet");
     expect(dialog.getByText("Task · Oct 7, 2026 · Whole household")).toBeInTheDocument();
     await userEvent.click(dialog.getByRole("checkbox", { name: "Mark done" }));
-    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true);
+    expect(setTaskCompletedAction).toHaveBeenCalledWith("t1", true, TODAY);
     expect(await within(screen.getByRole("dialog")).findByRole("checkbox", { name: "Done" })).toBeChecked();
   });
 
@@ -615,8 +615,22 @@ describe("the full form", () => {
     await userEvent.click(form.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", {
       title: "Dentist", date: "2026-10-09", notes: "Bring the card", startTime: "09:00", endTime: "10:00", assigneeContactId: "m2",
+      repeatUnit: null, repeatEvery: 1, repeatUntil: "",
     }));
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+  });
+
+  it("sets a repeat: every N units, optionally until a date", async () => {
+    setup();
+    const form = await openNew();
+    expect(form.queryByLabelText("Repeat every")).toBeNull();
+    await userEvent.type(form.getByLabelText("Title"), "Change filter");
+    await userEvent.click(form.getByRole("combobox", { name: "Repeats" }));
+    await userEvent.click(await screen.findByTitle("Repeats monthly"));
+    fireChange(form.getByLabelText("Repeat every"), "3");
+    fireChange(form.getByLabelText("Repeat until"), "2027-12-31");
+    await userEvent.click(form.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith("EVENT", expect.objectContaining({ repeatUnit: "MONTH", repeatEvery: 3, repeatUntil: "2027-12-31" })));
   });
 
   it("starts on the viewed or current date, for the whole household", async () => {
@@ -678,6 +692,28 @@ describe("the full form", () => {
     await userEvent.click(await screen.findByTitle("Whole household"));
     await userEvent.click(form.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateCalendarItemAction).toHaveBeenCalledWith("i9", expect.objectContaining({ title: "Dentist (moved)", assigneeContactId: null })));
+  });
+
+  it("edits a repeating event as its series: the start date, not the occurrence, with the repeat filled in", async () => {
+    const repeat = { unit: "WEEK" as const, every: 2, until: "2027-01-01", start: "2026-09-23" };
+    setup({ entries: [item({ id: "i9@2026-10-07", itemId: "i9", title: "Trash", repeat })] });
+    await userEvent.click(screen.getByRole("button", { name: /Trash/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText(/Every 2 weeks, until Jan 1, 2027/)).toBeInTheDocument();
+    await userEvent.click(dialog.getByRole("button", { name: "Edit" }));
+    const form = (await dialogTitled("Edit item"));
+    expect(form.getByLabelText("Date")).toHaveValue("2026-09-23");
+    expect(form.getByLabelText("Repeat every")).toHaveValue(2);
+    expect(form.getByLabelText("Repeat until")).toHaveValue("2027-01-01");
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateCalendarItemAction).toHaveBeenCalledWith("i9", expect.objectContaining({ repeatUnit: "WEEK", repeatEvery: 2, date: "2026-09-23" })));
+  });
+
+  it("describes a repeating task without the series warning (it is one item that moves forward)", async () => {
+    setup({ entries: [task({ id: "t1", title: "Change filter", repeat: { unit: "MONTH", every: 3, until: null, start: TODAY } })] });
+    await userEvent.click(screen.getByRole("button", { name: /Change filter/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Every 3 months")).toBeInTheDocument();
   });
 
   it("keeps an assignee who has since been removed, marked as removed", async () => {

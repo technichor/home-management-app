@@ -253,3 +253,46 @@ describe("entriesInRange (the meal query the agenda uses)", () => {
     expect((await entriesInRange("h1", "2026-10-08", "2026-10-08"))[0]).toMatchObject({ label: "Soup", description: "Simmer" });
   });
 });
+
+describe("getAgenda: repeating events", () => {
+  const weekly = (over: Record<string, unknown> = {}) =>
+    row({ id: "r1", title: "Trash", date: day("2026-09-23"), repeatUnit: "WEEK", repeatEvery: 1, repeatUntil: null, ...over });
+  const withRepeating = (...rows: unknown[]) =>
+    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(rows as any);
+
+  it("asks for repeating events however long ago they began, and leaves them out of the dated query", async () => {
+    await run();
+    const [dated, , repeating] = itemCalls();
+    expect(dated.where).toMatchObject({ NOT: { kind: "EVENT", repeatUnit: { not: null } } });
+    expect(repeating.where).toMatchObject({
+      householdId: "h1", kind: "EVENT", repeatUnit: { not: null }, date: { lte: day("2026-10-10") },
+      OR: [{ repeatUntil: null }, { repeatUntil: { gte: day("2026-10-04") } }],
+    });
+  });
+
+  it("applies the assignee filter to repeating events too", async () => {
+    await run({ assigneeContactId: "c9" });
+    expect(itemCalls()[2].where).toMatchObject({ OR: expect.anything() });
+  });
+
+  it("shows one entry per occurrence in the range, each with its own id but the stored item's itemId", async () => {
+    withRepeating(weekly({ repeatUntil: day("2026-10-09") }));
+    const { entries } = await run();
+    expect(entries.map((e) => [e.id, e.date])).toEqual([["r1@2026-10-07", "2026-10-07"]]);
+    const e = entries[0] as any;
+    expect(e.itemId).toBe("r1");
+    expect(e.repeat).toEqual({ unit: "WEEK", every: 1, until: "2026-10-09", start: "2026-09-23" });
+  });
+
+  it("repeats on the series' own cadence", async () => {
+    withRepeating(weekly({ date: day("2026-10-01"), repeatEvery: 1 }));
+    const { entries } = await run();
+    expect(entries.map((e) => e.date)).toEqual(["2026-10-08"]);
+  });
+
+  it("gives ordinary items no repeat and their own id", async () => {
+    vi.mocked(prisma.calendarItem.findMany).mockResolvedValueOnce([row()] as any);
+    const { entries } = await run();
+    expect(entries[0]).toMatchObject({ id: "i1", itemId: "i1", repeat: null });
+  });
+});

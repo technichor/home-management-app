@@ -1,10 +1,12 @@
-import type { CalendarKind, MealSlot } from "@prisma/client";
+import type { CalendarKind, MealSlot, RepeatUnit } from "@prisma/client";
 import { SLOTS } from "@/lib/mealPlan";
 
 /** What the calendar shows for a date, whatever it came from. `editable` says whether the household can change it. */
 export type AgendaItemEntry = {
   source: "item";
+  /** Unique per occurrence (a repeating event shows up on many dates); `itemId` is the stored item to act on. */
   id: string;
+  itemId: string;
   kind: CalendarKind;
   date: string;
   title: string;
@@ -18,6 +20,8 @@ export type AgendaItemEntry = {
   /** An open task dated before today. */
   overdue: boolean;
   createdAt: string;
+  /** How it repeats, or null. For an event the date shown is one occurrence of the series. */
+  repeat: { unit: RepeatUnit; every: number; until: string | null; start: string } | null;
   editable: true;
 };
 

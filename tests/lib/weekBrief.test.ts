@@ -6,8 +6,8 @@ import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEn
 const START = "2026-10-04";
 let n = 0;
 const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${++n}`, kind: "EVENT", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
-  assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, editable: true, ...over,
+  source: "item", id: `i${++n}`, itemId: "item", kind: "EVENT", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
+  assigneeName: null, completed: false, overdue: false, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
 });
 const event = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { title, ...over });
 const task = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { kind: "TASK", title, ...over });

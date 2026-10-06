@@ -89,7 +89,7 @@ export default function CalendarClient({
   async function toggle(task: AgendaItemEntry, completed: boolean) {
     update((s) => ({ checks: { ...s.checks, [task.id]: completed } }));
     setFailure(task.id, null);
-    const result = await setTaskCompletedAction(task.id, completed);
+    const result = await setTaskCompletedAction(task.itemId, completed, today);
     if (result.ok) return router.refresh();
     update((s) => {
       const checks = { ...s.checks };
@@ -102,7 +102,7 @@ export default function CalendarClient({
   async function moveToToday(task: AgendaItemEntry) {
     update((s) => ({ moved: new Set(s.moved).add(task.id) }));
     setFailure(task.id, null);
-    const result = await moveTaskToTodayAction(task.id, today);
+    const result = await moveTaskToTodayAction(task.itemId, today);
     if (result.ok) return router.refresh();
     update((s) => {
       const copy = new Set(s.moved);

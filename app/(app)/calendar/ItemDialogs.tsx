@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, App, Button, Checkbox, Input, Modal, Popconfirm, Segmented, Select, Space, Typography } from "antd";
-import type { CalendarKind } from "@prisma/client";
+import type { CalendarKind, RepeatUnit } from "@prisma/client";
 import { formatCalendarDate } from "@/lib/dates";
 import { timeLabel } from "@/lib/calendarView";
+import { describeRepeat } from "@/lib/recurrence";
 import type { AssigneeOption } from "@/lib/calendarItem";
 import type { AgendaItemEntry } from "@/lib/agendaOrder";
 import { createCalendarItemAction, deleteCalendarItemAction, updateCalendarItemAction } from "./actions";
@@ -46,6 +47,7 @@ export function ItemDetailDialog({
             {when && ` · ${when}`}
             {item.assigneeName ? ` · ${item.assigneeName}` : " · Whole household"}
           </Typography.Text>
+          {item.repeat && <Typography.Text type="secondary">{describeRepeat(item.repeat.unit, item.repeat.every, item.repeat.until)}{item.kind === "EVENT" ? " (editing or deleting changes every occurrence)" : ""}</Typography.Text>}
           {item.kind === "TASK" && (
             <Checkbox checked={completed} onChange={(e) => onToggle(item, e.target.checked)}>
               {completed ? "Done" : "Mark done"}
@@ -54,7 +56,7 @@ export function ItemDetailDialog({
           {item.notes && <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6 }}>{item.notes}</div>}
           <Space>
             <Button onClick={() => onEdit(item)}>Edit</Button>
-            <Popconfirm title="Delete this item?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => remove(item.id)}>
+            <Popconfirm title="Delete this item?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => remove(item.itemId)}>
               <Button danger>Delete</Button>
             </Popconfirm>
           </Space>
@@ -89,7 +91,11 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
   const editing = target.mode === "edit" ? target.item : null;
   const [kind, setKind] = useState<CalendarKind>(editing?.kind ?? "EVENT");
   const [title, setTitle] = useState(editing?.title ?? "");
-  const [date, setDate] = useState(target.mode === "edit" ? target.item.date : target.date);
+  // Editing a repeating event edits the series, so the date is where the series starts, not the occurrence opened.
+  const [date, setDate] = useState(target.mode === "edit" ? (target.item.kind === "EVENT" && target.item.repeat ? target.item.repeat.start : target.item.date) : target.date);
+  const [repeatUnit, setRepeatUnit] = useState<RepeatUnit | "">(editing?.repeat?.unit ?? "");
+  const [repeatEvery, setRepeatEvery] = useState(editing?.repeat?.every ?? 1);
+  const [repeatUntil, setRepeatUntil] = useState(editing?.repeat?.until ?? "");
   const [startTime, setStartTime] = useState(editing?.startTime ?? "");
   const [endTime, setEndTime] = useState(editing?.endTime ?? "");
   const [assignee, setAssignee] = useState(editing?.assigneeContactId ?? EVERYONE);
@@ -117,8 +123,11 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
         startTime: kind === "EVENT" ? startTime : "",
         endTime: kind === "EVENT" ? endTime : "",
         assigneeContactId: assignee === EVERYONE ? null : assignee,
+        repeatUnit: repeatUnit || null,
+        repeatEvery,
+        repeatUntil: repeatUnit ? repeatUntil : "",
       };
-      const result = editing ? await updateCalendarItemAction(editing.id, fields) : await createCalendarItemAction(kind, fields);
+      const result = editing ? await updateCalendarItemAction(editing.itemId, fields) : await createCalendarItemAction(kind, fields);
       if (!result.ok) return setError(result.error);
       onClose();
       router.refresh();
@@ -148,6 +157,27 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
           <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} aria-label="End time" disabled={!startTime} />
         </Space>
       )}
+      <Space wrap>
+        <Select<RepeatUnit | "">
+          value={repeatUnit}
+          onChange={setRepeatUnit}
+          aria-label="Repeats"
+          style={{ width: 160 }}
+          options={[
+            { value: "", label: "Doesn't repeat" },
+            { value: "DAY", label: "Repeats daily" },
+            { value: "WEEK", label: "Repeats weekly" },
+            { value: "MONTH", label: "Repeats monthly" },
+            { value: "YEAR", label: "Repeats yearly" },
+          ]}
+        />
+        {repeatUnit && (
+          <>
+            <Input type="number" min={1} max={99} value={repeatEvery} onChange={(e) => setRepeatEvery(Number(e.target.value))} aria-label="Repeat every" addonBefore="Every" addonAfter={`${repeatUnit.toLowerCase()}${repeatEvery === 1 ? "" : "s"}`} style={{ width: 190 }} />
+            <Input type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} aria-label="Repeat until" addonBefore="Until" style={{ width: 200 }} />
+          </>
+        )}
+      </Space>
       <Select value={assignee} onChange={setAssignee} options={options} aria-label="Assigned to" style={{ width: "100%" }} />
       <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" aria-label="Notes" autoSize={{ minRows: 3, maxRows: 8 }} maxLength={5000} />
       <Space>

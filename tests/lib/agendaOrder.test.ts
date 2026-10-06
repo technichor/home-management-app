@@ -20,8 +20,8 @@ let n = 0;
 const created = () => `2026-10-01T00:00:${String(n++).padStart(2, "0")}.000Z`;
 
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${n}`, kind: "EVENT", date: D, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: created(), editable: true, ...over,
+  source: "item", id: `i${n}`, itemId: "item", kind: "EVENT", date: D, title: "Item", notes: null, startTime: null, endTime: null,
+  assigneeContactId: null, assigneeName: null, completed: false, overdue: false, createdAt: created(), repeat: null, editable: true, ...over,
 });
 const contactDate = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${n++}`, date: D, title: "Date", type: "birthday", contactId: "c", turns: null, editable: false, ...over,

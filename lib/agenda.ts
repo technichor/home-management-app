@@ -2,6 +2,7 @@ import type { CalendarItem } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { dateToString, stringToDate } from "@/lib/dates";
 import { contactDateOccurrences, calendarName } from "@/lib/contactDates";
+import { occurrencesInRange } from "@/lib/recurrence";
 import { contactsOf } from "@/lib/scope";
 import { entriesInRange, getMealPlanSettings, SLOT_LABELS, visibleSlots } from "@/lib/mealPlan";
 import {
@@ -33,12 +34,13 @@ export type Agenda = {
 
 type ItemRow = CalendarItem & { assignee: { firstName: string; nickname: string | null } | null };
 
-function toItemEntry(row: ItemRow, today: string): AgendaItemEntry {
-  const date = dateToString(row.date);
+function toItemEntry(row: ItemRow, today: string, occurrence?: string): AgendaItemEntry {
+  const date = occurrence ?? dateToString(row.date);
   const completed = row.completedAt !== null;
   return {
     source: "item",
-    id: row.id,
+    id: occurrence ? `${row.id}@${occurrence}` : row.id,
+    itemId: row.id,
     kind: row.kind,
     date,
     title: row.title,
@@ -50,8 +52,18 @@ function toItemEntry(row: ItemRow, today: string): AgendaItemEntry {
     completed,
     overdue: isOverdue({ kind: row.kind, date, completed }, today),
     createdAt: row.createdAt.toISOString(),
+    repeat: row.repeatUnit
+      ? { unit: row.repeatUnit, every: row.repeatEvery, until: row.repeatUntil ? dateToString(row.repeatUntil) : null, start: dateToString(row.date) }
+      : null,
     editable: true,
   };
+}
+
+/** A repeating event's occurrences inside the range (tasks never expand: a repeating task is one row at its next date). */
+function expandEvent(row: ItemRow, range: { start: string; end: string }, today: string): AgendaItemEntry[] {
+  const anchor = dateToString(row.date);
+  const rule = { anchor, unit: row.repeatUnit!, every: row.repeatEvery, until: row.repeatUntil ? dateToString(row.repeatUntil) : null };
+  return occurrencesInRange(rule, range).map((date) => toItemEntry(row, today, date));
 }
 
 /**
@@ -65,15 +77,27 @@ export async function getAgenda(householdId: string, startDate: string, endDate:
   const assigneeWhere = assigneeContactId ? { OR: [{ assigneeContactId: null }, { assigneeContactId }] } : {};
   const assignee = { select: { firstName: true, nickname: true } };
 
-  const [rows, overdueRows, contacts, meals] = await Promise.all([
+  const [rows, overdueRows, repeating, contacts, meals] = await Promise.all([
     prisma.calendarItem.findMany({
-      where: { householdId, date: { gte: stringToDate(startDate), lte: stringToDate(endDate) }, ...assigneeWhere },
+      // A repeating event is found below, however long ago it started.
+      where: { householdId, date: { gte: stringToDate(startDate), lte: stringToDate(endDate) }, NOT: { kind: "EVENT", repeatUnit: { not: null } }, ...assigneeWhere },
       include: { assignee },
     }),
     prisma.calendarItem.findMany({
       where: { householdId, kind: "TASK", completedAt: null, date: { lt: stringToDate(today) }, ...assigneeWhere },
       include: { assignee },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.calendarItem.findMany({
+      where: {
+        householdId,
+        kind: "EVENT",
+        repeatUnit: { not: null },
+        date: { lte: stringToDate(endDate) },
+        OR: [{ repeatUntil: null }, { repeatUntil: { gte: stringToDate(startDate) } }],
+        ...assigneeWhere,
+      },
+      include: { assignee },
     }),
     prisma.contact.findMany({
       where: {
@@ -102,7 +126,12 @@ export async function getAgenda(householdId: string, startDate: string, endDate:
   }));
 
   return {
-    entries: orderAgenda([...rows.map((r) => toItemEntry(r, today)), ...contactDates, ...meals]),
+    entries: orderAgenda([
+      ...rows.map((r) => toItemEntry(r, today)),
+      ...repeating.flatMap((r) => expandEvent(r, { start: startDate, end: endDate }, today)),
+      ...contactDates,
+      ...meals,
+    ]),
     overdue: overdueRows.map((r) => toItemEntry(r, today)),
   };
 }

@@ -1,6 +1,6 @@
 # Domain: Scheduling & Reminders
 
-Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database.
+Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database. **Recurrence** (migration 0024, additive) is on branch `scheduling-recurrence`, not yet merged.
 
 ## What this domain is
 
@@ -29,6 +29,15 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 - **Polling**: the calendar looks again every 30 seconds while the tab is visible, and on window focus (`router.refresh()`).
 - **Optimistic UI**: checking a task and "move to today" show at once and revert with a retry if saving fails. Server actions return `{ok:false,error}` through `lib/actionResult.ts` because production hides thrown messages.
 
+## Recurrence (migration 0024)
+
+`CalendarItem.repeatUnit` (DAY \| WEEK \| MONTH \| YEAR, null = doesn't repeat), `repeatEvery` (1-99), `repeatUntil`, `repeatAnchor`. Logic is `lib/recurrence.ts` (pure, no database). Nothing is stored per occurrence.
+
+- **Events** are one row; `getAgenda` expands them for the viewed range (`lib/agenda.ts`, `expandEvent`), each occurrence an entry with a unique `id` (`<item>@<date>`) and `itemId` (the stored row; actions use it). Editing or deleting changes the whole series; the edit form shows the series' start date, not the occurrence opened.
+- **Tasks** stay one row at their next due date. Checking one off moves `date` to the next occurrence after max(its date, today), so missed ones are skipped, not piled up; when the series has run out it is completed for good. `repeatAnchor` is the day the series started on, so a monthly task on the 31st is the 28th in February and the 31st again after. Editing a task's date resets the anchor.
+- **Month/year**: occurrence n is computed from the anchor, clamping to the month's last day. A year is twelve months (Feb 29 -> Feb 28 in other years).
+- **Not built**: skipping or changing a single occurrence, weekday patterns ("Mon and Wed"), "N days after completion" schedules, a completion history.
+
 ## Screens
 
 `/calendar?view=day|week|month&date=&who=&today=` with a quick-add line (a title, optional date) and a full form (kind, title, date, times, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's **Today & coming up** panel (overdue first, then today in full, then the next 7 days' events and contact dates) and the weekly brief read the same agenda.
@@ -46,7 +55,7 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 
 ## Out of scope (not built)
 
-Integrations or ICS import/export; recurrence; multi-day events; notifications or email reminders; lead times; an "only me" view; sharing across households; per-contact toggles for derived dates; an activity log; migrating `importantDate`; meals on the month view.
+Integrations or ICS import/export; per-occurrence exceptions; multi-day events; notifications or email reminders; lead times; an "only me" view; sharing across households; per-contact toggles for derived dates; an activity log; migrating `importantDate`; meals on the month view.
 
 ## Deploying this
 

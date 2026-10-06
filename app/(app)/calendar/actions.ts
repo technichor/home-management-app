@@ -5,7 +5,8 @@ import type { CalendarKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
-import { isDateString, stringToDate, type WeekStart } from "@/lib/dates";
+import { dateToString, isDateString, stringToDate, type WeekStart } from "@/lib/dates";
+import { nextOccurrenceAfter } from "@/lib/recurrence";
 import { updatePlanSettings } from "@/lib/mealPlan";
 import { assigneeOptionsOf, calendarItemSchema, getCalendarSettings, type CalendarItemFields } from "@/lib/calendarItem";
 
@@ -46,6 +47,11 @@ const dataOf = (f: ReturnType<typeof parseFields>) => ({
   startTime: f.startTime,
   endTime: f.endTime,
   assigneeContactId: f.assigneeContactId,
+  repeatUnit: f.repeatUnit,
+  repeatEvery: f.repeatUnit ? f.repeatEvery : 1,
+  repeatUntil: f.repeatUnit && f.repeatUntil ? stringToDate(f.repeatUntil) : null,
+  // A repeating task's date moves forward as it is completed; the anchor is the day the series started on.
+  repeatAnchor: f.repeatUnit ? stringToDate(f.date) : null,
 });
 
 /** Add an event (an event with no time is a reminder) or a task. */
@@ -83,12 +89,35 @@ export async function deleteCalendarItemAction(id: string) {
   });
 }
 
-/** Check or uncheck a task. Completing never changes the task's date. */
-export async function setTaskCompletedAction(id: string, completed: boolean) {
+/**
+ * Check or uncheck a task. Completing an ordinary task never changes its date. Completing a repeating task moves it to
+ * its next occurrence after today (or after its own date if that is later), so missed ones are skipped, not piled up;
+ * once a series has run out it is simply completed.
+ */
+export async function setTaskCompletedAction(id: string, completed: boolean, today: string) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
+    if (!isDateString(today)) throw new UserError("Choose a valid date");
     const item = await loadItem(householdId, id);
     if (item.kind !== "TASK") throw new UserError("Only a task can be checked off");
+    if (item.repeatUnit && !item.completedAt) {
+      if (!completed) return;
+      const date = dateToString(item.date);
+      const next = nextOccurrenceAfter(
+        {
+          anchor: dateToString(item.repeatAnchor ?? item.date),
+          unit: item.repeatUnit,
+          every: item.repeatEvery,
+          until: item.repeatUntil ? dateToString(item.repeatUntil) : null,
+        },
+        date > today ? date : today,
+      );
+      if (next) {
+        await prisma.calendarItem.update({ where: { id }, data: { date: stringToDate(next) } });
+        refresh();
+        return;
+      }
+    }
     await prisma.calendarItem.update({ where: { id }, data: { completedAt: completed ? new Date() : null } });
     refresh();
   });
