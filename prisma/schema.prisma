@@ -85,6 +85,7 @@ model Household {
   calendarItems    CalendarItem[]
   calendarSettings CalendarSettings?
   maintenanceItems MaintenanceItem[]
+  accountRecords   AccountRecord[]
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -140,6 +141,7 @@ model Contact {
 
   syncs            Sync[]
   calendarItems    CalendarItem[]
+  accountRecords   AccountRecord[]
   user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
   ownerHouseholdId String?
@@ -618,4 +620,48 @@ model MaintenanceItem {
   updatedAt          DateTime            @updatedAt
 
   @@index([householdId])
+}
+
+enum AccountKind {
+  BANK
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
+  RETIREMENT
+  HEALTH_SAVINGS
+  INSURANCE
+  UTILITY
+  SUBSCRIPTION
+  OTHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  REVIEW
+  CLOSED
+}
+
+// A directory of the accounts a household has, so none is forgotten: which institution, what kind, whose it is, and
+// what to do about it. Deliberately holds NO secrets and no money: never a password, never a balance, never more than
+// the last 4 characters of an account number (enforced in lib/accounts.ts). `ownerContactId` null means the whole
+// household. REVIEW means "look at this" (e.g. an old 401k to consolidate); CLOSED ones are kept for the record.
+model AccountRecord {
+  id             String        @id @default(cuid())
+  householdId    String
+  household      Household     @relation(fields: [householdId], references: [id])
+  name           String
+  kind           AccountKind   @default(OTHER)
+  status         AccountStatus @default(ACTIVE)
+  institution    String?
+  lastFour       String?
+  ownerContactId String?
+  owner          Contact?      @relation(fields: [ownerContactId], references: [id], onDelete: SetNull)
+  website        String?
+  phone          String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([householdId])
+  @@index([ownerContactId])
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { MaintenanceCategory } from "@prisma/client";
 import { formatCalendarDate, isDateString } from "@/lib/dates";
+import { isHttpUrl } from "@/lib/urls";
 
 export const MAINTENANCE_CATEGORIES: readonly MaintenanceCategory[] = ["HVAC", "APPLIANCE", "PLUMBING", "ELECTRICAL", "EXTERIOR", "YARD", "VEHICLE", "OTHER"];
 
@@ -35,16 +36,6 @@ const optionalDate = (label: string) =>
     .nullish()
     .transform(blankToNull)
     .refine((v) => v === null || isDateString(v), `Choose a valid ${label}`);
-
-/** A link someone can click: http or https only (never `javascript:` or the like). */
-export function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 export const maintenanceItemSchema = z.object({
   name: z.string().trim().min(1, "Give it a name").max(MAX_FIELD, `The name can be at most ${MAX_FIELD} characters`),

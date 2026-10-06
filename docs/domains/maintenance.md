@@ -1,6 +1,6 @@
 # Domain: Maintenance
 
-Status: **MVP placeholder, on branch `maintenance-inventory` (not merged).** Migration 0025 is additive. There is no full requirements doc yet; this is a first inventory to build on.
+Status: **MVP placeholder, merged to `main` 2026-10-05.** Migration 0025 is additive. There is no full requirements doc yet; this is a first inventory to build on.
 
 ## What this domain is
 

@@ -56,6 +56,12 @@ describe("AppNav", () => {
     expect(tabbar().queryByRole("link", { name: "Maintenance" })).toBeNull();
   });
 
+  it("links Accounts in the sidebar (the tab bar holds only the first five modules)", () => {
+    setup();
+    expect(sidebar().getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/accounts");
+    expect(tabbar().queryByRole("link", { name: "Accounts" })).toBeNull();
+  });
+
   it("highlights Home only on the home path", () => {
     pathname = "/home";
     setup();

@@ -1,6 +1,6 @@
 # Domain: Scheduling & Reminders
 
-Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database. **Recurrence** (migration 0024, additive) is on branch `scheduling-recurrence`, not yet merged.
+Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database. **Recurrence** (migration 0024, additive) is merged to `main` (2026-10-05) and applied to production.
 
 ## What this domain is
 

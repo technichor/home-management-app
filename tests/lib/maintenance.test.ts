@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addMonthsToDate, ageLabel, ageYears, isHttpUrl, maintenanceItemSchema, serviceStatus } from "@/lib/maintenance";
+import { addMonthsToDate, ageLabel, ageYears, maintenanceItemSchema, serviceStatus } from "@/lib/maintenance";
 
 const base = { name: "Furnace", category: "HVAC" as const };
 
@@ -41,16 +41,6 @@ describe("maintenanceItemSchema", () => {
     const result = maintenanceItemSchema.safeParse({ ...base, ...over });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].message).toBe(message);
-  });
-});
-
-describe("isHttpUrl", () => {
-  it("allows only http and https", () => {
-    expect(isHttpUrl("http://a.test")).toBe(true);
-    expect(isHttpUrl("https://a.test/x?y=1")).toBe(true);
-    expect(isHttpUrl("ftp://a.test")).toBe(false);
-    expect(isHttpUrl("javascript:alert(1)")).toBe(false);
-    expect(isHttpUrl("nope")).toBe(false);
   });
 });
 
