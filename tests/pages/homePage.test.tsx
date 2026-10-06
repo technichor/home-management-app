@@ -7,7 +7,9 @@ vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
 vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
 vi.mock("@/lib/homeAttention", () => ({ loadAttention: vi.fn() }));
-vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/todo")>()), dueTodos: vi.fn() }));
+vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/todo")>()), homeTodos: vi.fn() }));
+const seen: Record<string, any> = {};
+vi.mock("@/app/(app)/home/HomeTodos", () => ({ default: (p: any) => ((seen.todos = p), <section aria-label="To-do">to-dos</section>) }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 
 import { pageMember } from "@/lib/auth";
@@ -15,7 +17,7 @@ import { getAgenda } from "@/lib/agenda";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { loadAttention } from "@/lib/homeAttention";
-import { dueTodos, type TodoItem } from "@/lib/todo";
+import { homeTodos, type TodoItem } from "@/lib/todo";
 import HomePage from "@/app/(app)/home/page";
 import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 
@@ -48,7 +50,7 @@ beforeEach(() => {
   vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
   vi.mocked(loadAttention).mockResolvedValue([]);
   agendas([]);
-  vi.mocked(dueTodos).mockResolvedValue([]);
+  vi.mocked(homeTodos).mockResolvedValue([]);
 });
 
 describe("HomePage: the week", () => {
@@ -201,40 +203,22 @@ describe("HomePage: today & coming up", () => {
     expect(panel.getByRole("link", { name: "+3 more" })).toHaveAttribute("href", "/calendar?view=week&today=2026-10-07");
   });
 
-  it("asks for the signed-in member's due to-dos (theirs and Anyone's) by the browser's date", async () => {
+  it("passes the signed-in member's to-dos (theirs and Anyone's, by the browser's date) to the To-do column", async () => {
+    const items = [todo({ text: "Renew passport" })];
+    vi.mocked(homeTodos).mockResolvedValue(items);
     await run();
-    expect(dueTodos).toHaveBeenCalledWith("h1", "c-me", "2026-10-07");
+    expect(homeTodos).toHaveBeenCalledWith("h1", "c-me", "2026-10-07");
+    expect(seen.todos).toEqual({ items, today: "2026-10-07" });
+    expect(screen.getByRole("region", { name: "To-do" })).toBeInTheDocument();
     vi.mocked(pageMember).mockResolvedValue({ ...me(), contactId: undefined } as any);
     await run();
-    expect(dueTodos).toHaveBeenLastCalledWith("h1", null, "2026-10-07");
-  });
-
-  it("lists due to-dos first, overdue ones in red with their date, linking to the to-do list, and counts any beyond five", async () => {
-    vi.mocked(dueTodos).mockResolvedValue([
-      todo({ text: "Renew passport", dueDate: "2026-10-01", assigneeName: "Sam" }),
-      todo({ text: "Call the vet" }),
-      todo({ text: "C" }), todo({ text: "D" }), todo({ text: "E" }), todo({ text: "F" }), todo({ text: "G" }),
-    ]);
-    await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.getByText("Your to-dos due", { selector: ".brief-sub" })).toBeInTheDocument();
-    expect(panel.getByText("Oct 1")).toBeInTheDocument();
-    expect(panel.getByText("Overdue · Sam.")).toBeInTheDocument();
-    expect(panel.getByText("Renew passport").closest("a")).toHaveAttribute("data-overdue");
-    expect(panel.getByText("Renew passport").closest("a")).toHaveAttribute("href", "/todo");
-    expect(panel.getAllByText("Due today · Anyone.")).toHaveLength(4);
-    expect(panel.getByText("Call the vet").closest("a")).not.toHaveAttribute("data-overdue");
-    expect(panel.queryByText("G")).toBeNull();
-    expect(panel.getByRole("link", { name: "+2 more to-dos due" })).toHaveAttribute("href", "/todo");
-    expect(panel.queryByText("Nothing today, and nothing in the next 7 days")).toBeNull();
+    expect(homeTodos).toHaveBeenLastCalledWith("h1", null, "2026-10-07");
   });
 
   it("leaves out the sub-headings of lists that are empty", async () => {
     agendas([], [item("2026-10-07", { title: "Only today" })]);
     await run();
     const panel = within(section("Today & coming up"));
-    expect(panel.queryByText("Your to-dos due")).toBeNull();
-    expect(panel.queryByText("+2 more to-dos due")).toBeNull();
     expect(panel.queryByText("Next 7 days")).toBeNull();
     expect(panel.queryByText("+1 more")).toBeNull();
   });

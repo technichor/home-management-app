@@ -122,6 +122,7 @@ test("change password on the account page signs out other sessions but not this 
 test("five wrong passwords lock the account out for a while", async ({ page }) => {
   const { email } = await newOwner(page, "lock", "The Lockouts");
   await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   for (let i = 0; i < 5; i++) {
     await logIn(page, email, `wrong-password-${i}`);
     await expect(page.getByText("Incorrect email or password.")).toBeVisible();

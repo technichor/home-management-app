@@ -79,8 +79,11 @@ test("someone with a join code asks to join and an owner approves", async ({ bro
   await owner.page.getByRole("button", { name: "Approve" }).click();
   await expect(owner.page.getByText("Asker")).toBeVisible();
 
-  await asker.page.goto("/onboarding");
-  await expect(asker.page).toHaveURL(/\/home(\?.*)?$/);
+  // Once the approval is saved, the asker is in.
+  await expect(async () => {
+    await asker.page.goto("/onboarding");
+    await expect(asker.page).toHaveURL(/\/home(\?.*)?$/, { timeout: 2_000 });
+  }).toPass();
 
   for (const s of [owner, asker]) await s.context.close();
 });

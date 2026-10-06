@@ -18,8 +18,10 @@ test("lists: create, add items, check one off, delete one", async ({ page }) => 
 
   // Check one off; it survives a reload.
   await page.locator("li, div").filter({ hasText: /^Eggs$/ }).getByRole("checkbox").first().check();
-  await page.reload();
-  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(1);
+  await expect(async () => {
+    await page.reload(); // until the save (shown at once) has reached the server
+    await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(1, { timeout: 2_000 });
+  }).toPass();
 
   // Delete one with the confirmation.
   await page.getByRole("button", { name: "Delete item" }).first().click();

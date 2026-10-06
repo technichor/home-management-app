@@ -124,9 +124,11 @@ test("unread: new messages show a badge on Messages and in the list until the ch
   await owner.page.goto(`/messages`);
   await expect(owner.page.getByLabel(/unread/)).toHaveCount(0);
 
-  // The other member sees it on the tab and the list.
-  await mate.page.goto(`/home`);
-  await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible();
+  // The other member sees it on the tab and the list (once the send has been saved: the sender sees it at once).
+  await expect(async () => {
+    await mate.page.goto(`/home`);
+    await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible({ timeout: 2_000 });
+  }).toPass();
   await mate.page.goto(`/messages`);
   await expect(mate.page.getByLabel("1 unread", { exact: true })).toBeVisible();
 
@@ -142,8 +144,10 @@ test("unread: new messages show a badge on Messages and in the list until the ch
   await owner.page.getByPlaceholder(/Write a message/).fill("Second!");
   await owner.page.getByRole("button", { name: "Send" }).click();
   await expect(owner.page.getByText("Second!")).toBeVisible();
-  await mate.page.reload();
-  await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible();
+  await expect(async () => {
+    await mate.page.reload();
+    await expect(mate.page.getByRole("navigation", { name: "Modules" }).getByLabel("1 unread messages")).toBeVisible({ timeout: 2_000 });
+  }).toPass();
 
   for (const s of [owner, mate]) await s.context.close();
 });

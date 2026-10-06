@@ -1,0 +1,6 @@
+{
+  // What `next build` type-checks: the app only. Tests, browser tests and scripts are checked by `tsc --noEmit` (which
+  // uses tsconfig.json) in CI and before committing, so a test-only type error never blocks a deploy.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "tests", "e2e", "scripts", "vitest.config.mts", "playwright.config.ts"]
+}

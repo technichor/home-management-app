@@ -709,8 +709,88 @@ html[data-pending] body {
   color: var(--accent);
   font-weight: 700;
 }
+/* The lists under the brief: one column on a phone (To-do after Needs attention); on a wide screen the To-do list is
+   a column of its own beside the others, using the room the narrow brief leaves. */
 .brief-lists {
   padding-top: 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "attention" "todo" "today" "days";
+}
+.home-attention {
+  grid-area: attention;
+}
+.home-todos {
+  grid-area: todo;
+}
+.home-today {
+  grid-area: today;
+}
+.home-days {
+  grid-area: days;
+}
+.home-todos-toggle {
+  display: block;
+  padding: 8px 0 2px 36px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+@media (min-width: 1100px) {
+  .brief-lists {
+    max-width: 1180px;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "attention todo" "today todo" "days todo";
+    column-gap: 56px;
+    align-items: start;
+  }
+  .home-todos {
+    position: sticky;
+    top: 16px;
+  }
+  /* The brief above lines up with the wider lists. */
+  .brief-top .brief-inner {
+    max-width: 1180px;
+  }
+  .home-todos-toggle {
+    display: none;
+  }
+}
+@media (max-width: 1099px) {
+  .home-todos:not([data-expanded]) .home-todo-row:nth-child(n + 4) {
+    display: none;
+  }
+}
+.home-todos-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.home-todos-open {
+  font-size: 13px;
+}
+.brief-row.home-todo-row {
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+}
+.home-todo-check {
+  margin-top: 2px;
+}
+.home-todo-body,
+.home-todo-body:hover {
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.home-todo-list {
+  border-bottom: 1px solid var(--border);
+}
+.home-todos .home-todos-more {
+  padding-left: 36px;
 }
 .brief-section {
   margin: 28px 0 8px;

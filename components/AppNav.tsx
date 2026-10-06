@@ -22,6 +22,10 @@ const isActive = (pathname: string, href: string) =>
  * Navigation: a sidebar on a wide screen, and on a phone a slim top bar plus a bottom tab bar (the
  * pattern a native app would use). Both are always in the page and the stylesheet shows one of them.
  */
+/** The More sheet's height: its title and padding, plus a row per link. */
+const MORE_SHEET_CHROME = 96;
+const MORE_ROW = 48;
+
 export default function AppNav({ householdName, isSuperuser, unreadMessages = 0, logoutAction }: AppNavProps) {
   const pathname = usePathname();
   const [more, setMore] = useState(false);
@@ -115,7 +119,8 @@ export default function AppNav({ householdName, isSuperuser, unreadMessages = 0,
 
       <Drawer
         placement="bottom"
-        size={320}
+        // Tall enough for every row (title, rows of 48px, padding), so nothing in it needs scrolling.
+        size={MORE_SHEET_CHROME + MORE_ROW * (moreModules.length + account.length + 1)}
         open={more}
         onClose={() => setMore(false)}
         title={householdName}
@@ -128,7 +133,8 @@ export default function AppNav({ householdName, isSuperuser, unreadMessages = 0,
               {a.label}
             </Link>
           ))}
-          {logout}
+          {/* Not closed by this click: closing would remove the form before it submits. Logging out leaves the page anyway. */}
+          <div onClick={(e) => e.stopPropagation()}>{logout}</div>
         </div>
       </Drawer>
     </>

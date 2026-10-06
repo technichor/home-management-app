@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { addMember, gotoMissing, newOwner, newSession, shoppingListId, test } from "./helpers";
+import { addMember, gotoMissing, newOwner, newSession, reloadUntil, shoppingListId, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
 
@@ -36,9 +36,10 @@ test("the shopping list: quick add into sections, check off, edit, move, remove 
   await expect(names(page, "Produce")).toHaveText(["Apples", "Bananas"]);
   await expect(page.getByRole("checkbox", { name: "Bananas" })).toBeChecked();
   await expect(page.getByRole("heading", { level: 4 })).toHaveText("Shopping list (3)");
-  await page.reload();
-  await expect(names(page, "Produce")).toHaveText(["Apples", "Bananas"]);
-  await expect(page.getByRole("checkbox", { name: "Bananas" })).toBeChecked();
+  await reloadUntil(page, async () => {
+    await expect(names(page, "Produce")).toHaveText(["Apples", "Bananas"]);
+    await expect(page.getByRole("checkbox", { name: "Bananas" })).toBeChecked();
+  });
 
   // Edit quantity and notes.
   await page.getByRole("button", { name: /^Milk/ }).click();
@@ -51,8 +52,9 @@ test("the shopping list: quick add into sections, check off, edit, move, remove 
   await page.getByRole("button", { name: "Section for Batteries: Other" }).click();
   await page.locator(".ant-dropdown-menu-item", { hasText: "Household & Personal Care" }).click();
   await expect(sections(page)).toHaveText(["Produce", "Dairy & Eggs", "Household & Personal Care"]);
-  await page.reload();
-  await expect(sections(page)).toHaveText(["Produce", "Dairy & Eggs", "Household & Personal Care"]);
+  await reloadUntil(page, async () => {
+    await expect(sections(page)).toHaveText(["Produce", "Dairy & Eggs", "Household & Personal Care"]);
+  });
 
   // A duplicate unchecked item gets a light warning but is still added.
   await quickAdd(page, "milk");
@@ -70,9 +72,10 @@ test("the shopping list: quick add into sections, check off, edit, move, remove 
   await page.locator(".ant-popover .ant-btn-primary").click();
   await expect(page.getByRole("checkbox", { name: "Bananas" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Remove checked items/ })).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByRole("checkbox", { name: "Bananas" })).toHaveCount(0);
-  await expect(page.getByRole("checkbox", { name: "Apples" })).toBeVisible();
+  await reloadUntil(page, async () => {
+    await expect(page.getByRole("checkbox", { name: "Bananas" })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: "Apples" })).toBeVisible();
+  });
 
   // Delete one item.
   await page.getByRole("button", { name: /^Apples/ }).click();

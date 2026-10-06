@@ -6,8 +6,10 @@ const port = Number(process.env.E2E_APP_PORT ?? 3100);
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.e2e.ts",
-  // One shared database and an in-order story per file: keep it simple and deterministic.
-  workers: 1,
+  // Files run in parallel (each test makes its own users and households); the tests inside a file run in order, since
+  // some share global state (the admin tests' superusers). 4 workers suits an 8-core machine (6 was no faster and
+  // timed out); E2E_WORKERS overrides it.
+  workers: Number(process.env.E2E_WORKERS ?? 4),
   fullyParallel: false,
   retries: 0,
   timeout: 60_000,

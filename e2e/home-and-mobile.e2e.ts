@@ -85,6 +85,7 @@ test.describe("on a phone", () => {
   }
 
   test("every screen fits a 375px phone", async ({ page }) => {
+    test.setTimeout(180_000); // it visits every screen in the app
     await newOwner(page, "phone", "The Phones With A Rather Long Household Name");
 
     // Some realistic data so the pages aren't empty.
@@ -166,6 +167,7 @@ test.describe("on a phone", () => {
     // The signed-out and onboarding screens too.
     await page.getByRole("button", { name: "More" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Log out" }).click();
+    await expect(page).toHaveURL(/\/login$/);
     for (const path of ["/", "/login", "/signup", "/forgot-password"]) {
       await page.goto(path);
       await expectFitsScreen(page, path);

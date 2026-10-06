@@ -32,6 +32,7 @@ test("change your login email: confirm from the new address, the old one is told
   await other.page.goto("/account");
   await expect(other.page.getByText(oldEmail).first()).toBeVisible();
   await other.page.getByRole("button", { name: "Log out" }).click();
+  await expect(other.page).toHaveURL(/\/login$/);
 
   // The link goes to the NEW address. Open it signed out (as from a phone) and confirm.
   const mail = await latestEmail(newEmail, "Confirm your new email");

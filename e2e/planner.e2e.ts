@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { newOwner, newSession, seedPlanEntry, test } from "./helpers";
+import { newOwner, newSession, reloadUntil, seedPlanEntry, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
 
@@ -120,9 +120,10 @@ test("meals can be switched on and off, entries in hidden ones are noted, and th
   await page.getByRole("combobox", { name: "Week starts on" }).click();
   await page.locator('.ant-select-item-option[title="Monday"]').click();
   await expect(page.locator(".planner-day").first()).toContainText("Mon");
-  await page.reload();
-  await expect(page.locator(".planner-day").first()).toContainText("Mon");
-  await expect(page.getByRole("button", { name: "Lunch", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await reloadUntil(page, async () => {
+    await expect(page.locator(".planner-day").first()).toContainText("Mon");
+    await expect(page.getByRole("button", { name: "Lunch", exact: true })).toHaveAttribute("aria-pressed", "false");
+  });
 });
 
 // "Today" is the browser's date: the server (UTC) must not decide it.

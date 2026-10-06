@@ -7,11 +7,12 @@ import { buildTodayPanel, UPCOMING_DAYS } from "@/lib/homePanel";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { calendarHref, plannerHref, timeLabel } from "@/lib/calendarView";
 import { getMealPlanSettings } from "@/lib/mealPlan";
-import { dueLabel, dueTodos } from "@/lib/todo";
+import { homeTodos } from "@/lib/todo";
 import type { AgendaEntry } from "@/lib/agendaOrder";
 import { buildBrief } from "@/lib/weekBrief";
 import LocalToday from "@/components/LocalToday";
 import WeekDrawing from "@/components/WeekDrawing";
+import HomeTodos from "./HomeTodos";
 
 /** Where an entry leads: an event to its day on the calendar, a contact date to the contact, a meal to the planner. */
 function hrefOf(e: AgendaEntry, today: string): string {
@@ -36,9 +37,6 @@ function detailOf(e: AgendaEntry): string {
   return `${parts.join(" · ")}.`;
 }
 
-/** Due to-dos shown on the home page before "+N more". */
-const TODOS_SHOWN = 5;
-
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
   const me = await pageMember();
   const { today } = await searchParams;
@@ -56,7 +54,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     getAgenda(householdId, weekStart, weekEnd, { includeMeals: true }),
     getAgenda(householdId, today, addDays(today, UPCOMING_DAYS), { includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
-    dueTodos(householdId, me.contactId ?? null, today),
+    homeTodos(householdId, me.contactId ?? null, today),
   ]);
 
   const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
@@ -64,7 +62,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const calendarWeek = calendarHref({ view: "week", today });
   const plannerWeek = plannerHref(weekStart, today);
   const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
-  const nothing = todos.length === 0 && panel.today.length === 0 && panel.upcoming.length === 0;
+  const nothing = panel.today.length === 0 && panel.upcoming.length === 0;
 
   return (
     <>
@@ -92,7 +90,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </div>
 
       <div className="brief-inner brief-lists">
-        <section>
+        <section className="home-attention">
           <h2 className="brief-section">Needs attention</h2>
           {attention.length === 0 ? (
             <div className="brief-row brief-row-plain">
@@ -114,35 +112,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           )}
         </section>
 
-        <section aria-label="Today and coming up">
+        <HomeTodos items={todos} today={today} />
+
+        <section aria-label="Today and coming up" className="home-today">
           <h2 className="brief-section">Today &amp; coming up</h2>
           {nothing && (
             <div className="brief-row brief-row-plain">
               <div>
                 <div className="brief-title">Nothing today, and nothing in the next {UPCOMING_DAYS} days</div>
-                <div className="brief-support">Events and birthdays from the calendar, and your to-dos when they are due, show up here.</div>
+                <div className="brief-support">Events and birthdays you add to the calendar show up here.</div>
               </div>
             </div>
-          )}
-          {todos.length > 0 && <h3 className="brief-sub">Your to-dos due</h3>}
-          {todos.slice(0, TODOS_SHOWN).map((t) => {
-            const due = dueLabel(t.dueDate!, today);
-            return (
-              <Link key={t.id} href="/todo" className="brief-row" data-overdue={due.tone === "overdue" || undefined}>
-                <span className="brief-index">{due.tone === "overdue" ? due.text.replace("Overdue · ", "") : due.text}</span>
-                <div>
-                  <div className="brief-title">{t.text}</div>
-                  <div className="brief-support">
-                    {due.tone === "overdue" ? "Overdue" : "Due today"} · {t.assigneeName ?? "Anyone"}.
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-          {todos.length > TODOS_SHOWN && (
-            <Link href="/todo" className="brief-more">
-              +{todos.length - TODOS_SHOWN} more to-dos due
-            </Link>
           )}
           {panel.today.length > 0 && <h3 className="brief-sub">Today</h3>}
           {panel.today.map((e) => (
@@ -176,7 +156,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </p>
         </section>
 
-        <section>
+        <section className="home-days">
           <h2 className="brief-section">Day by day</h2>
           {brief.days.map((d) => (
             <Link key={d.date} href={plannerWeek} className="brief-row" data-today={d.isToday || undefined} data-open={d.empty || undefined}>

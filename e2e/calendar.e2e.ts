@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { addMember, newOwner, newSession, seedPlanEntry, test } from "./helpers";
+import { addMember, newOwner, newSession, reloadUntil, seedPlanEntry, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
 
@@ -79,6 +79,7 @@ test("views, navigation across month and year boundaries, and the week start sha
   // Previous/next step by the view's unit; Today comes back.
   await page.getByRole("link", { name: "Today", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`view=week&date=${today}`));
+  await expect(title).toHaveText(/–/); // the week's range has rendered (the URL changes first)
   const thisWeek = await title.textContent();
   await page.getByRole("link", { name: "Next" }).click();
   await expect(title).not.toHaveText(thisWeek!);
@@ -94,6 +95,7 @@ test("views, navigation across month and year boundaries, and the week start sha
   await page.getByRole("link", { name: "Next" }).click();
   await expect(title).toHaveText("January 2027");
   await page.getByRole("link", { name: "Previous" }).click();
+  await expect(title).toHaveText("December 2026"); // each step from where the last one landed
   await page.getByRole("link", { name: "Previous" }).click();
   await expect(title).toHaveText("November 2026");
   await page.goto(`/calendar?view=week&date=1999-12-29&today=${today}`);
@@ -225,8 +227,9 @@ test("planned meals can be shown, on the week and day views but not the month", 
   await page.getByRole("switch", { name: "Show meals" }).click();
   await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toBeVisible();
   await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toHaveAttribute("href", /\/meals\?week=/);
-  await page.reload();
-  await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toBeVisible(); // remembered for the household
+  await reloadUntil(page, async () => {
+    await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toBeVisible(); // remembered for the household
+  });
 
   await page.goto(`/calendar?view=day&today=${today}`);
   await expect(page.getByRole("heading", { name: "Meals" })).toBeVisible();
@@ -325,7 +328,9 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
   await page.getByRole("dialog").getByLabel("Meal").fill("Leftovers");
   await page.getByRole("dialog").getByRole("button", { name: "Add as one-off (not saved to library)" }).click();
   await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Leftovers"]);
-  await page.reload();
+  await reloadUntil(page, async () => {
+    await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Leftovers"]);
+  });
 
   // Breakfast is hidden in the planner by default, so the calendar leaves it out too; dinner is in.
   await page.goto(`/calendar?view=week&today=${today}`);

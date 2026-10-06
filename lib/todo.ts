@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { daysBetween, dateToString, formatCalendarDate, formatDayHeading, stringToDate } from "@/lib/dates";
+import { daysBetween, dateToString, formatCalendarDate, formatDayHeading } from "@/lib/dates";
 import { calendarName } from "@/lib/contactDates";
 import { DEFAULT_RATING } from "@/lib/elo";
 import { optionalDate, optionalId, optionalNotes } from "@/lib/formFields";
@@ -95,21 +95,22 @@ export async function loadTodo(householdId: string, now: Date = new Date()): Pro
 }
 
 /**
- * Open to-dos due today or earlier that are the user's or anyone's (unassigned), most overdue first then by priority,
- * for the home page. A user who doesn't act as a contact sees just the unassigned ones.
+ * The home page's to-dos: the open ones that are the user's or anyone's (unassigned). Those due today or earlier come
+ * first, then the rest, each part in priority order. A user who doesn't act as a contact sees just the unassigned ones.
  */
-export async function dueTodos(householdId: string, contactId: string | null, today: string): Promise<TodoItem[]> {
+export async function homeTodos(householdId: string, contactId: string | null, today: string): Promise<TodoItem[]> {
   const rows = await prisma.listItem.findMany({
     where: {
       list: { householdId, kind: "TODO" },
       checked: false,
-      dueDate: { lte: stringToDate(today) },
       OR: [{ assignedToContactId: null }, ...(contactId ? [{ assignedToContactId: contactId }] : [])],
     },
     include: ASSIGNEE,
-    orderBy: [{ dueDate: "asc" }, { position: "asc" }],
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
   });
-  return rows.map(toTodoItem);
+  const items = rows.map(toTodoItem);
+  const due = (i: TodoItem) => i.dueDate !== null && i.dueDate <= today;
+  return [...items.filter(due), ...items.filter((i) => !due(i))];
 }
 
 /** Whose to-dos to show: everyone's, the signed-in user's, or one member's (a contact id). */

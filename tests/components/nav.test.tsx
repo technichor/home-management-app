@@ -156,6 +156,18 @@ describe("AppNav", () => {
       expect(sheet.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
       await userEvent.click(sheet.getByRole("button", { name: "Log out" }));
       expect(logoutAction).toHaveBeenCalled();
+      // The sheet stays open: closing it would remove the form before a real browser submits it.
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    it.each([
+      [false, "432px"], // 4 modules, Household, Account, Log out
+      [true, "480px"], // and Admin
+    ])("is tall enough for every row (superuser: %s)", async (isSuperuser, height) => {
+      setup({ isSuperuser });
+      await userEvent.click(tabbar().getByRole("button", { name: "More" }));
+      await screen.findByRole("dialog");
+      expect((document.querySelector(".ant-drawer-content-wrapper") as HTMLElement).style.height).toBe(height);
     });
 
     it("is highlighted on a page it holds", () => {

@@ -28,7 +28,7 @@ One click in (the item's text opens it): notes, due date, who, delete. **Priorit
 - **Due dates** are optional plain dates and never reorder the list. Rows read "Overdue · Oct 3", "Today", "Tomorrow", a weekday within the week, else the date, relative to the browser's "today" (`LocalToday`).
 - **Priority**: `ListItem.position` is the order; each open item's Elo `rating` is kept in step (a drag re-rates the whole list in order, `RANK_GAP` apart; a new item is rated just below the last), so a Prioritize session starts from the dragged order and each answer re-sorts the list.
 - **Done items** are deleted 30 days after being checked, when the list is next read (there is no scheduler).
-- **Home**: "Today & coming up" starts with **Your to-dos due**: open items due today or earlier that are yours or Anyone's (`dueTodos`), up to five, linking to `/todo`. To-dos never appear on the Calendar.
+- **Home** has a **To-do** column of its own (`app/(app)/home/HomeTodos.tsx`, data from `homeTodos`): your open to-dos and Anyone's, those due today or earlier first, then the rest in priority order, up to eight, each checkable right there. On a wide screen (1100px and up) it is a column to the right of Needs attention / Today & coming up / Day by day; narrower, it comes after Needs attention and shows three, with "Show N more". To-dos never appear on the Calendar.
 - Changes show at once (optimistic) and are put back with a message if saving fails; the page looks again every 30 seconds while visible, and on focus.
 
 ## Not built (on purpose, to stay simple)

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import {
   DONE_KEEP_DAYS,
   dueLabel,
-  dueTodos,
+  homeTodos,
   getOrCreateTodoList,
   loadTodo,
   moveInOrder,
@@ -78,24 +78,28 @@ describe("loadTodo", () => {
   });
 });
 
-describe("dueTodos", () => {
-  it("finds open to-dos due by today for the member or anyone, in the household's to-do list, most overdue first", async () => {
-    vi.mocked(prisma.listItem.findMany).mockResolvedValue([row({ dueDate: day("2026-10-01") })] as any);
-    const items = await dueTodos("h1", "c1", "2026-10-07");
-    expect(items.map((i) => i.dueDate)).toEqual(["2026-10-01"]);
+describe("homeTodos", () => {
+  it("finds the open to-dos for the member or anyone on the household's to-do list, in priority order", async () => {
+    await homeTodos("h1", "c1", "2026-10-07");
     expect(vi.mocked(prisma.listItem.findMany).mock.calls[0][0]).toMatchObject({
-      where: {
-        list: { householdId: "h1", kind: "TODO" },
-        checked: false,
-        dueDate: { lte: day("2026-10-07") },
-        OR: [{ assignedToContactId: null }, { assignedToContactId: "c1" }],
-      },
-      orderBy: [{ dueDate: "asc" }, { position: "asc" }],
+      where: { list: { householdId: "h1", kind: "TODO" }, checked: false, OR: [{ assignedToContactId: null }, { assignedToContactId: "c1" }] },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     });
   });
 
+  it("puts the ones due today or earlier first, keeping priority order within each part", async () => {
+    vi.mocked(prisma.listItem.findMany).mockResolvedValue([
+      row({ id: "top" }),
+      row({ id: "later", dueDate: day("2026-10-20") }),
+      row({ id: "overdue", dueDate: day("2026-10-01") }),
+      row({ id: "today", dueDate: day("2026-10-07") }),
+    ] as any);
+    const items = await homeTodos("h1", "c1", "2026-10-07");
+    expect(items.map((i) => i.id)).toEqual(["overdue", "today", "top", "later"]);
+  });
+
   it("only finds anyone's for a user who doesn't act as a contact", async () => {
-    await dueTodos("h1", null, "2026-10-07");
+    await homeTodos("h1", null, "2026-10-07");
     expect(vi.mocked(prisma.listItem.findMany).mock.calls[0][0]!.where).toMatchObject({ OR: [{ assignedToContactId: null }] });
   });
 });

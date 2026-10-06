@@ -11,6 +11,7 @@ import {
   onlySuperusers,
   seedFailedEmail,
   signUp,
+  reloadUntil,
   test,
   uniqueEmail,
 } from "./helpers";
@@ -197,12 +198,14 @@ test("a superuser can email someone a reset link, worded as coming from an admin
   await target.page.locator('input[name="confirmPassword"]').fill("emailed-password-1");
   await target.page.getByRole("button", { name: "Change password" }).click();
   await expect(target.page).toHaveURL(/\/login\?reset=1$/);
-  await page.reload();
-  await expect(page.getByText(/emailed a password reset link to/)).toBeVisible();
+  await reloadUntil(page, async () => {
+    await expect(page.getByText(/emailed a password reset link to/)).toBeVisible();
+  });
   await target.context.close();
 });
 
 test("granting and revoking superuser access: needs your password, and never removes the last superuser", async ({ page, browser }) => {
+  test.setTimeout(120_000); // a long story with two people
   const adminEmail = await newSuperuser(page, "granter");
   const target = await newSession(browser);
   const { email: targetEmail } = await newOwner(target.page, "grantee", "The Grantees");

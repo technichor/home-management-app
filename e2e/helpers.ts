@@ -36,7 +36,8 @@ let counter = 0;
 /** An address no other test uses (they all share one database). */
 export function uniqueEmail(tag: string): string {
   counter += 1;
-  return `${tag}-${Date.now().toString(36)}-${counter}@example.test`;
+  // The worker index keeps parallel workers (separate processes, each with its own counter) from colliding.
+  return `${tag}-${Date.now().toString(36)}-${process.env.TEST_WORKER_INDEX ?? 0}-${counter}@example.test`;
 }
 
 type Mail = { to: string; subject: string; text: string };
@@ -254,4 +255,15 @@ export async function shoppingListId(email: string) {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * Reload until `check` passes. For a change the page shows at once (optimistic) but saves in the background: a reload
+ * straight after it can beat the save, especially with tests running in parallel.
+ */
+export async function reloadUntil(page: Page, check: () => Promise<void>) {
+  await expect(async () => {
+    await page.reload();
+    await check();
+  }).toPass();
 }

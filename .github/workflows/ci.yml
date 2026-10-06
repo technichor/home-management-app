@@ -7,12 +7,17 @@ on:
   # Lets you run the checks by hand on any branch (Actions tab, or `gh workflow run ci.yml --ref <branch>`).
   workflow_dispatch:
 
+# A newer push to the same branch makes an older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    # Pinned: `ubuntu-latest` moves to a newer image on 2026-10-19, and Playwright's system
-    # dependencies are installed per-image. Bump this deliberately.
+  # Lint, types, and the unit and component tests (fails if coverage drops below 100%). Runs alongside the browser tests.
+  checks:
+    # Pinned: `ubuntu-latest` moves to a newer image on 2026-10-19. Bump this deliberately.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -22,14 +27,36 @@ jobs:
       - run: npm ci
       - run: npx eslint .
       - run: npx tsc --noEmit
-      # Unit and component tests; fails if coverage drops below 100%.
       - run: npm run test:coverage
-      # Browser tests against a throwaway Postgres (see scripts/e2e.mjs). Never touches a real database.
+
+  # Browser tests against a throwaway Postgres (see scripts/e2e.mjs; never touches a real database), split across two
+  # machines. Each shard builds the app itself. A private repository's runner has 2 cores, hence 2 workers each.
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      E2E_WORKERS: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Playwright's system dependencies are per image, so they are installed each time; the browser download is cached.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: e2e-failures
+          name: e2e-failures-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
