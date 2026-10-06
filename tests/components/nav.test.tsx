@@ -39,7 +39,7 @@ describe("AppNav", () => {
   it("shows no coming-soon placeholders", () => {
     setup();
     expect(screen.queryByText("soon")).toBeNull();
-    expect(screen.queryByText(/Maintenance|Schedules|Meal planning/)).toBeNull();
+    expect(screen.queryByText(/Schedules|Meal planning|Utilities|Finances/)).toBeNull();
   });
 
   it("links each module in the sidebar and the tab bar", () => {
@@ -48,6 +48,12 @@ describe("AppNav", () => {
       expect(sidebar().getByRole("link", { name })).toHaveAttribute("href", href);
       expect(tabbar().getByRole("link", { name })).toHaveAttribute("href", href);
     }
+  });
+
+  it("links Maintenance in the sidebar (the tab bar holds only the first five modules)", () => {
+    setup();
+    expect(sidebar().getByRole("link", { name: "Maintenance" })).toHaveAttribute("href", "/maintenance");
+    expect(tabbar().queryByRole("link", { name: "Maintenance" })).toBeNull();
   });
 
   it("highlights Home only on the home path", () => {
