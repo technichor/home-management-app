@@ -106,6 +106,19 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 7. Real-time messaging is a 5s poll via `router.refresh()`; fine at this scale.
 8. Not covered by browser tests yet: drag-reorder and pairwise ranking in Lists, list CSV import, the live 5-second message polling, archive/unarchive, and touch-drag reordering on a real phone (the browser tests only check layout at 375px, not a real iOS/Android device).
 
+## Security: do before going live (deferred by the owner on 2026-10-06)
+
+Reviewed 2026-10-06. Already sound: passwords are bcrypt hashes (cost 12, never stored or logged in plain text); login, reset, verification and invite tokens are stored only as hashes; the session is an encrypted, signed, httpOnly cookie (secure in production); the database connection requires TLS and Neon encrypts its disks; login and reset attempts are rate limited. Still to do, biggest risk first:
+
+1. **Separate the databases.** `.env.local` points local work and the e2e-free scripts at the production database, so anything on the dev machine can read or change real data. Give development its own database; keep the production URL only in Vercel; apply migrations as one deliberate step.
+2. **Least-privilege database roles.** The app connects as the database owner. Use a role that can only read and write data, and a separate one for migrations.
+3. **Rotate `DATABASE_URL` and `SESSION_SECRET`** (both have lived in local files) and turn on two-factor sign-in for Neon, Vercel, GitHub and Resend.
+4. **Security headers** (Content-Security-Policy, HSTS, frame-ancestors / X-Frame-Options, Referrer-Policy) in `next.config.ts` or `proxy.ts`.
+5. **Dependency and secret scanning in CI** (`npm audit --omit=dev`, Dependabot, secret scanning); `npm audit` reported one high advisory (`source-map-js`, build-time) on 2026-10-06.
+6. **Passwords:** minimum is 8 characters with no check against known-breached passwords; consider a breached-password check (k-anonymity range API) and a longer minimum.
+7. **Field-level encryption** (AES-256-GCM, key in Vercel) for emails (plus a keyed-hash "blind index" so login can still find them), notes, and the Accounts module's last-4. A prerequisite before Accounts ever stores passwords or balances. Trade-offs: no SQL search/sort on those fields, key rotation needs a migration.
+8. **Testing:** a test that finds every server action and checks it refuses a signed-out caller and another household's ids; Semgrep in CI; an OWASP ZAP baseline scan against the CI build (never production); a security review of the auth, session and token code; a professional penetration test; and a test restore of a Neon backup.
+
 ## Verify by hand (not yet done in a browser)
 
 1. Run the adopt script, then log in at `/login`. Check Contacts/Lists/Messages show your existing data.
