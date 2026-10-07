@@ -110,7 +110,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 Reviewed 2026-10-06. Already sound: passwords are bcrypt hashes (cost 12, never stored or logged in plain text); login, reset, verification and invite tokens are stored only as hashes; the session is an encrypted, signed, httpOnly cookie (secure in production); the database connection requires TLS and Neon encrypts its disks; login and reset attempts are rate limited. Still to do, biggest risk first:
 
-1. **Separate the databases.** `.env.local` points local work and the e2e-free scripts at the production database, so anything on the dev machine can read or change real data. Give development its own database; keep the production URL only in Vercel; apply migrations as one deliberate step.
+1. **Separate the databases.** `.env.local` points local work and scripts at the production database (the browser tests use their own throwaway one), so anything on the dev machine can read or change real data. Give development its own database; keep the production URL only in Vercel; apply migrations as one deliberate step.
 2. **Least-privilege database roles.** The app connects as the database owner. Use a role that can only read and write data, and a separate one for migrations.
 3. **Rotate `DATABASE_URL` and `SESSION_SECRET`** (both have lived in local files) and turn on two-factor sign-in for Neon, Vercel, GitHub and Resend.
 4. **Security headers** (Content-Security-Policy, HSTS, frame-ancestors / X-Frame-Options, Referrer-Policy) in `next.config.ts` or `proxy.ts`.
