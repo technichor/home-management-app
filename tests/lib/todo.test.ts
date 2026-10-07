@@ -21,7 +21,8 @@ import {
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const list = { id: "t1", householdId: "h1", kind: "TODO" };
 const row = (over: Record<string, unknown> = {}) => ({
-  id: "i1", text: "Mow", notes: null, assignedToContactId: null, assignedToContact: null, dueDate: null, checked: false, rating: 1500, comparisonCount: 0, ...over,
+  id: "i1", text: "Mow", notes: null, assignedToContactId: null, assignedToContact: null, dueDate: null, checked: false, rating: 1500, comparisonCount: 0,
+  maintenanceItem: null, ...over,
 });
 
 beforeEach(() => {
@@ -67,9 +68,16 @@ describe("loadTodo", () => {
     expect(vi.mocked(prisma.listItem.findMany).mock.calls[1][0]).toMatchObject({ where: { listId: "t1", checked: true }, orderBy: [{ checkedAt: "desc" }] });
     expect(result).toEqual({
       listId: "t1",
-      open: [{ id: "o", text: "Mow", notes: null, assigneeContactId: "c1", assigneeName: "Ellie", dueDate: "2026-11-02", done: false, rating: 1500, comparisonCount: 0 }],
-      done: [{ id: "d", text: "Mow", notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: true, rating: 1500, comparisonCount: 0 }],
+      open: [{ id: "o", text: "Mow", notes: null, assigneeContactId: "c1", assigneeName: "Ellie", dueDate: "2026-11-02", done: false, rating: 1500, comparisonCount: 0, maintenance: null }],
+      done: [{ id: "d", text: "Mow", notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: true, rating: 1500, comparisonCount: 0, maintenance: null }],
     });
+  });
+
+  it("says which maintenance item a to-do was made for, and asks for it", async () => {
+    vi.mocked(prisma.listItem.findMany).mockResolvedValueOnce([row({ maintenanceItem: { id: "m1", name: "Furnace" } })] as any).mockResolvedValueOnce([]);
+    const { open } = await loadTodo("h1");
+    expect(open[0].maintenance).toEqual({ id: "m1", name: "Furnace" });
+    expect(vi.mocked(prisma.listItem.findMany).mock.calls[0][0]!.include).toMatchObject({ maintenanceItem: { select: { id: true, name: true } } });
   });
 
   it("uses the current time by default", async () => {

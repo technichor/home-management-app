@@ -1,6 +1,6 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-06 after the To-do module) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and deployed at https://domata.app, including Meal Planning, Scheduling (events only, with recurrence), To-do, Maintenance and Accounts. Production migrations 0001-0028 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). The owner has said the project is in an experimental phase: work on a branch per piece of work, run the full gate, and merge to `main` without asking first (until told otherwise); `main` auto-deploys.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-06 after the To-do module) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and deployed at https://domata.app, including Meal Planning, Scheduling (events only, with recurrence), To-do, Maintenance and Accounts. Production migrations 0001-0029 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). The owner has said the project is in an experimental phase: work on a branch per piece of work, run the full gate, and merge to `main` without asking first (until told otherwise); `main` auto-deploys.
 
 ## One-paragraph summary
 
@@ -73,7 +73,7 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
 /meals                  week planner (?week=&today=); /library (+ /new, /[id], /[id]/edit); /shopping (the shopping list)
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0028 in prisma/migrations, all applied to production; 0020-0022 are Meal Planning, 0023 Scheduling, 0024 recurrence, 0025 Maintenance, 0026 Accounts, 0027-0028 To-do)
+### Data model (prisma/schema.prisma; migrations 0001–0029 in prisma/migrations, all applied to production; 0020-0022 are Meal Planning, 0023 Scheduling, 0024 recurrence, 0025 Maintenance, 0026 Accounts, 0027-0028 To-do, 0029 maintenance to-dos)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY|TODO), `ListItem.category`, `ListItem.dueDate` (To-do), Meal, MealPlanEntry, MealPlanSettings (Meal Planning) · CalendarItem (events; repeat fields), CalendarSettings, `Contact.birthdayMonth/Day/Year` (Scheduling) · MaintenanceItem · AccountRecord. Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files
@@ -90,7 +90,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Scheduling & Reminders**: stages 1-7 done and deployed per `docs/domains/scheduling.md` (events, derived contact dates, meals layer, home panel; Calendar is under More on phones). **Recurrence** is built (every N days/weeks/months/years, optional end date; per-occurrence exceptions are not). Tasks moved out to **To-do** on 2026-10-06. **Not built** (deliberately): integrations/ICS, multi-day events, notifications.
 
-**To-do**: built per `docs/domains/todo.md` (one TODO List per household, its own module and actions; Lists actions refuse it). Not built on purpose: repeating to-dos, several lists, subtasks, notifications.
+**To-do**: built per `docs/domains/todo.md` (one TODO List per household, its own module and actions; Lists actions refuse it). Maintenance services that come due become to-dos (checking one off records the service; migration 0029). Not built on purpose: repeating to-dos, several lists, subtasks, notifications.
 
 **Maintenance** and **Accounts**: simple first versions (placeholders, no full requirements docs yet); see `docs/domains/maintenance.md` and `docs/domains/accounts.md`, each with a list of ideas for next.
 

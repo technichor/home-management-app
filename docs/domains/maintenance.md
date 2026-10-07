@@ -14,7 +14,8 @@ An inventory of the things a household has to take care of: the furnaces, the re
 
 - **Age** is the calendar-year difference between the browser's "today" and `installedYear` (`lib/maintenance.ts`).
 - **Next service** is derived: `lastServicedOn` + `serviceEveryMonths`, on the same day of the month (clamped to a shorter month's end). It is never stored. A scheduled item with no recorded service says so and is not called overdue; one past its date reads "Service was due ...", in the danger colour.
-- **"Serviced today"** on the detail page records the browser's date as `lastServicedOn`. "Today" is the browser's date, supplied as `?today=` by `components/LocalToday.tsx`, as in Meals and the Calendar.
+- **"Serviced today"** on the detail page records the browser's date as `lastServicedOn` (and checks off the item's to-do, if one is open).
+- **Due services become to-dos** 7 days ahead; checking one off records the service. See `docs/domains/todo.md`. "Today" is the browser's date, supplied as `?today=` by `components/LocalToday.tsx`, as in Meals and the Calendar.
 - **`manualUrl` is a link only** (http or https, checked when saved so it can never be a `javascript:` link; opened in a new tab with `rel="noopener noreferrer"`). There is no file storage yet, so manuals can't be attached.
 - Notes are plain text.
 
@@ -28,7 +29,7 @@ An inventory of the things a household has to take care of: the furnaces, the re
 
 ## Ideas for next (not built, not decided)
 
-- Show service due dates on the Calendar and the home page (the repeating items in `docs/domains/scheduling.md` are the natural tool once they are merged), with the item as the thing a reminder points at.
+- (Done 2026-10-07: services that come due become to-dos, and checking one off records the service. See "Maintenance to-dos" in `docs/domains/todo.md`.)
 - Attach manuals and receipts (needs file storage, e.g. Vercel Blob).
 - Link an item to the Contact who services it, and a service history (what was done, when, by whom, cost) instead of just the last date.
 - Replacement planning ("furnaces over 20 years old"), a warranty-expiring view, and a simple report to print or share with a repair person.

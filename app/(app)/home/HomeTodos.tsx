@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { App, Checkbox } from "antd";
+import { ToolOutlined } from "@ant-design/icons";
 import { dueLabel, type TodoItem } from "@/lib/todo";
 import { setTodoDoneAction } from "@/app/(app)/todo/actions";
 
@@ -28,7 +29,7 @@ export default function HomeTodos({ items, today }: { items: TodoItem[]; today: 
 
   async function finish(item: TodoItem) {
     setFinished((cur) => new Set(cur).add(item.id));
-    const result = await setTodoDoneAction(item.id, true);
+    const result = await setTodoDoneAction(item.id, true, today);
     if (!result.ok) {
       setFinished((cur) => {
         const next = new Set(cur);
@@ -64,7 +65,10 @@ export default function HomeTodos({ items, today }: { items: TodoItem[]; today: 
               <div key={item.id} className="brief-row home-todo-row" data-overdue={due?.tone === "overdue" || undefined}>
                 <Checkbox onChange={() => finish(item)} aria-label={`Done: ${item.text}`} className="home-todo-check" />
                 <Link href="/todo" className="home-todo-body">
-                  <div className="brief-title">{item.text}</div>
+                  <div className="brief-title">
+                    {item.maintenance && <ToolOutlined className="todo-maintenance" aria-hidden />}
+                    {item.text}
+                  </div>
                   <div className="brief-support">
                     {due && (
                       <span className="todo-due" data-tone={due.tone}>

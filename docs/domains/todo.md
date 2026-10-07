@@ -31,6 +31,17 @@ One click in (the item's text opens it): notes, due date, who, delete. **Priorit
 - **Home** has a **To-do** column of its own (`app/(app)/home/HomeTodos.tsx`, data from `homeTodos`): your open to-dos and Anyone's, those due today or earlier first, then the rest in priority order, up to eight, each checkable right there. On a wide screen (1100px and up) it is a column to the right of Needs attention / Today & coming up / Day by day; narrower, it comes after Needs attention and shows three, with "Show N more". To-dos never appear on the Calendar.
 - Changes show at once (optimistic) and are put back with a message if saving fails; the page looks again every 30 seconds while visible, and on focus.
 
+## Maintenance to-dos (migration 0029)
+
+Maintenance services become to-dos when they come due (`lib/maintenanceTodos.ts`). There is no scheduler, so the pages that show to-dos (`/todo`, `/home`) call `syncMaintenanceTodos(householdId, today)` first:
+
+- A scheduled item **with a recorded service** whose next service (last service + interval) is due within **7 days** (or overdue) gets a to-do "Maintenance: <name>", due on that date, at the bottom of the list, for whoever had the item's last one. Items never serviced make none (their page asks for a date instead).
+- One to-do per item and service date (`ListItem.maintenanceItemId` + `serviceDueOn`, unique, so two page loads at once can't both create it). An open one follows its item: a new due date moves it; serviced elsewhere, unscheduled or deleted removes it.
+- **Checking it off records the service**: the item's last service becomes the browser's today (unless a later date is already recorded), and the previous date is kept on the to-do (`previousServicedOn`) so **unchecking undoes it**.
+- **"Serviced today"** on the item's page checks its open to-do off the same way.
+- These to-dos have **"Skip this time"** instead of Delete (deleting would only bring the reminder straight back): it closes the to-do without recording anything; if the item still needs service once the done items are cleared (30 days), the reminder comes back.
+- Rows show a small tool icon; the item's dialog links to the maintenance item.
+
 ## Not built (on purpose, to stay simple)
 
 Repeating to-dos (the calendar's recurrence could be reused), several lists or projects, subtasks, tags, comments, reminders/notifications, a time on the due date, history beyond 30 days.

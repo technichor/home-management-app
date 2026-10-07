@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { App, Button, Checkbox, Input, Select, Typography } from "antd";
-import { CalendarOutlined, HolderOutlined } from "@ant-design/icons";
+import { CalendarOutlined, HolderOutlined, ToolOutlined } from "@ant-design/icons";
 import {
   closestCenter,
   DndContext,
@@ -73,6 +73,7 @@ function TodoRow({
       )}
       <Checkbox checked={item.done} onChange={(e) => onDone(e.target.checked)} aria-label={`Done: ${item.text}`} />
       <button type="button" className="todo-text" onClick={onOpen}>
+        {item.maintenance && <ToolOutlined className="todo-maintenance" aria-hidden />}
         {item.text}
         {item.notes && <span className="todo-has-notes" aria-label="has notes"> ¶</span>}
       </button>
@@ -225,7 +226,7 @@ export default function TodoClient({
         setOpen(before.open);
         setDone(before.done);
       },
-      () => setTodoDoneAction(item.id, isDone),
+      () => setTodoDoneAction(item.id, isDone, today),
     );
   }
 

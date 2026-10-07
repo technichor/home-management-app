@@ -37,9 +37,12 @@ const dataOf = (f: ReturnType<typeof parseFields>) => ({
   notes: f.notes,
 });
 
+// The to-do list and home page show the maintenance to-dos (lib/maintenanceTodos.ts), so they are refreshed too.
 function refresh(id?: string) {
   revalidatePath("/maintenance");
   if (id) revalidatePath(`/maintenance/${id}`);
+  revalidatePath("/todo");
+  revalidatePath("/home");
 }
 
 export async function createMaintenanceItemAction(fields: MaintenanceItemFields) {
@@ -60,23 +63,35 @@ export async function updateMaintenanceItemAction(id: string, fields: Maintenanc
   });
 }
 
-/** Hard delete (no undo, no history). */
+/** Hard delete (no undo, no history). Its open to-do goes too; done ones stay on the to-do list's done items. */
 export async function deleteMaintenanceItemAction(id: string) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     await loadItem(householdId, id);
-    await prisma.maintenanceItem.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.listItem.deleteMany({ where: { maintenanceItemId: id, checked: false } }),
+      prisma.maintenanceItem.delete({ where: { id } }),
+    ]);
     refresh(id);
   });
 }
 
-/** Record that the item was serviced on a date (the browser's today, or one chosen), which moves the next service on. */
+/**
+ * Record that the item was serviced on a date (the browser's today, or one chosen), which moves the next service on.
+ * Its open to-do is checked off at the same time (keeping the previous date, so unchecking it there undoes this).
+ */
 export async function markServicedAction(id: string, date: string) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     if (!isDateString(date)) throw new UserError("Choose a valid date");
-    await loadItem(householdId, id);
-    await prisma.maintenanceItem.update({ where: { id }, data: { lastServicedOn: stringToDate(date) } });
+    const item = await loadItem(householdId, id);
+    await prisma.$transaction([
+      prisma.listItem.updateMany({
+        where: { maintenanceItemId: id, checked: false },
+        data: { checked: true, checkedAt: new Date(), previousServicedOn: item.lastServicedOn },
+      }),
+      prisma.maintenanceItem.update({ where: { id }, data: { lastServicedOn: stringToDate(date) } }),
+    ]);
     refresh(id);
   });
 }

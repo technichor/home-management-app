@@ -7,6 +7,7 @@ vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
 vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
 vi.mock("@/lib/homeAttention", () => ({ loadAttention: vi.fn() }));
+vi.mock("@/lib/maintenanceTodos", () => ({ syncMaintenanceTodos: vi.fn() }));
 vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/todo")>()), homeTodos: vi.fn() }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/home/HomeTodos", () => ({ default: (p: any) => ((seen.todos = p), <section aria-label="To-do">to-dos</section>) }));
@@ -17,6 +18,7 @@ import { getAgenda } from "@/lib/agenda";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { loadAttention } from "@/lib/homeAttention";
+import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import { homeTodos, type TodoItem } from "@/lib/todo";
 import HomePage from "@/app/(app)/home/page";
 import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
@@ -39,7 +41,7 @@ function agendas(week: AgendaEntry[], panel: AgendaEntry[] = []) {
   vi.mocked(getAgenda).mockImplementation((async (_h: string, start: string) => ({ entries: start === "2026-10-07" ? panel : week })) as any);
 }
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
-  id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: "2026-10-07", done: false, rating: 1500, comparisonCount: 0, ...over,
+  id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: "2026-10-07", done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
 const section = (title: string) => screen.getByText(title).closest("section") as HTMLElement;
 
@@ -51,6 +53,7 @@ beforeEach(() => {
   vi.mocked(loadAttention).mockResolvedValue([]);
   agendas([]);
   vi.mocked(homeTodos).mockResolvedValue([]);
+  vi.mocked(syncMaintenanceTodos).mockResolvedValue();
 });
 
 describe("HomePage: the week", () => {
@@ -207,6 +210,8 @@ describe("HomePage: today & coming up", () => {
     const items = [todo({ text: "Renew passport" })];
     vi.mocked(homeTodos).mockResolvedValue(items);
     await run();
+    expect(syncMaintenanceTodos).toHaveBeenCalledWith("h1", "2026-10-07"); // services that came due join first
+    expect(vi.mocked(syncMaintenanceTodos).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(homeTodos).mock.invocationCallOrder[0]);
     expect(homeTodos).toHaveBeenCalledWith("h1", "c-me", "2026-10-07");
     expect(seen.todos).toEqual({ items, today: "2026-10-07" });
     expect(screen.getByRole("region", { name: "To-do" })).toBeInTheDocument();

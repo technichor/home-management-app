@@ -8,6 +8,7 @@ import { getCalendarSettings } from "@/lib/calendarItem";
 import { calendarHref, plannerHref, timeLabel } from "@/lib/calendarView";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { homeTodos } from "@/lib/todo";
+import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import type { AgendaEntry } from "@/lib/agendaOrder";
 import { buildBrief } from "@/lib/weekBrief";
 import LocalToday from "@/components/LocalToday";
@@ -54,7 +55,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     getAgenda(householdId, weekStart, weekEnd, { includeMeals: true }),
     getAgenda(householdId, today, addDays(today, UPCOMING_DAYS), { includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
-    homeTodos(householdId, me.contactId ?? null, today),
+    // Maintenance services that have come due join the to-do list first.
+    syncMaintenanceTodos(householdId, today).then(() => homeTodos(householdId, me.contactId ?? null, today)),
   ]);
 
   const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });

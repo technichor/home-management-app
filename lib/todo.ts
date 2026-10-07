@@ -48,9 +48,14 @@ export type TodoItem = {
   done: boolean;
   rating: number;
   comparisonCount: number;
+  /** The maintenance item a to-do was made for (lib/maintenanceTodos.ts), or null for an ordinary to-do. */
+  maintenance: { id: string; name: string } | null;
 };
 
-const ASSIGNEE = { assignedToContact: { select: { firstName: true, nickname: true } } } as const;
+const ASSIGNEE = {
+  assignedToContact: { select: { firstName: true, nickname: true } },
+  maintenanceItem: { select: { id: true, name: true } },
+} as const;
 
 type Row = {
   id: string;
@@ -62,6 +67,7 @@ type Row = {
   checked: boolean;
   rating: number;
   comparisonCount: number;
+  maintenanceItem: { id: string; name: string } | null;
 };
 
 function toTodoItem(r: Row): TodoItem {
@@ -75,6 +81,7 @@ function toTodoItem(r: Row): TodoItem {
     done: r.checked,
     rating: r.rating,
     comparisonCount: r.comparisonCount,
+    maintenance: r.maintenanceItem,
   };
 }
 

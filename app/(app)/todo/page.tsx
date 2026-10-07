@@ -2,6 +2,7 @@ import { pageMember } from "@/lib/auth";
 import { dateOr, utcDateString } from "@/lib/dates";
 import { memberOptionsOf } from "@/lib/householdMembers";
 import { loadTodo } from "@/lib/todo";
+import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import LocalToday from "@/components/LocalToday";
 import TodoClient from "./TodoClient";
 
@@ -9,6 +10,8 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   const me = await pageMember();
   // "Today" (for due dates) is the browser's; LocalToday puts it in the URL. Until then the server's date stands in.
   const today = dateOr((await searchParams).today, utcDateString());
+  // Maintenance services that have come due join the list first.
+  await syncMaintenanceTodos(me.householdId, today);
   const [{ open, done }, members] = await Promise.all([loadTodo(me.householdId), memberOptionsOf(me.householdId)]);
 
   return (

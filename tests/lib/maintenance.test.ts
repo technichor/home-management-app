@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageLabel, ageYears, maintenanceItemSchema, serviceStatus } from "@/lib/maintenance";
+import { ageLabel, ageYears, maintenanceItemSchema, nextServiceDue, serviceStatus } from "@/lib/maintenance";
 
 const base = { name: "Furnace", category: "HVAC" as const };
 
@@ -70,5 +70,14 @@ describe("age", () => {
     expect(ageLabel(0)).toBe("Installed this year");
     expect(ageLabel(1)).toBe("1 year old");
     expect(ageLabel(20)).toBe("20 years old");
+  });
+});
+
+describe("nextServiceDue", () => {
+  it("is the last service plus the interval, or nothing without both", () => {
+    expect(nextServiceDue({ serviceEveryMonths: 3, lastServicedOn: "2026-07-31" })).toBe("2026-10-31");
+    expect(nextServiceDue({ serviceEveryMonths: 1, lastServicedOn: "2026-01-31" })).toBe("2026-02-28");
+    expect(nextServiceDue({ serviceEveryMonths: null, lastServicedOn: "2026-07-31" })).toBeNull();
+    expect(nextServiceDue({ serviceEveryMonths: 3, lastServicedOn: null })).toBeNull();
   });
 });

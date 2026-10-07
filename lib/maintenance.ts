@@ -54,14 +54,20 @@ export type MaintenanceItemFields = z.input<typeof maintenanceItemSchema>;
 
 export type ServiceStatus = { text: string; overdue: boolean };
 
+/** When the next service is due (last service + the interval), or null without a schedule or a recorded service. */
+export function nextServiceDue(item: { serviceEveryMonths: number | null; lastServicedOn: string | null }): string | null {
+  if (item.serviceEveryMonths === null || item.lastServicedOn === null) return null;
+  return addMonthsKeepingDay(item.lastServicedOn, item.serviceEveryMonths);
+}
+
 /**
  * Where an item stands on its service schedule, or null when it has none. Next service is the last service plus the
  * interval; an item with a schedule but no recorded service just says so (it can't be called overdue).
  */
 export function serviceStatus(item: { serviceEveryMonths: number | null; lastServicedOn: string | null }, today: string): ServiceStatus | null {
   if (item.serviceEveryMonths === null) return null;
-  if (item.lastServicedOn === null) return { text: "No service recorded yet", overdue: false };
-  const due = addMonthsKeepingDay(item.lastServicedOn, item.serviceEveryMonths);
+  const due = nextServiceDue(item);
+  if (due === null) return { text: "No service recorded yet", overdue: false };
   return due < today
     ? { text: `Service was due ${formatCalendarDate(due)}`, overdue: true }
     : { text: `Next service ${formatCalendarDate(due)}`, overdue: false };

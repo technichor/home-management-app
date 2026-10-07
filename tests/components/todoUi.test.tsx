@@ -13,6 +13,7 @@ vi.mock("@/app/(app)/todo/actions", () => ({
   deleteTodoAction: vi.fn(),
   clearDoneTodosAction: vi.fn(),
   reorderTodosAction: vi.fn(),
+  skipMaintenanceTodoAction: vi.fn(),
 }));
 // jsdom can't perform a real drag, so capture onDragEnd and call it directly.
 let onDragEnd: (e: any) => void = () => {};
@@ -35,6 +36,7 @@ import {
   deleteTodoAction,
   reorderTodosAction,
   setTodoDoneAction,
+  skipMaintenanceTodoAction,
   updateTodoAction,
 } from "@/app/(app)/todo/actions";
 import type { TodoItem } from "@/lib/todo";
@@ -42,7 +44,7 @@ import type { TodoItem } from "@/lib/todo";
 const TODAY = "2026-10-07";
 let n = 0;
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
-  id: `t${++n}`, text: `To-do ${n}`, notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, ...over,
+  id: `t${++n}`, text: `To-do ${n}`, notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
 const members = [{ id: "me", name: "Corey", fullName: "Corey B" }, { id: "sam", name: "Sam", fullName: "Sam B" }];
 
@@ -64,7 +66,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   n = 0;
   window.localStorage.clear();
-  for (const fn of [updateTodoAction, setTodoDoneAction, deleteTodoAction, clearDoneTodosAction, reorderTodosAction]) vi.mocked(fn).mockResolvedValue({ ok: true } as any);
+  for (const fn of [updateTodoAction, setTodoDoneAction, deleteTodoAction, clearDoneTodosAction, reorderTodosAction, skipMaintenanceTodoAction]) vi.mocked(fn).mockResolvedValue({ ok: true } as any);
   vi.mocked(addTodoAction).mockResolvedValue({ ok: true, id: "new" });
 });
 
@@ -232,7 +234,7 @@ describe("finishing", () => {
     setup({ open: [todo({ id: "a", text: "Mow" }), todo({ id: "b", text: "Rake" })] });
     await userEvent.click(screen.getByRole("checkbox", { name: "Done: Mow" }));
     expect(openTexts()).toEqual(["Rake"]);
-    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, TODAY);
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
     await userEvent.click(screen.getByRole("button", { name: "Done (1)" }));
     expect(within(screen.getByLabelText("Done")).getByText("Mow")).toBeInTheDocument();
@@ -257,7 +259,7 @@ describe("finishing", () => {
     expect(done.getByText("Anyone")).toBeInTheDocument();
     expect(screen.queryByLabelText("Drag to reorder Mow")).toBeNull();
     await userEvent.click(done.getByRole("checkbox", { name: "Done: Mow" }));
-    expect(setTodoDoneAction).toHaveBeenCalledWith("d", false);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("d", false, TODAY);
     expect(openTexts()).toEqual(["Rake", "Mow"]);
     expect(screen.queryByRole("button", { name: /Done \(/ })).toBeNull();
   });
@@ -432,5 +434,39 @@ describe("polling", () => {
     unmount();
     act(() => vi.advanceTimersByTime(TODO_POLL_MS));
     expect(router.refresh).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("a to-do made for a maintenance service", () => {
+  const service = (over: Partial<TodoItem> = {}) => todo({ id: "s1", text: "Maintenance: Furnace", dueDate: TODAY, maintenance: { id: "m1", name: "Furnace" }, ...over });
+  const open = async () => {
+    await userEvent.click(screen.getByRole("button", { name: /^Maintenance: Furnace/ }));
+    return within(await screen.findByRole("dialog"));
+  };
+
+  it("is marked as from Maintenance on its row, and checking it off sends the browser's date", async () => {
+    setup({ open: [service()] });
+    expect(screen.getByRole("button", { name: /^Maintenance: Furnace/ }).querySelector(".todo-maintenance")).not.toBeNull();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Done: Maintenance: Furnace" }));
+    expect(setTodoDoneAction).toHaveBeenCalledWith("s1", true, TODAY);
+  });
+
+  it("links to its item and says checking it off records the service; it can be skipped, not deleted", async () => {
+    setup({ open: [service()] });
+    const dialog = await open();
+    expect(dialog.getByRole("link", { name: "Furnace" })).toHaveAttribute("href", "/maintenance/m1");
+    expect(dialog.getByText(/Checking it off records the service as done today/)).toBeInTheDocument();
+    expect(dialog.queryByRole("button", { name: "Delete" })).toBeNull();
+    await userEvent.click(dialog.getByRole("button", { name: "Skip this time" }));
+    await userEvent.click(within(await screen.findByRole("tooltip")).getByRole("button", { name: "Skip" }));
+    expect(skipMaintenanceTodoAction).toHaveBeenCalledWith("s1");
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+  });
+
+  it("can't be skipped once done", async () => {
+    setup({ done: [service({ done: true })] });
+    await userEvent.click(screen.getByRole("button", { name: "Done (1)" }));
+    const dialog = await open();
+    expect(dialog.getByRole("button", { name: "Skip this time" })).toBeDisabled();
   });
 });

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, Input, Modal, Popconfirm, Select, Space } from "antd";
+import Link from "next/link";
+import { Alert, Button, Input, Modal, Popconfirm, Select, Space, Typography } from "antd";
 import type { MemberOption } from "@/lib/householdMembers";
 import { MAX_TODO_NOTES, MAX_TODO_TEXT, type TodoItem } from "@/lib/todo";
 import FormField from "@/components/FormField";
-import { deleteTodoAction, updateTodoAction } from "./actions";
+import { deleteTodoAction, skipMaintenanceTodoAction, updateTodoAction } from "./actions";
 import { assigneeOptions, ANYONE } from "./assignees";
 
 /** Everything about one to-do, one click in from its row: text, notes, due date, who; and delete. */
@@ -53,6 +54,12 @@ function Body({ item, members, onClose, onSaved }: { item: TodoItem; members: Me
   return (
     <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       {error && <Alert type="error" showIcon title={error} />}
+      {item.maintenance && (
+        <Typography.Text type="secondary">
+          From Maintenance: <Link href={`/maintenance/${item.maintenance.id}`}>{item.maintenance.name}</Link>. Checking it off records the
+          service as done today.
+        </Typography.Text>
+      )}
       <FormField label="To-do">
         <Input value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_TODO_TEXT} aria-label="To-do" onPressEnter={save} />
       </FormField>
@@ -75,9 +82,21 @@ function Body({ item, members, onClose, onSaved }: { item: TodoItem; members: Me
           Save
         </Button>
         <Button onClick={onClose}>Cancel</Button>
-        <Popconfirm title="Delete this to-do?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => run(() => deleteTodoAction(item.id))}>
-          <Button danger>Delete</Button>
-        </Popconfirm>
+        {item.maintenance ? (
+          // Deleting would only bring it straight back while the service is due; skipping closes it for now.
+          <Popconfirm
+            title="Skip this service?"
+            description="Nothing is recorded. If it still needs doing, the reminder comes back in 30 days."
+            okText="Skip"
+            onConfirm={() => run(() => skipMaintenanceTodoAction(item.id))}
+          >
+            <Button disabled={item.done}>Skip this time</Button>
+          </Popconfirm>
+        ) : (
+          <Popconfirm title="Delete this to-do?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => run(() => deleteTodoAction(item.id))}>
+            <Button danger>Delete</Button>
+          </Popconfirm>
+        )}
       </Space>
     </Space>
   );

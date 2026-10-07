@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => {
     list: { findFirst: vi.fn(), create: vi.fn() },
     listItem: { findFirst: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
     contact: { findMany: vi.fn() },
+    maintenanceItem: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
   };
   prisma.$transaction = (arg: unknown) => (typeof arg === "function" ? (arg as (tx: any) => unknown)(prisma) : Promise.all(arg as unknown[]));
   return { prisma };
@@ -24,12 +25,16 @@ import {
   recordTodoComparisonAction,
   reorderTodosAction,
   setTodoDoneAction,
+  skipMaintenanceTodoAction,
   updateTodoAction,
 } from "@/app/(app)/todo/actions";
 
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const list = { id: "t1", householdId: "h1", kind: "TODO" };
-const item = (over: Record<string, unknown> = {}) => ({ id: "i1", listId: "t1", assignedToContactId: null, rating: 1500, position: 0, checked: false, ...over });
+const item = (over: Record<string, unknown> = {}) => ({
+  id: "i1", listId: "t1", assignedToContactId: null, rating: 1500, position: 0, checked: false, maintenanceItemId: null, previousServicedOn: null, ...over,
+});
+const TODAY = "2026-10-07";
 const members = [{ id: "m1", firstName: "Sam", lastName: "Doe", nickname: null }];
 
 beforeEach(() => {
@@ -48,7 +53,8 @@ describe("authentication", () => {
   it.each([
     ["add", () => addTodoAction({ text: "Mow" })],
     ["update", () => updateTodoAction("i1", { text: "Mow" })],
-    ["done", () => setTodoDoneAction("i1", true)],
+    ["done", () => setTodoDoneAction("i1", true, TODAY)],
+    ["skip", () => skipMaintenanceTodoAction("i1")],
     ["delete", () => deleteTodoAction("i1")],
     ["clear done", () => clearDoneTodosAction()],
     ["reorder", () => reorderTodosAction(["i1"])],
@@ -126,15 +132,82 @@ describe("updateTodoAction", () => {
 
 describe("setTodoDoneAction", () => {
   it("marks done with the time, and undone without one", async () => {
-    await setTodoDoneAction("i1", true);
+    await setTodoDoneAction("i1", true, TODAY);
     expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { checked: true, checkedAt: expect.any(Date) } });
-    await setTodoDoneAction("i1", false);
+    vi.mocked(prisma.listItem.findFirst).mockResolvedValue(item({ checked: true }) as any);
+    await setTodoDoneAction("i1", false, TODAY);
     expect(prisma.listItem.update).toHaveBeenLastCalledWith({ where: { id: "i1" }, data: { checked: false, checkedAt: null } });
   });
 
-  it("leaves another household's item alone", async () => {
+  it("leaves another household's item alone, and refuses a bad date", async () => {
+    expect(await setTodoDoneAction("i1", true, "soon")).toEqual({ ok: false, error: "Choose a valid date" });
     vi.mocked(prisma.listItem.findFirst).mockResolvedValue(null);
-    expect(await setTodoDoneAction("theirs", true)).toEqual({ ok: false, error: "That to-do isn't on the list any more" });
+    expect(await setTodoDoneAction("theirs", true, TODAY)).toEqual({ ok: false, error: "That to-do isn't on the list any more" });
+    expect(prisma.listItem.update).not.toHaveBeenCalled();
+  });
+
+  describe("a maintenance to-do", () => {
+    const linked = (over: Record<string, unknown> = {}) =>
+      vi.mocked(prisma.listItem.findFirst).mockResolvedValue(item({ maintenanceItemId: "m1", ...over }) as any);
+    beforeEach(() => {
+      vi.mocked(prisma.maintenanceItem.findUniqueOrThrow).mockResolvedValue({ id: "m1", lastServicedOn: day("2026-07-07") } as any);
+      vi.mocked(prisma.maintenanceItem.update).mockResolvedValue({} as any);
+    });
+
+    it("records the service as done today when checked, keeping the previous date on the to-do", async () => {
+      linked();
+      expect(await setTodoDoneAction("i1", true, TODAY)).toEqual({ ok: true });
+      expect(prisma.maintenanceItem.update).toHaveBeenCalledWith({ where: { id: "m1" }, data: { lastServicedOn: day(TODAY) } });
+      expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { checked: true, checkedAt: expect.any(Date), previousServicedOn: day("2026-07-07") } });
+      expect(revalidatePath).toHaveBeenCalledWith("/maintenance", "layout");
+    });
+
+    it("keeps a later service date already recorded, and works for an item never serviced", async () => {
+      linked();
+      vi.mocked(prisma.maintenanceItem.findUniqueOrThrow).mockResolvedValue({ id: "m1", lastServicedOn: day("2026-10-09") } as any);
+      await setTodoDoneAction("i1", true, TODAY);
+      expect(prisma.maintenanceItem.update).not.toHaveBeenCalled();
+      expect(prisma.listItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ previousServicedOn: day("2026-10-09") }) }));
+      vi.mocked(prisma.maintenanceItem.findUniqueOrThrow).mockResolvedValue({ id: "m1", lastServicedOn: null } as any);
+      await setTodoDoneAction("i1", true, TODAY);
+      expect(prisma.maintenanceItem.update).toHaveBeenCalledWith({ where: { id: "m1" }, data: { lastServicedOn: day(TODAY) } });
+    });
+
+    it("undoes the service when unchecked, putting the previous date back", async () => {
+      linked({ checked: true, previousServicedOn: day("2026-07-07") });
+      await setTodoDoneAction("i1", false, TODAY);
+      expect(prisma.maintenanceItem.update).toHaveBeenCalledWith({ where: { id: "m1" }, data: { lastServicedOn: day("2026-07-07") } });
+      expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { checked: false, checkedAt: null, previousServicedOn: null } });
+    });
+
+    it("records nothing when unchecking one that was skipped", async () => {
+      linked({ checked: true, previousServicedOn: null });
+      await setTodoDoneAction("i1", false, TODAY);
+      expect(prisma.maintenanceItem.update).not.toHaveBeenCalled();
+      expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { checked: false, checkedAt: null, previousServicedOn: null } });
+    });
+
+    it("changes nothing on the item when the to-do is already in that state", async () => {
+      linked({ checked: true, previousServicedOn: day("2026-07-07") });
+      await setTodoDoneAction("i1", true, TODAY);
+      expect(prisma.maintenanceItem.update).not.toHaveBeenCalled();
+      expect(prisma.maintenanceItem.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("skipMaintenanceTodoAction", () => {
+  it("closes a maintenance to-do without recording a service", async () => {
+    vi.mocked(prisma.listItem.findFirst).mockResolvedValue(item({ maintenanceItemId: "m1" }) as any);
+    expect(await skipMaintenanceTodoAction("i1")).toEqual({ ok: true });
+    expect(prisma.listItem.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { checked: true, checkedAt: expect.any(Date), previousServicedOn: null } });
+    expect(prisma.maintenanceItem.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses an ordinary to-do, and another household's", async () => {
+    expect(await skipMaintenanceTodoAction("i1")).toEqual({ ok: false, error: "Only a maintenance to-do can be skipped" });
+    vi.mocked(prisma.listItem.findFirst).mockResolvedValue(null);
+    expect(await skipMaintenanceTodoAction("theirs")).toEqual({ ok: false, error: "That to-do isn't on the list any more" });
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
 });

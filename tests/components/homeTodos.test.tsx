@@ -15,7 +15,7 @@ import type { TodoItem } from "@/lib/todo";
 const TODAY = "2026-10-07";
 let n = 0;
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
-  id: `t${++n}`, text: `To-do ${n}`, notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, ...over,
+  id: `t${++n}`, text: `To-do ${n}`, notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
 const setup = (items: TodoItem[]) =>
   render(
@@ -45,6 +45,12 @@ describe("HomeTodos", () => {
     expect(within(section()).getByRole("link", { name: "Open list" })).toHaveAttribute("href", "/todo");
   });
 
+  it("marks a to-do made for a maintenance service", () => {
+    setup([todo({ text: "Maintenance: Furnace", maintenance: { id: "m1", name: "Furnace" } }), todo({ text: "Rake" })]);
+    expect(section().querySelectorAll(".todo-maintenance")).toHaveLength(1);
+    expect(within(section()).getByText("Maintenance: Furnace").querySelector(".todo-maintenance")).not.toBeNull();
+  });
+
   it("says when there is nothing for you", () => {
     setup([]);
     expect(screen.getByText("Nothing on your list")).toBeInTheDocument();
@@ -55,7 +61,7 @@ describe("HomeTodos", () => {
     setup([todo({ id: "a", text: "Mow" }), todo({ text: "Rake" })]);
     await userEvent.click(screen.getByRole("checkbox", { name: "Done: Mow" }));
     expect(rows()).toEqual(["Rake"]);
-    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, TODAY);
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 

@@ -4,9 +4,14 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
-vi.mock("@/lib/db", () => ({
-  prisma: { maintenanceItem: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() } },
-}));
+vi.mock("@/lib/db", () => {
+  const prisma: any = {
+    maintenanceItem: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    listItem: { deleteMany: vi.fn(), updateMany: vi.fn() },
+  };
+  prisma.$transaction = (ops: unknown[]) => Promise.all(ops);
+  return { prisma };
+});
 
 import { getIronSession } from "iron-session";
 import { revalidatePath } from "next/cache";
@@ -91,9 +96,11 @@ describe("updateMaintenanceItemAction", () => {
 });
 
 describe("deleteMaintenanceItemAction", () => {
-  it("deletes the household's own item", async () => {
+  it("deletes the household's own item, and its open to-do (done ones stay as history)", async () => {
     expect(await deleteMaintenanceItemAction("m1")).toEqual({ ok: true });
     expect(prisma.maintenanceItem.delete).toHaveBeenCalledWith({ where: { id: "m1" } });
+    expect(prisma.listItem.deleteMany).toHaveBeenCalledWith({ where: { maintenanceItemId: "m1", checked: false } });
+    expect(revalidatePath).toHaveBeenCalledWith("/todo");
   });
   it("leaves another household's item alone", async () => {
     vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(null);
@@ -103,9 +110,15 @@ describe("deleteMaintenanceItemAction", () => {
 });
 
 describe("markServicedAction", () => {
-  it("records the date given (the browser's today)", async () => {
+  it("records the date given (the browser's today), and checks off its open to-do, keeping the previous date", async () => {
+    vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue({ id: "m1", householdId: "h1", lastServicedOn: day("2026-07-05") } as any);
     expect(await markServicedAction("m1", "2026-10-05")).toEqual({ ok: true });
     expect(prisma.maintenanceItem.update).toHaveBeenCalledWith({ where: { id: "m1" }, data: { lastServicedOn: day("2026-10-05") } });
+    expect(prisma.listItem.updateMany).toHaveBeenCalledWith({
+      where: { maintenanceItemId: "m1", checked: false },
+      data: { checked: true, checkedAt: expect.any(Date), previousServicedOn: day("2026-07-05") },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/home");
   });
   it("refuses a bad date, and another household's item", async () => {
     expect(await markServicedAction("m1", "nope")).toEqual({ ok: false, error: "Choose a valid date" });

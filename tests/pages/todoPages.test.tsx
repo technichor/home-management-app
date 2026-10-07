@@ -7,6 +7,7 @@ vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/todo", () => ({ loadTodo: vi.fn() }));
+vi.mock("@/lib/maintenanceTodos", () => ({ syncMaintenanceTodos: vi.fn() }));
 vi.mock("@/lib/householdMembers", () => ({ memberOptionsOf: vi.fn() }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 const seen: Record<string, any> = {};
@@ -16,13 +17,14 @@ vi.mock("@/app/(app)/todo/actions", () => ({ recordTodoComparisonAction: vi.fn()
 
 import { getIronSession } from "iron-session";
 import { loadTodo } from "@/lib/todo";
+import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import { memberOptionsOf } from "@/lib/householdMembers";
 import { recordTodoComparisonAction } from "@/app/(app)/todo/actions";
 import TodoPage from "@/app/(app)/todo/page";
 import PrioritizeTodoPage from "@/app/(app)/todo/prioritize/page";
 
 const todo = (over: Record<string, unknown> = {}) => ({
-  id: "i1", text: "Mow", notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, ...over,
+  id: "i1", text: "Mow", notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }];
 
@@ -37,6 +39,8 @@ beforeEach(() => {
 describe("TodoPage", () => {
   it("loads the household's to-do list and members, with who the user is, and the browser's date", async () => {
     render(await TodoPage({ searchParams: Promise.resolve({ today: "2026-10-07" }) }));
+    expect(syncMaintenanceTodos).toHaveBeenCalledWith("h1", "2026-10-07");
+    expect(vi.mocked(syncMaintenanceTodos).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(loadTodo).mock.invocationCallOrder[0]);
     expect(loadTodo).toHaveBeenCalledWith("h1");
     expect(memberOptionsOf).toHaveBeenCalledWith("h1");
     expect(seen.client).toMatchObject({ open: [todo()], done: [todo({ id: "d1", done: true })], members, myContactId: "c-me", today: "2026-10-07" });

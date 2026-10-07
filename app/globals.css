@@ -1262,6 +1262,10 @@ a.brief-row:hover {
   overflow-wrap: anywhere;
   cursor: pointer;
 }
+.todo-maintenance {
+  margin-right: 6px;
+  color: var(--muted);
+}
 .todo-has-notes {
   color: var(--faint);
 }

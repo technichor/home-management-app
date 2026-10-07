@@ -205,7 +205,8 @@ test("suggestions: due for a repeat and family staples, one-tap add, shuffle", a
   await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
   await page.getByRole("dialog").getByLabel("Meal").fill("Already");
   await page.getByRole("dialog").getByRole("button", { name: "Already planned" }).click();
-  await expect(entries(page)).toHaveText(["Already planned"]);
+  // ("Just had", three days ago, is also in this week from Wednesday on, so look for this entry only.)
+  await expect(entries(page).filter({ hasText: "Already planned" })).toHaveCount(1);
 
   await page.getByRole("button", { name: "Ideas" }).click();
   const panel = page.locator(".suggest-panel");
@@ -219,7 +220,7 @@ test("suggestions: due for a repeat and family staples, one-tap add, shuffle", a
 
   // One tap adds it to the chosen day and meal (today's dinner by default), and it stops being suggested.
   await panel.getByRole("button", { name: "Add Fresh" }).first().click();
-  await expect(entries(page)).toHaveText(["Already planned", "Fresh"]);
+  await expect(entries(page).filter({ hasNotText: "Just had" })).toHaveText(["Already planned", "Fresh"]);
   await expect(list("Due for a repeat")).toHaveText(["Old favourite", "Staple"]);
 
   // Shuffle redraws without breaking anything.

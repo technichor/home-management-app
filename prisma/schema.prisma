@@ -207,8 +207,17 @@ model ListItem {
   dueDate             DateTime?        @db.Date
   rating              Float            @default(1500)
   comparisonCount     Int              @default(0)
+  // A TODO item made for a maintenance service that is due (see lib/maintenanceTodos.ts): which item, the service date
+  // it stands for, and (once checked off) the item's previous last-serviced date, so unchecking can undo it.
+  maintenanceItemId   String?
+  maintenanceItem     MaintenanceItem? @relation(fields: [maintenanceItemId], references: [id], onDelete: SetNull)
+  serviceDueOn        DateTime?        @db.Date
+  previousServicedOn  DateTime?        @db.Date
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
+
+  // One to-do per service date of an item, so two page loads at once can't both create it.
+  @@unique([maintenanceItemId, serviceDueOn])
 }
 
 // A household-to-household handshake, attached to the Contact it was started from.
@@ -612,6 +621,7 @@ model MaintenanceItem {
   notes              String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  todos              ListItem[]
 
   @@index([householdId])
 }

@@ -83,3 +83,71 @@ test("another household can't see or open an inventory item", async ({ browser, 
   expect(response?.status()).toBe(404);
   await context.close();
 });
+
+test("a service that comes due is a to-do: checking it off records the service, and the other way round", async ({ page }) => {
+  await newOwner(page, "maintodo", "The Servicers");
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+  const today = fmt(now);
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  const longAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  const shown = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const lastServiced = () => page.locator(".ant-descriptions-row", { hasText: "Last serviced" }).locator(".ant-descriptions-item-content");
+
+  // Two items due now (serviced three months ago, every three months), one far from due.
+  const addItem = async (name: string, last: string, every = "3") => {
+    await page.goto("/maintenance/new");
+    await page.getByLabel("Name").fill(name);
+    await page.getByLabel("Service every (months)").fill(every);
+    await page.getByLabel("Last serviced").fill(last);
+    await page.getByRole("button", { name: "Add item" }).click();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    return new URL(page.url()).pathname;
+  };
+  const filters = await addItem("Air filters", fmt(threeMonthsAgo));
+  const heater = await addItem("Water heater", fmt(longAgo), "12");
+  await addItem("Gutters", today, "6");
+
+  // They are on the to-do list, marked as maintenance, due; the far one isn't.
+  await page.goto("/todo");
+  const list = page.getByLabel("To-dos");
+  await expect(list.locator(".todo-text")).toHaveText(["Maintenance: Air filters", "Maintenance: Water heater"]);
+  await expect(list.locator(".todo-maintenance")).toHaveCount(2);
+  // Due today (or a day or two either side, near month ends where "three months ago" lands on another day).
+  await expect(list.locator(".todo-row", { hasText: "Air filters" }).locator(".todo-due")).toBeVisible();
+
+  // Checking one off records the service: the item's next service moves on.
+  await list.getByRole("checkbox", { name: "Done: Maintenance: Air filters" }).click();
+  await expect(list.getByText("Maintenance: Air filters")).toHaveCount(0);
+  await page.goto(filters);
+  await expect(lastServiced()).toHaveText(shown(now));
+
+  // Unchecking it undoes that.
+  await page.goto("/todo");
+  await page.getByRole("button", { name: "Done (1)" }).click();
+  await page.getByLabel("Done").getByRole("checkbox", { name: "Done: Maintenance: Air filters" }).click();
+  await expect(list.getByText("Maintenance: Air filters")).toBeVisible();
+  await expect(async () => {
+    await page.goto(filters);
+    await expect(lastServiced()).toHaveText(shown(threeMonthsAgo), { timeout: 2_000 });
+  }).toPass();
+
+  // "Serviced today" on the item checks its to-do off.
+  await page.getByRole("button", { name: "Serviced today" }).click();
+  await expect(lastServiced()).toHaveText(shown(now));
+  await page.goto("/todo");
+  await expect(list.locator(".todo-text")).toHaveText(["Maintenance: Water heater"]);
+
+  // A maintenance to-do is skipped, not deleted; it stays closed (and the item is untouched).
+  await list.getByRole("button", { name: /^Maintenance: Water heater/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("link", { name: "Water heater" })).toHaveAttribute("href", heater);
+  await expect(dialog.getByRole("button", { name: "Delete" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Skip this time" }).click();
+  await page.getByRole("tooltip").getByRole("button", { name: "Skip" }).click();
+  await expect(page.getByText("Nothing to do. Add something above.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Nothing to do. Add something above.")).toBeVisible();
+  await page.goto(heater);
+  await expect(lastServiced()).toHaveText(shown(longAgo));
+});

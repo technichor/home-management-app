@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/auth";
 import { attempt, UserError } from "@/lib/actionResult";
-import { stringToDate } from "@/lib/dates";
+import { dateToString, isDateString, stringToDate } from "@/lib/dates";
 import { updateRatings, type ComparisonOutcome } from "@/lib/elo";
 import { assertMemberChoice } from "@/lib/householdMembers";
 import { getOrCreateTodoList, RANK_GAP, ratingsInOrder, todoFieldsSchema, type TodoFields } from "@/lib/todo";
@@ -26,6 +26,7 @@ function parse<T>(result: { success: true; data: T } | { success: false; error: 
 function refresh() {
   revalidatePath("/todo");
   revalidatePath("/home");
+  revalidatePath("/maintenance", "layout");
 }
 
 /** Add a to-do at the bottom of the order (lowest priority until it is moved up). */
@@ -73,12 +74,50 @@ export async function updateTodoAction(id: string, fields: Partial<TodoFields>) 
   });
 }
 
-/** Mark a to-do done or not done. Undone, it goes back to its old place in the order. */
-export async function setTodoDoneAction(id: string, done: boolean) {
+/**
+ * Mark a to-do done or not done (`today` is the browser's date). Undone, it goes back to its old place in the order.
+ * A maintenance to-do also records the service: done sets the item's last service to today (keeping the previous date
+ * on the to-do), and undone puts that previous date back. One that was skipped records nothing either way.
+ */
+export async function setTodoDoneAction(id: string, done: boolean, today: string) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
-    await loadItem(householdId, id);
-    await prisma.listItem.update({ where: { id }, data: { checked: done, checkedAt: done ? new Date() : null } });
+    if (!isDateString(today)) throw new UserError("Choose a valid date");
+    const item = await loadItem(householdId, id);
+    if (item.maintenanceItemId === null || done === item.checked) {
+      await prisma.listItem.update({ where: { id }, data: { checked: done, checkedAt: done ? new Date() : null } });
+    } else if (done) {
+      const serviceItem = await prisma.maintenanceItem.findUniqueOrThrow({ where: { id: item.maintenanceItemId } });
+      const previous = serviceItem.lastServicedOn;
+      await prisma.$transaction([
+        // A later date already recorded (serviced ahead, entered by hand) is kept.
+        ...(previous === null || dateToString(previous) < today
+          ? [prisma.maintenanceItem.update({ where: { id: serviceItem.id }, data: { lastServicedOn: stringToDate(today) } })]
+          : []),
+        prisma.listItem.update({ where: { id }, data: { checked: true, checkedAt: new Date(), previousServicedOn: previous } }),
+      ]);
+    } else {
+      await prisma.$transaction([
+        ...(item.previousServicedOn
+          ? [prisma.maintenanceItem.update({ where: { id: item.maintenanceItemId }, data: { lastServicedOn: item.previousServicedOn } })]
+          : []),
+        prisma.listItem.update({ where: { id }, data: { checked: false, checkedAt: null, previousServicedOn: null } }),
+      ]);
+    }
+    refresh();
+  });
+}
+
+/**
+ * Close a maintenance to-do without recording a service ("skip this time"). It stays with the done items, and the
+ * reminder comes back once those are cleared (after 30 days) if the item still needs service.
+ */
+export async function skipMaintenanceTodoAction(id: string) {
+  const householdId = await requireHouseholdId();
+  return attempt(async () => {
+    const item = await loadItem(householdId, id);
+    if (item.maintenanceItemId === null) throw new UserError("Only a maintenance to-do can be skipped");
+    await prisma.listItem.update({ where: { id }, data: { checked: true, checkedAt: new Date(), previousServicedOn: null } });
     refresh();
   });
 }
