@@ -21,6 +21,7 @@ import { DEFAULT_TODO_FILTER, dueLabel, MAX_TODO_TEXT, moveInOrder, todoVisible,
 import { addTodoAction, clearDoneTodosAction, reorderTodosAction, setTodoDoneAction, updateTodoAction } from "./actions";
 import { ANYONE, assigneeOptions } from "./assignees";
 import TodoDetailDialog from "./TodoDetailDialog";
+import { localDateString } from "@/lib/dates";
 
 /** Look again this often while the tab is visible (someone else may have changed the list). */
 export const TODO_POLL_MS = 30_000;
@@ -226,7 +227,7 @@ export default function TodoClient({
         setOpen(before.open);
         setDone(before.done);
       },
-      () => setTodoDoneAction(item.id, isDone, today),
+      () => setTodoDoneAction(item.id, isDone, localDateString()),
     );
   }
 

@@ -5,7 +5,6 @@ import { render, screen, within } from "@testing-library/react";
 vi.mock("@/lib/auth", () => ({ pageMember: vi.fn() }));
 vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
-vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
 vi.mock("@/lib/homeAttention", () => ({ loadAttention: vi.fn() }));
 vi.mock("@/lib/maintenanceTodos", () => ({ syncMaintenanceTodos: vi.fn() }));
 vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/todo")>()), homeTodos: vi.fn() }));
@@ -16,7 +15,6 @@ vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local
 import { pageMember } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
 import { getMealPlanSettings } from "@/lib/mealPlan";
-import { getCalendarSettings } from "@/lib/calendarItem";
 import { loadAttention } from "@/lib/homeAttention";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import { homeTodos, type TodoItem } from "@/lib/todo";
@@ -36,9 +34,9 @@ const birthday = (date: string, over: Partial<AgendaContactDateEntry> = {}): Age
 });
 const meal = (date: string, dish = "Tacos"): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, createdAt: "", editable: false });
 
-/** getAgenda is called twice: for the week, then for the panel (today through a week ahead). */
-function agendas(week: AgendaEntry[], panel: AgendaEntry[] = []) {
-  vi.mocked(getAgenda).mockImplementation((async (_h: string, start: string) => ({ entries: start === "2026-10-07" ? panel : week })) as any);
+/** The week's entries, from the shared agenda. */
+function agendas(week: AgendaEntry[]) {
+  vi.mocked(getAgenda).mockResolvedValue({ entries: week });
 }
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
   id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: "2026-10-07", done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
@@ -49,7 +47,6 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(pageMember).mockResolvedValue(me() as any);
   vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
-  vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
   vi.mocked(loadAttention).mockResolvedValue([]);
   agendas([]);
   vi.mocked(homeTodos).mockResolvedValue([]);
@@ -129,81 +126,24 @@ describe("HomePage: needs attention", () => {
   });
 });
 
-describe("HomePage: today & coming up", () => {
-  it("asks for today through a week ahead, and includes meals only when the calendar shows them", async () => {
+describe("HomePage: the lists", () => {
+  it("asks the agenda once, for the week only (there is no separate today-and-ahead list)", async () => {
     await run();
-    const panelCall = vi.mocked(getAgenda).mock.calls[1];
-    expect(panelCall.slice(0, 3)).toEqual(["h1", "2026-10-07", "2026-10-14"]);
-    expect(panelCall[3]).toEqual({ includeMeals: false });
-    vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: true });
-    vi.mocked(getAgenda).mockClear();
-    await run();
-    expect(vi.mocked(getAgenda).mock.calls[1][3]).toMatchObject({ includeMeals: true });
+    expect(getAgenda).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Today & coming up/)).toBeNull();
   });
 
-  it("says plainly when there is nothing today or ahead, and always offers the calendar", async () => {
+  it("puts Needs attention, then To-do, then Day by day (the order on a phone; the grid moves Day by day right on a wide screen)", async () => {
     await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.getByText("Nothing today, and nothing in the next 7 days")).toBeInTheDocument();
-    expect(panel.getByRole("link", { name: "View calendar" })).toHaveAttribute("href", "/calendar?view=week&today=2026-10-07");
+    const order = [...document.querySelectorAll(".brief-lists > section")].map((el) => el.getAttribute("aria-label") ?? el.querySelector("h2")?.textContent);
+    expect(order).toEqual(["Needs attention", "To-do", "Day by day"]);
+    expect(section("Needs attention")).toHaveClass("home-attention");
+    expect(section("Day by day")).toHaveClass("home-days");
   });
 
-  it("lists today in full: contact dates, events with times, and meals", async () => {
-    agendas([], [
-      birthday("2026-10-07", { turns: 41 }),
-      item("2026-10-07", { title: "Picture day" }),
-      item("2026-10-07", { title: "Dentist", startTime: "09:30", endTime: "10:15", assigneeName: "Sam" }),
-      meal("2026-10-07"),
-    ]);
+  it("offers the calendar from Day by day", async () => {
     await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.getByText("Today", { selector: ".brief-sub" })).toBeInTheDocument();
-    expect(panel.getByText("Turns 41.")).toBeInTheDocument();
-    expect(panel.getByText("9:30 AM – 10:15 AM · Sam.")).toBeInTheDocument();
-    expect(panel.getByText("Event")).toBeInTheDocument(); // an untimed one
-    expect(panel.getByText("9:30 AM", { selector: ".brief-index" })).toBeInTheDocument();
-    expect(panel.getByText("Whole household.")).toBeInTheDocument();
-    expect(panel.getByText("Dinner: Tacos")).toBeInTheDocument();
-    expect(panel.getByText("Planned meal.")).toBeInTheDocument();
-  });
-
-  it("shows a contact date without a year as coming from the contacts", async () => {
-    agendas([], [birthday("2026-10-07")]);
-    await run();
-    expect(within(section("Today & coming up")).getByText("From your contacts.")).toBeInTheDocument();
-  });
-
-  it("links each entry to where it lives: the calendar's day, the contact, or the planner", async () => {
-    agendas([], [item("2026-10-07", { title: "Picture day" }), birthday("2026-10-07"), meal("2026-10-07")]);
-    await run();
-    const hrefs = within(section("Today & coming up")).getAllByRole("link").map((l) => l.getAttribute("href"));
-    expect(hrefs).toContain("/calendar?view=day&date=2026-10-07&today=2026-10-07");
-    expect(hrefs).toContain("/contacts/c9");
-    expect(hrefs).toContain("/meals?week=2026-10-07&today=2026-10-07");
-  });
-
-  it("lists the next seven days' events and contact dates by weekday, not meals", async () => {
-    agendas([], [
-      item("2026-10-09", { title: "Soccer", startTime: "17:00" }),
-      birthday("2026-10-12", { title: "Kim's birthday" }),
-      meal("2026-10-09"),
-    ]);
-    await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.getByText("Next 7 days")).toBeInTheDocument();
-    expect(panel.getByText("Fri 9")).toBeInTheDocument();
-    expect(panel.getByText("Mon 12")).toBeInTheDocument();
-    expect(panel.getByText("Soccer")).toBeInTheDocument();
-    expect(panel.getByText("Kim's birthday")).toBeInTheDocument();
-    expect(panel.queryByText("Dinner: Tacos")).toBeNull();
-  });
-
-  it("caps the upcoming list and links to the calendar for the rest", async () => {
-    agendas([], Array.from({ length: 9 }, (_, i) => item("2026-10-09", { title: `Event ${i}` })));
-    await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.getAllByText(/^Event \d$/)).toHaveLength(6);
-    expect(panel.getByRole("link", { name: "+3 more" })).toHaveAttribute("href", "/calendar?view=week&today=2026-10-07");
+    expect(within(section("Day by day")).getByRole("link", { name: "View calendar" })).toHaveAttribute("href", "/calendar?view=week&today=2026-10-07");
   });
 
   it("passes the signed-in member's to-dos (theirs and Anyone's, by the browser's date) to the To-do column", async () => {
@@ -220,11 +160,4 @@ describe("HomePage: today & coming up", () => {
     expect(homeTodos).toHaveBeenLastCalledWith("h1", null, "2026-10-07");
   });
 
-  it("leaves out the sub-headings of lists that are empty", async () => {
-    agendas([], [item("2026-10-07", { title: "Only today" })]);
-    await run();
-    const panel = within(section("Today & coming up"));
-    expect(panel.queryByText("Next 7 days")).toBeNull();
-    expect(panel.queryByText("+1 more")).toBeNull();
-  });
 });

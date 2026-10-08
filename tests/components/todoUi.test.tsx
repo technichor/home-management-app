@@ -40,6 +40,7 @@ import {
   updateTodoAction,
 } from "@/app/(app)/todo/actions";
 import type { TodoItem } from "@/lib/todo";
+import { localDateString } from "@/lib/dates";
 
 const TODAY = "2026-10-07";
 let n = 0;
@@ -234,7 +235,7 @@ describe("finishing", () => {
     setup({ open: [todo({ id: "a", text: "Mow" }), todo({ id: "b", text: "Rake" })] });
     await userEvent.click(screen.getByRole("checkbox", { name: "Done: Mow" }));
     expect(openTexts()).toEqual(["Rake"]);
-    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, TODAY);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, localDateString());
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
     await userEvent.click(screen.getByRole("button", { name: "Done (1)" }));
     expect(within(screen.getByLabelText("Done")).getByText("Mow")).toBeInTheDocument();
@@ -259,7 +260,7 @@ describe("finishing", () => {
     expect(done.getByText("Anyone")).toBeInTheDocument();
     expect(screen.queryByLabelText("Drag to reorder Mow")).toBeNull();
     await userEvent.click(done.getByRole("checkbox", { name: "Done: Mow" }));
-    expect(setTodoDoneAction).toHaveBeenCalledWith("d", false, TODAY);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("d", false, localDateString());
     expect(openTexts()).toEqual(["Rake", "Mow"]);
     expect(screen.queryByRole("button", { name: /Done \(/ })).toBeNull();
   });
@@ -448,7 +449,7 @@ describe("a to-do made for a maintenance service", () => {
     setup({ open: [service()] });
     expect(screen.getByRole("button", { name: /^Maintenance: Furnace/ }).querySelector(".todo-maintenance")).not.toBeNull();
     await userEvent.click(screen.getByRole("checkbox", { name: "Done: Maintenance: Furnace" }));
-    expect(setTodoDoneAction).toHaveBeenCalledWith("s1", true, TODAY);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("s1", true, localDateString());
   });
 
   it("links to its item and says checking it off records the service; it can be skipped, not deleted", async () => {

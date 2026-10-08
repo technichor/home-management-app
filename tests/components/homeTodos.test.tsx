@@ -11,6 +11,7 @@ vi.mock("@/app/(app)/todo/actions", () => ({ setTodoDoneAction: vi.fn() }));
 import HomeTodos, { HOME_TODOS_SHOWN, PHONE_SHOWN } from "@/app/(app)/home/HomeTodos";
 import { setTodoDoneAction } from "@/app/(app)/todo/actions";
 import type { TodoItem } from "@/lib/todo";
+import { localDateString } from "@/lib/dates";
 
 const TODAY = "2026-10-07";
 let n = 0;
@@ -61,7 +62,7 @@ describe("HomeTodos", () => {
     setup([todo({ id: "a", text: "Mow" }), todo({ text: "Rake" })]);
     await userEvent.click(screen.getByRole("checkbox", { name: "Done: Mow" }));
     expect(rows()).toEqual(["Rake"]);
-    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, TODAY);
+    expect(setTodoDoneAction).toHaveBeenCalledWith("a", true, localDateString());
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
 

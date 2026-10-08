@@ -709,22 +709,19 @@ html[data-pending] body {
   color: var(--accent);
   font-weight: 700;
 }
-/* The lists under the brief: one column on a phone (To-do after Needs attention); on a wide screen the To-do list is
-   a column of its own beside the others, using the room the narrow brief leaves. */
+/* The lists under the brief: Needs attention, then To-do, then Day by day in one column on a phone; on a wide screen
+   Needs attention and To-do on the left and Day by day in a column of its own on the right. */
 .brief-lists {
   padding-top: 32px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "attention" "todo" "today" "days";
+  grid-template-areas: "attention" "todo" "days";
 }
 .home-attention {
   grid-area: attention;
 }
 .home-todos {
   grid-area: todo;
-}
-.home-today {
-  grid-area: today;
 }
 .home-days {
   grid-area: days;
@@ -742,15 +739,11 @@ html[data-pending] body {
 @media (min-width: 1100px) {
   .brief-lists {
     max-width: 1180px;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas: "attention todo" "today todo" "days todo";
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "attention days" "todo days";
     column-gap: 56px;
     align-items: start;
-  }
-  .home-todos {
-    position: sticky;
-    top: 16px;
   }
   /* The brief above lines up with the wider lists. */
   .brief-top .brief-inner {
@@ -1166,15 +1159,7 @@ a.brief-row:hover {
   }
 }
 
-/* Home: sub-headings and links inside "Today & coming up" */
-.brief-sub {
-  margin: 16px 0 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+/* Home: links under a list */
 .brief-more,
 .brief-more:hover {
   display: block;
@@ -1190,10 +1175,6 @@ a.brief-row:hover {
 .brief-row[data-overdue] .brief-index,
 .brief-row[data-overdue] .brief-title {
   color: var(--danger);
-}
-.brief-row[data-done] .brief-title {
-  text-decoration: line-through;
-  color: var(--faint);
 }
 
 /* ---- To-do (app/(app)/todo): one list, built for add / drag / assign / done in one step each ---- */

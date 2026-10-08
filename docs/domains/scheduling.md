@@ -21,7 +21,7 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 ## Rules
 
 - **Dates are plain `YYYY-MM-DD` strings** (`lib/dates.ts`). "Today" is the browser's local date, supplied as `?today=` by `components/LocalToday.tsx`; pages wait for it rather than guess from the server clock.
-- **The shared agenda** (`lib/agenda.ts` `getAgenda`) returns, for a date range, events, derived contact dates and (if asked) planned meals, in one order (`lib/agendaOrder.ts`). The calendar page, the home brief and the home "Today & coming up" panel all use it.
+- **The shared agenda** (`lib/agenda.ts` `getAgenda`) returns, for a date range, events, derived contact dates and (if asked) planned meals, in one order (`lib/agendaOrder.ts`). The calendar page and the home brief use it.
 - **Derived contact dates** repeat every year, show "turns N" when a birth year is known, link to the contact, and can't be edited on the calendar. A Feb 29 birthday shows on Feb 28 in non-leap years.
 - **Meals layer**: `showMeals` adds planned meals to the day and week views (not month). It is a household setting, toggled from the calendar header.
 - **Assignee filter** (`?who=`): shows one person's items plus whole-household items. Derived contact dates and meals are unaffected by it.
@@ -34,11 +34,11 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 
 ## Screens
 
-`/calendar?view=day|week|month&date=&who=&today=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's **Today & coming up** panel (your to-dos due, then today in full, then the next 7 days' events and contact dates) and the weekly brief read the same agenda.
+`/calendar?view=day|week|month&date=&who=&today=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.
 
 ## Key files
 
-`lib/dates.ts`, `lib/contactDates.ts`, `lib/agendaOrder.ts`, `lib/agenda.ts`, `lib/recurrence.ts`, `lib/calendarItem.ts` (schema, settings), `lib/householdMembers.ts` (assignee options), `lib/calendarView.ts` (hrefs, titles, grouping), `lib/homePanel.ts`, `lib/weekBrief.ts`; `app/(app)/calendar/{page,actions,CalendarClient,CalendarViews,QuickAdd,ItemDialogs}`; `lib/mealPlan.ts` (`entriesInRange`, `updatePlanSettings`).
+`lib/dates.ts`, `lib/contactDates.ts`, `lib/agendaOrder.ts`, `lib/agenda.ts`, `lib/recurrence.ts`, `lib/calendarItem.ts` (schema, settings), `lib/householdMembers.ts` (assignee options), `lib/calendarView.ts` (hrefs, titles, grouping), `lib/weekBrief.ts`; `app/(app)/calendar/{page,actions,CalendarClient,CalendarViews,QuickAdd,ItemDialogs}`; `lib/mealPlan.ts` (`entriesInRange`, `updatePlanSettings`).
 
 ## Decisions worth knowing
 
@@ -58,7 +58,7 @@ Migration 0023 is additive. Apply it to production (`npx prisma db execute --fil
 ## Still needs a manual check in a real browser
 
 1. **A real phone**: the day/week/month views, quick add with the on-screen keyboard, and reaching Calendar under More.
-2. **Evening "today"**: in your own time zone, confirm the highlighted day and "Today" on the home panel use your local date.
+2. **Evening "today"**: in your own time zone, confirm the highlighted day on the calendar and on Home uses your local date.
 3. **Two devices**: add or check an item on one; the other catches up within about 30 seconds.
 4. **Dark mode** on all three views, the strip and the home panel.
 6. **Birthdays**: add a birthday with and without a year, round-trip a CSV (birthday column present, absent, and blank), and check a Feb 29 birthday.

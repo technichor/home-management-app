@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Descriptions, Popconfirm, Space, Typography } from "antd";
-import { formatCalendarDate } from "@/lib/dates";
+import { formatCalendarDate, localDateString } from "@/lib/dates";
 import { ageLabel, ageYears, CATEGORY_LABELS, serviceStatus } from "@/lib/maintenance";
 import { deleteMaintenanceItemAction, markServicedAction } from "../actions";
 import type { MaintenanceFormItem } from "../MaintenanceForm";
@@ -21,7 +21,9 @@ export default function MaintenanceDetailClient({ item, today }: { item: Mainten
 
   async function serviced() {
     setError(null);
-    const result = await markServicedAction(item.id, today);
+    // The device's date at the moment of the click: the page's `today` can still be the server's (UTC) date for an
+    // instant after loading, and in the evening that is already tomorrow.
+    const result = await markServicedAction(item.id, localDateString());
     if (!result.ok) return setError(result.error);
     router.refresh();
   }

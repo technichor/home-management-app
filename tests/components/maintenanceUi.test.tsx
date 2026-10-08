@@ -21,6 +21,7 @@ import {
   markServicedAction,
   updateMaintenanceItemAction,
 } from "@/app/(app)/maintenance/actions";
+import { localDateString } from "@/lib/dates";
 
 const TODAY = "2026-10-05";
 beforeEach(() => vi.resetAllMocks());
@@ -217,8 +218,15 @@ describe("MaintenanceDetailClient", () => {
     vi.mocked(markServicedAction).mockResolvedValue({ ok: true });
     render(<MaintenanceDetailClient item={item()} today={TODAY} />);
     await userEvent.click(screen.getByRole("button", { name: "Serviced today" }));
-    await waitFor(() => expect(markServicedAction).toHaveBeenCalledWith("m1", TODAY));
+    await waitFor(() => expect(markServicedAction).toHaveBeenCalledWith("m1", localDateString()));
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+  });
+
+  it("records the device's date at the moment of the click, not the page's (which can still be the server's UTC date)", async () => {
+    vi.mocked(markServicedAction).mockResolvedValue({ ok: true });
+    render(<MaintenanceDetailClient item={item()} today="2000-01-01" />);
+    await userEvent.click(screen.getByRole("button", { name: "Serviced today" }));
+    await waitFor(() => expect(markServicedAction).toHaveBeenCalledWith("m1", localDateString()));
   });
 
   it("shows why recording service failed", async () => {

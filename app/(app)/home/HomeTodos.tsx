@@ -7,6 +7,7 @@ import { App, Checkbox } from "antd";
 import { ToolOutlined } from "@ant-design/icons";
 import { dueLabel, type TodoItem } from "@/lib/todo";
 import { setTodoDoneAction } from "@/app/(app)/todo/actions";
+import { localDateString } from "@/lib/dates";
 
 /** How many to-dos the home page lists before "+N more on the list" (a phone shows the first PHONE_SHOWN, then a toggle). */
 export const HOME_TODOS_SHOWN = 8;
@@ -29,7 +30,7 @@ export default function HomeTodos({ items, today }: { items: TodoItem[]; today: 
 
   async function finish(item: TodoItem) {
     setFinished((cur) => new Set(cur).add(item.id));
-    const result = await setTodoDoneAction(item.id, true, today);
+    const result = await setTodoDoneAction(item.id, true, localDateString());
     if (!result.ok) {
       setFinished((cur) => {
         const next = new Set(cur);

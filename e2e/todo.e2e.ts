@@ -147,10 +147,13 @@ test("Home has a To-do column: yours and Anyone's, due ones first, checkable the
   const column = page.getByRole("region", { name: "To-do" });
   await expect(column.locator(".home-todo-row .brief-title")).toHaveText(["Overdue thing", "Top priority"]);
   await expect(column.locator(".home-todo-row").first()).toHaveAttribute("data-overdue", "true");
-  // On a wide screen it is a column to the right of the other lists.
+  // On a wide screen it sits under Needs attention, with Day by day in the column to the right.
   const todoBox = await column.boundingBox();
   const attentionBox = await page.locator(".home-attention").boundingBox();
-  expect(todoBox!.x).toBeGreaterThan(attentionBox!.x + attentionBox!.width);
+  const daysBox = await page.locator(".home-days").boundingBox();
+  expect(todoBox!.x).toBe(attentionBox!.x);
+  expect(todoBox!.y).toBeGreaterThan(attentionBox!.y);
+  expect(daysBox!.x).toBeGreaterThan(attentionBox!.x + attentionBox!.width);
   // Checking one off here takes it off the list.
   await column.getByRole("checkbox", { name: "Done: Top priority" }).click();
   await expect(column.getByText("Top priority")).toHaveCount(0);
