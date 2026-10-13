@@ -9,6 +9,7 @@ import {
   visibleToAssignee,
   type AgendaContactDateEntry,
   type AgendaEntry,
+  type AgendaGoogleEntry,
   type AgendaItemEntry,
   type AgendaMealEntry,
 } from "@/lib/agendaOrder";
@@ -19,13 +20,17 @@ const created = () => `2026-10-01T00:00:${String(n++).padStart(2, "0")}.000Z`;
 
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
   source: "item", id: `i${n}`, itemId: "item", date: D, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, createdAt: created(), repeat: null, editable: true, ...over,
+  assigneeContactId: null, assigneeName: null, createdAt: created(), repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
 const contactDate = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${n++}`, date: D, title: "Date", type: "birthday", contactId: "c", turns: null, editable: false, ...over,
 });
 const meal = (over: Partial<AgendaMealEntry> = {}): AgendaMealEntry => ({
   source: "meal", id: `m${n++}`, date: D, slot: "DINNER", title: "Dinner: X", startTime: null, createdAt: created(), editable: false, ...over,
+});
+const google = (over: Partial<AgendaGoogleEntry> = {}): AgendaGoogleEntry => ({
+  source: "google", id: `g${n++}`, googleId: "g", date: D, title: "Google", startTime: null, endTime: null, link: null,
+  calendarName: "Work", color: null, ownerName: "Sam", ownerContactId: null, editable: false, ...over,
 });
 const titles = (entries: AgendaEntry[]) => entries.map((e) => e.title);
 
@@ -112,6 +117,18 @@ describe("the order of a day", () => {
     // (Different sections, so the untimed one always comes first.)
     expect(compareAgenda(item({ startTime: "10:00" }), item())).toBeGreaterThan(0);
     expect(compareAgenda(item(), item({ startTime: "10:00" }))).toBeLessThan(0);
+  });
+
+  it("puts Google's events among Domata's by time, after Domata's otherwise, and by title among themselves", () => {
+    const entries = orderAgenda([
+      google({ title: "G late", startTime: "11:00" }),
+      google({ title: "G b" }),
+      item({ title: "Mine", startTime: "10:00" }),
+      google({ title: "G a" }),
+      item({ title: "Untimed mine" }),
+      google({ title: "G same", startTime: "10:00" }),
+    ]);
+    expect(titles(entries)).toEqual(["Untimed mine", "G a", "G b", "Mine", "G same", "G late"]);
   });
 });
 

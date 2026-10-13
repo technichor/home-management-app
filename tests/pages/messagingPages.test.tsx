@@ -18,6 +18,10 @@ vi.mock("@/app/invite/[token]/InviteResponse", () => ({
 }));
 vi.mock("@/components/ChangeEmailForm", () => ({ default: ({ currentEmail }: any) => <div>change email form for {currentEmail}</div> }));
 vi.mock("@/components/ChangePasswordForm", () => ({ default: () => <div>change password form</div> }));
+vi.mock("@/lib/googleCalendar", () => ({ googleAccountView: vi.fn(async () => ({ configured: false })) }));
+vi.mock("@/components/GoogleAccountCard", () => ({
+  default: (p: any) => ((seen.google = p), <div>google card</div>),
+}));
 vi.mock("@/app/(app)/account/AccountClient", () => ({
   default: (p: any) => ((seen.account = p), <div>account client</div>),
 }));
@@ -123,7 +127,7 @@ describe("AccountPage", () => {
       { id: "m1", firstName: "Sam", lastName: "Smith" },
       { id: "m2", firstName: "Pat", lastName: "Smith" },
     ] as any);
-    render(await AccountPage());
+    render(await AccountPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("change password form")).toBeInTheDocument();
     expect(screen.getByText("change email form for me@x.co")).toBeInTheDocument();
     expect(seen.account).toEqual({
@@ -143,14 +147,28 @@ describe("AccountPage", () => {
   it("passes no current contact when none is linked yet", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ contact: null } as any);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    render(await AccountPage());
+    render(await AccountPage({ searchParams: Promise.resolve({}) }));
     expect(seen.account.current).toBeNull();
   });
 
   it("copes with the user row being missing", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
-    render(await AccountPage());
+    render(await AccountPage({ searchParams: Promise.resolve({}) }));
     expect(seen.account.current).toBeNull();
+  });
+
+  it("passes the member's Google view and the outcome of linking Google", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
+    render(await AccountPage({ searchParams: Promise.resolve({ google: "connected" }) }));
+    expect(seen.google).toEqual({ view: { configured: false }, outcome: "connected" });
+  });
+
+  it("passes no outcome when the page wasn't reached from Google", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
+    render(await AccountPage({ searchParams: Promise.resolve({}) }));
+    expect(seen.google.outcome).toBeNull();
   });
 });

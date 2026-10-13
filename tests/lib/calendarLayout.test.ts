@@ -17,7 +17,7 @@ const D = "2026-10-07";
 let n = 0;
 const item = (startTime: string | null, endTime: string | null = null, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
   source: "item", id: `i${++n}`, itemId: `i${n}`, date: D, title: `Item ${n}`, notes: null, startTime, endTime,
-  assigneeContactId: null, assigneeName: null, createdAt: "", repeat: null, editable: true, ...over,
+  assigneeContactId: null, assigneeName: null, createdAt: "", repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
 const meal = (startTime: string | null): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date: D, slot: "DINNER", title: "Dinner: Tacos", startTime, createdAt: "", editable: false });
 const birthday = (): AgendaContactDateEntry => ({ source: "contact_date", id: `c${++n}`, date: D, title: "Jo's birthday", type: "birthday", contactId: "c", turns: null, editable: false });

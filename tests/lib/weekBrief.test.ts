@@ -7,7 +7,7 @@ const START = "2026-10-04";
 let n = 0;
 const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
   source: "item", id: `i${++n}`, itemId: "item", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
-  assigneeName: null, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
+  assigneeName: null, createdAt: `2026-10-01T00:00:${String(n % 60).padStart(2, "0")}Z`, repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
 const event = (date: string, title: string, over: Partial<AgendaItemEntry> = {}) => item(date, { title, ...over });
 const birthday = (date: string, title: string, turns: number | null = null): AgendaContactDateEntry => ({

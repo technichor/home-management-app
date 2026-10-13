@@ -147,7 +147,7 @@ model Contact {
   user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
   ownerHouseholdId String?
-  ownerHousehold   Household?     @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
+  ownerHousehold   Household?      @relation("ContactDirectory", fields: [ownerHouseholdId], references: [id], onDelete: Restrict)
 
   @@index([ownerHouseholdId])
 }
@@ -335,6 +335,7 @@ model User {
   joinRequests       JoinRequest[]
   // Sessions started before this are signed out (set on password change/reset).
   passwordChangedAt  DateTime?
+  googleConnection   GoogleConnection?
   resetTokens        PasswordResetToken[]
   // Null until the user confirms the address by clicking the emailed link.
   emailVerifiedAt    DateTime?
@@ -561,23 +562,28 @@ enum RepeatUnit {
 }
 
 model CalendarItem {
-  id                String       @id @default(cuid())
+  id                String      @id @default(cuid())
   householdId       String
-  household         Household    @relation(fields: [householdId], references: [id])
+  household         Household   @relation(fields: [householdId], references: [id])
   title             String
   notes             String?
-  date              DateTime     @db.Date
+  date              DateTime    @db.Date
   startTime         String?
   endTime           String?
   assigneeContactId String?
-  assignee          Contact?     @relation(fields: [assigneeContactId], references: [id], onDelete: SetNull)
+  assignee          Contact?    @relation(fields: [assigneeContactId], references: [id], onDelete: SetNull)
   // Repeating (see lib/recurrence.ts): every `repeatEvery` days/weeks/months/years from `date`, optionally until a
   // date; occurrences are computed on read. Null repeatUnit: does not repeat.
   repeatUnit        RepeatUnit?
-  repeatEvery       Int          @default(1)
-  repeatUntil       DateTime?    @db.Date
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  repeatEvery       Int         @default(1)
+  repeatUntil       DateTime?   @db.Date
+  // Google Calendar: whether to create this event in the household's Google calendar (on by default), the Google
+  // event it became, and the last error sending it (shown on the event), if any.
+  toGoogle          Boolean     @default(true)
+  googleEventId     String?
+  googleSyncError   String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   @@index([householdId, date])
   @@index([assigneeContactId])
@@ -586,10 +592,45 @@ model CalendarItem {
 // Household-wide calendar settings, created with these defaults the first time they are read. (The week's first day
 // is not here: the calendar shares MealPlanSettings.weekStartsOn.)
 model CalendarSettings {
-  householdId String    @id
-  household   Household @relation(fields: [householdId], references: [id])
-  showMeals   Boolean   @default(false)
-  updatedAt   DateTime  @updatedAt
+  householdId          String    @id
+  household            Household @relation(fields: [householdId], references: [id])
+  showMeals            Boolean   @default(false)
+  // The household's time zone (IANA name). Domata's times are wall-clock; Google needs to know where.
+  timeZone             String    @default("America/Chicago")
+  // The Google calendar Domata's events are created in (lib/googleCalendar.ts), in the Google account of
+  // `googleCalendarUserId` (a household owner who connected Google). Null: events aren't sent to Google.
+  googleCalendarId     String?
+  googleCalendarName   String?
+  googleCalendarUserId String?
+  updatedAt            DateTime  @updatedAt
+}
+
+// A member's link to their own Google account (the Google Calendar integration, docs/domains/google-calendar.md).
+// The tokens are encrypted (lib/secretBox.ts): never stored or logged in plain text. needsReconnect is set when Google
+// refuses the refresh token (revoked, expired): the member has to connect again.
+model GoogleConnection {
+  userId               String                 @id
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail          String
+  refreshToken         String
+  accessToken          String?
+  accessTokenExpiresAt DateTime?
+  needsReconnect       Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  sharedCalendars      GoogleSharedCalendar[]
+}
+
+// One of a member's Google calendars that they chose to show on the household's calendar (read-only in Domata).
+model GoogleSharedCalendar {
+  id         String           @id @default(cuid())
+  userId     String
+  connection GoogleConnection @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  calendarId String
+  name       String
+  color      String?
+
+  @@unique([userId, calendarId])
 }
 
 enum MaintenanceCategory {

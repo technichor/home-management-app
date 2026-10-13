@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, App, Button, Input, Modal, Popconfirm, Select, Space, Typography } from "antd";
+import { Alert, App, Button, Checkbox, Input, Modal, Popconfirm, Select, Space, Typography } from "antd";
 import type { RepeatUnit } from "@prisma/client";
 import { formatCalendarDate } from "@/lib/dates";
 import { timeLabel } from "@/lib/calendarView";
@@ -16,10 +16,13 @@ const EVERYONE = "";
 /** One event: what it is, with edit and delete. Notes are plain text, never HTML. */
 export function ItemDetailDialog({
   item,
+  googleCalendarName = null,
   onEdit,
   onClose,
 }: {
   item: AgendaItemEntry | null;
+  /** The household's Google calendar, when Domata's events go to one. */
+  googleCalendarName?: string | null;
   onEdit: (item: AgendaItemEntry) => void;
   onClose: () => void;
 }) {
@@ -45,6 +48,10 @@ export function ItemDetailDialog({
           </Typography.Text>
           {item.repeat && <Typography.Text type="secondary">{describeRepeat(item.repeat.unit, item.repeat.every, item.repeat.until)} (editing or deleting changes every occurrence)</Typography.Text>}
           {item.notes && <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6 }}>{item.notes}</div>}
+          {googleCalendarName && item.google.error && <Alert type="warning" showIcon title={`Couldn't update Google Calendar: ${item.google.error}`} />}
+          {googleCalendarName && !item.google.error && item.google.sent && (
+            <Typography.Text type="secondary">In Google Calendar ({googleCalendarName}), with the people it&apos;s for invited.</Typography.Text>
+          )}
           <Space>
             <Button onClick={() => onEdit(item)}>Edit</Button>
             <Popconfirm title="Delete this item?" okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => remove(item.itemId)}>
@@ -63,21 +70,34 @@ export type FormTarget = { mode: "create"; date: string; startTime?: string } | 
 export function ItemFormDialog({
   target,
   assignees,
+  googleCalendarName = null,
   onClose,
 }: {
   target: FormTarget | null;
   assignees: MemberOption[];
+  /** The household's Google calendar, when Domata's events go to one (then the form offers it). */
+  googleCalendarName?: string | null;
   onClose: () => void;
 }) {
   return (
     <Modal title={target?.mode === "edit" ? "Edit event" : "New event"} open={target !== null} onCancel={onClose} footer={null} destroyOnHidden>
       {/* Keyed so each opening starts from its own item or date. */}
-      {target && <FormBody key={target.mode === "edit" ? target.item.id : `new-${target.date}-${target.startTime ?? ""}`} target={target} assignees={assignees} onClose={onClose} />}
+      {target && <FormBody key={target.mode === "edit" ? target.item.id : `new-${target.date}-${target.startTime ?? ""}`} target={target} assignees={assignees} googleCalendarName={googleCalendarName} onClose={onClose} />}
     </Modal>
   );
 }
 
-function FormBody({ target, assignees, onClose }: { target: FormTarget; assignees: MemberOption[]; onClose: () => void }) {
+function FormBody({
+  target,
+  assignees,
+  googleCalendarName,
+  onClose,
+}: {
+  target: FormTarget;
+  assignees: MemberOption[];
+  googleCalendarName: string | null;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const editing = target.mode === "edit" ? target.item : null;
   const [title, setTitle] = useState(editing?.title ?? "");
@@ -90,6 +110,7 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
   const [endTime, setEndTime] = useState(editing?.endTime ?? "");
   const [assignee, setAssignee] = useState(editing?.assigneeContactId ?? EVERYONE);
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [toGoogle, setToGoogle] = useState(editing?.google.wanted ?? true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -116,6 +137,7 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
         repeatUnit: repeatUnit || null,
         repeatEvery,
         repeatUntil: repeatUnit ? repeatUntil : "",
+        toGoogle,
       };
       const result = editing ? await updateCalendarItemAction(editing.itemId, fields) : await createCalendarItemAction(fields);
       if (!result.ok) return setError(result.error);
@@ -158,6 +180,11 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
       </Space>
       <Select value={assignee} onChange={setAssignee} options={options} aria-label="Assigned to" style={{ width: "100%" }} />
       <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" aria-label="Notes" autoSize={{ minRows: 3, maxRows: 8 }} maxLength={5000} />
+      {googleCalendarName && (
+        <Checkbox checked={toGoogle} onChange={(e) => setToGoogle(e.target.checked)}>
+          Create Google Calendar event <Typography.Text type="secondary">(in {googleCalendarName}, inviting the people it&apos;s for)</Typography.Text>
+        </Checkbox>
+      )}
       <Space>
         <Button type="primary" loading={busy} disabled={!title.trim()} onClick={save}>
           {editing ? "Save" : "Add"}

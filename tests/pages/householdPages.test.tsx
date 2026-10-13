@@ -27,6 +27,8 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/app/(app)/household/HouseholdClient", () => ({
   default: (props: any) => <pre data-testid="client">{JSON.stringify(props)}</pre>,
 }));
+vi.mock("@/lib/googleCalendar", () => ({ householdGoogleView: vi.fn(async () => ({ configured: false })), TIME_ZONES: ["UTC"] }));
+vi.mock("@/components/HouseholdGoogleCard", () => ({ default: (p: any) => <pre data-testid="google">{JSON.stringify(p)}</pre> }));
 vi.mock("@/app/join/[token]/AcceptInvite", () => ({ default: ({ token }: any) => <div>accept {token}</div> }));
 
 import HouseholdPage from "@/app/(app)/household/page";
@@ -97,6 +99,12 @@ describe("HouseholdPage", () => {
     expect(props).toMatchObject({ isOwner: false, joinCode: null, invites: [], requests: [] });
     expect(prisma.householdInvite.findMany).not.toHaveBeenCalled();
     expect(prisma.joinRequest.findMany).not.toHaveBeenCalled();
+  });
+
+  it("shows the household's Google calendar settings, editable by an owner", async () => {
+    vi.mocked(pageMember).mockResolvedValue({ id: "u2", role: "MEMBER", householdId: "h1", household } as any);
+    render(await HouseholdPage());
+    expect(JSON.parse(screen.getByTestId("google").textContent!)).toEqual({ view: { configured: false }, isOwner: false, timeZones: ["UTC"] });
   });
 });
 

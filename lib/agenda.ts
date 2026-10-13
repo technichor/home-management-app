@@ -42,6 +42,7 @@ function toItemEntry(row: ItemRow, occurrence?: string): AgendaItemEntry {
     assigneeContactId: row.assigneeContactId,
     assigneeName: row.assignee ? calendarName(row.assignee) : null,
     createdAt: row.createdAt.toISOString(),
+    google: { wanted: row.toGoogle, sent: row.googleEventId !== null, error: row.googleSyncError },
     repeat: row.repeatUnit
       ? { unit: row.repeatUnit, every: row.repeatEvery, until: row.repeatUntil ? dateToString(row.repeatUntil) : null, start: dateToString(row.date) }
       : null,

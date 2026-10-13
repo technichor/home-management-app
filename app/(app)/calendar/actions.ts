@@ -7,6 +7,7 @@ import { attempt, UserError } from "@/lib/actionResult";
 import { stringToDate, type WeekStart } from "@/lib/dates";
 import { updatePlanSettings } from "@/lib/mealPlan";
 import { assertMemberChoice } from "@/lib/householdMembers";
+import { removeItemFromGoogle, syncItemToGoogle } from "@/lib/googlePush";
 import { calendarItemSchema, getCalendarSettings, type CalendarItemFields } from "@/lib/calendarItem";
 
 // Server actions are public endpoints: each one takes the household from the session and only ever touches that
@@ -39,6 +40,7 @@ const dataOf = (f: ReturnType<typeof parseFields>) => ({
   repeatUnit: f.repeatUnit,
   repeatEvery: f.repeatUnit ? f.repeatEvery : 1,
   repeatUntil: f.repeatUnit && f.repeatUntil ? stringToDate(f.repeatUntil) : null,
+  toGoogle: f.toGoogle,
 });
 
 /** Add an event (an event with no time is a reminder). */
@@ -48,6 +50,7 @@ export async function createCalendarItemAction(fields: CalendarItemFields) {
     const data = parseFields(fields);
     await assertMemberChoice(householdId, data.assigneeContactId);
     const created = await prisma.calendarItem.create({ data: { householdId, ...dataOf(data) } });
+    await syncItemToGoogle(created.id); // into the household's Google calendar, if it has one (never fails the save)
     refresh();
     return { id: created.id };
   });
@@ -61,15 +64,17 @@ export async function updateCalendarItemAction(id: string, fields: CalendarItemF
     const data = parseFields(fields);
     await assertMemberChoice(householdId, data.assigneeContactId, item.assigneeContactId);
     await prisma.calendarItem.update({ where: { id }, data: dataOf(data) });
+    await syncItemToGoogle(id);
     refresh();
   });
 }
 
-/** Hard delete (no undo, no history). */
+/** Hard delete (no undo, no history), from Google too if it was sent there. */
 export async function deleteCalendarItemAction(id: string) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
-    await loadItem(householdId, id);
+    const item = await loadItem(householdId, id);
+    await removeItemFromGoogle(item);
     await prisma.calendarItem.delete({ where: { id } });
     refresh();
   });

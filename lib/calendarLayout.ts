@@ -21,7 +21,7 @@ export function hhmm(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-/** An entry's start time, if it has one: events with a time, and meals whose kind has a usual time. */
+/** An entry's start time, if it has one: events (Domata's or Google's) with a time, and meals whose kind has a usual time. */
 export function startOf(entry: AgendaEntry): string | null {
   return entry.source === "contact_date" ? null : entry.startTime;
 }
@@ -50,7 +50,7 @@ export function layoutDay(entries: AgendaEntry[]): Block[] {
     .filter((e) => startOf(e) !== null)
     .map((entry) => {
       const start = minutesOf(startOf(entry)!);
-      const end = entry.source === "item" && entry.endTime ? minutesOf(entry.endTime) : Math.min(start + DEFAULT_BLOCK_MINUTES, DAY_MINUTES);
+      const end = (entry.source === "item" || entry.source === "google") && entry.endTime ? minutesOf(entry.endTime) : Math.min(start + DEFAULT_BLOCK_MINUTES, DAY_MINUTES);
       return { entry, start, end };
     })
     .sort((a, b) => a.start - b.start || b.end - a.end);

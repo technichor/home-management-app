@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within, act } from "@testing-library/react";
+import { render, screen, waitFor, within, act, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "antd";
 
@@ -17,7 +17,7 @@ vi.mock("@/app/(app)/calendar/actions", () => ({
 import CalendarClient from "@/app/(app)/calendar/CalendarClient";
 import { CALENDAR_POLL_MS, CALENDAR_LIST_QUERY } from "@/lib/calendarView";
 import { datesInRange, viewRange } from "@/lib/dates";
-import type { AgendaContactDateEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
+import type { AgendaContactDateEntry, AgendaGoogleEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 import {
   createCalendarItemAction,
   deleteCalendarItemAction,
@@ -31,13 +31,17 @@ const TODAY = "2026-10-07";
 let n = 0;
 const item = (over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
   source: "item", id: `i${++n}`, itemId: over.id ?? `i${n}`, date: TODAY, title: "Item", notes: null, startTime: null, endTime: null,
-  assigneeContactId: null, assigneeName: null, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, repeat: null, editable: true, ...over,
+  assigneeContactId: null, assigneeName: null, createdAt: `2026-10-01T00:00:${String(n).padStart(2, "0")}Z`, repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
 const birthday = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date: TODAY, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,
 });
 const meal = (over: Partial<AgendaMealEntry> = {}): AgendaMealEntry => ({
   source: "meal", id: `m${++n}`, date: TODAY, slot: "DINNER", title: "Dinner: Tacos", startTime: null, createdAt: "2026-10-01T00:00:00Z", editable: false, ...over,
+});
+const gEvent = (over: Partial<AgendaGoogleEntry> = {}): AgendaGoogleEntry => ({
+  source: "google", id: `g${++n}`, googleId: `g${n}`, date: TODAY, title: "Standup", startTime: null, endTime: null, link: "https://calendar.google.com/e",
+  calendarName: "Work", color: "#f00", ownerName: "Sam", ownerContactId: "m1", editable: false, ...over,
 });
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }, { id: "m2", name: "Ann", fullName: "Ann Doe" }];
 
@@ -481,7 +485,7 @@ describe("the full form", () => {
     await userEvent.click(form.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith({
       title: "Dentist", date: "2026-10-09", notes: "Bring the card", startTime: "09:00", endTime: "10:00", assigneeContactId: "m2",
-      repeatUnit: null, repeatEvery: 1, repeatUntil: "",
+      repeatUnit: null, repeatEvery: 1, repeatUntil: "", toGoogle: true,
     }));
     await waitFor(() => expect(router.refresh).toHaveBeenCalled());
   });
@@ -660,5 +664,90 @@ describe("the hour grid", () => {
     act(() => vi.advanceTimersByTime(60_000));
     expect(parseFloat(now().style.top)).toBeCloseTo(((14 * 60 + 31) / 60) * 48);
     vi.useRealTimers();
+  });
+});
+
+describe("Google Calendar", () => {
+  it("shows a member's Google event as a link to it in Google, saying whose calendar it's from", () => {
+    setup({ entries: [gEvent({ title: "Flight" })] });
+    const link = weekList().getByRole("link", { name: /Flight/ });
+    expect(link).toHaveAttribute("href", "https://calendar.google.com/e");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("title", "Sam's Work (Google Calendar)");
+    expect(link).toHaveTextContent("Sam");
+  });
+
+  it("shows a timed Google event on the hour grid, with its owner, and on the month as a chip", () => {
+    setup({ entries: [gEvent({ title: "Standup", startTime: "09:00", endTime: "09:15", link: null, color: null })] });
+    const block = grid().getByTitle(/Standup.*Sam's Work \(Google Calendar\)/);
+    expect(block).toHaveClass("tg-block-google");
+    expect(block).toHaveTextContent("Sam");
+    expect(block).not.toHaveAttribute("href");
+    expect(weekList().getByTitle("Sam's Work (Google Calendar)").querySelector(".cal-time")).not.toBeNull();
+    cleanup();
+    month({ entries: [gEvent({ title: "Trip" })] });
+    expect(screen.getByRole("link", { name: /Trip/ })).toHaveClass("cal-chip");
+  });
+
+  it("opens a Google event in Google, not a new event, when its grid block is clicked", async () => {
+    setup({ entries: [gEvent({ title: "Standup", startTime: "09:00" })] });
+    await userEvent.click(grid().getByTitle(/Standup/));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("warns about calendars Google couldn't give just now", () => {
+    setup({ googleProblems: ["Sam's Work", "Ann's Family"] });
+    expect(screen.getByText(/Couldn't read from Google just now: Sam's Work, Ann's Family/)).toBeInTheDocument();
+  });
+
+  it("offers no Google option on the form, and no status, when the household has no Google calendar", async () => {
+    setup({ entries: [item({ title: "Dentist", google: { wanted: true, sent: true, error: null } })] });
+    await userEvent.click(screen.getByRole("button", { name: "New event" }));
+    expect((await dialogTitled("New event")).queryByText(/Create Google Calendar event/)).toBeNull();
+    cleanup();
+    setup({ entries: [item({ title: "Dentist", google: { wanted: true, sent: true, error: "Nope (403)" } })] });
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.queryByText(/Google/)).toBeNull();
+  });
+
+  it("creates the Google event by default, and can be told not to", async () => {
+    setup({ googleCalendarName: "Family" });
+    await userEvent.click(screen.getByRole("button", { name: "New event" }));
+    const form = await dialogTitled("New event");
+    const box = form.getByRole("checkbox", { name: /Create Google Calendar event \(in Family/ });
+    expect(box).toBeChecked();
+    await userEvent.type(form.getByLabelText("Title"), "Dentist");
+    await userEvent.click(box);
+    await userEvent.click(form.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledWith(expect.objectContaining({ title: "Dentist", toGoogle: false })));
+  });
+
+  it("keeps an event's own choice when editing it", async () => {
+    setup({ googleCalendarName: "Family", entries: [item({ id: "i9", title: "Dentist", google: { wanted: false, sent: false, error: null } })] });
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
+    const form = await dialogTitled("Edit event");
+    expect(form.getByRole("checkbox", { name: /Create Google Calendar event/ })).not.toBeChecked();
+    await userEvent.click(form.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateCalendarItemAction).toHaveBeenCalledWith("i9", expect.objectContaining({ toGoogle: false })));
+  });
+
+  it("says an event is in Google, or why Google couldn't be updated", async () => {
+    setup({ googleCalendarName: "Family", entries: [item({ title: "Dentist", google: { wanted: true, sent: true, error: null } })] });
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
+    expect(within(await screen.findByRole("dialog")).getByText(/In Google Calendar \(Family\)/)).toBeInTheDocument();
+    cleanup();
+    setup({ googleCalendarName: "Family", entries: [item({ title: "Dentist", google: { wanted: true, sent: true, error: "Google Calendar: Forbidden (403)" } })] });
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Couldn't update Google Calendar: Google Calendar: Forbidden (403)")).toBeInTheDocument();
+    expect(dialog.queryByText(/In Google Calendar/)).toBeNull();
+  });
+
+  it("says nothing about Google for an event not sent there", async () => {
+    setup({ googleCalendarName: "Family", entries: [item({ title: "Dentist", google: { wanted: false, sent: false, error: null } })] });
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
+    expect(within(await screen.findByRole("dialog")).queryByText(/Google/)).toBeNull();
   });
 });

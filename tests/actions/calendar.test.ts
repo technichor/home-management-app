@@ -4,6 +4,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock("iron-session", () => ({ getIronSession: vi.fn() }));
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
+vi.mock("@/lib/googlePush", () => ({ syncItemToGoogle: vi.fn(), removeItemFromGoogle: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     calendarItem: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -26,6 +27,7 @@ import {
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { resolveCalendarRange } from "@/lib/dates";
 import { updateMealPlanSettingsAction } from "@/app/(app)/meals/actions";
+import { removeItemFromGoogle, syncItemToGoogle } from "@/lib/googlePush";
 
 const day = (d: string) => new Date(`${d}T00:00:00Z`);
 const item = (over: Record<string, unknown> = {}) => ({
@@ -72,10 +74,16 @@ describe("createCalendarItemAction", () => {
     const result = await createCalendarItemAction({ title: "  Picture day ", notes: "Wear blue\nsmile", date: "2026-10-08", startTime: "09:00", endTime: "10:00" });
     expect(result).toEqual({ ok: true, id: "new1" });
     expect(prisma.calendarItem.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null },
+      data: { householdId: "h1", title: "Picture day", notes: "Wear blue\nsmile", date: day("2026-10-08"), startTime: "09:00", endTime: "10:00", assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, toGoogle: true },
     });
+    expect(syncItemToGoogle).toHaveBeenCalledWith("new1");
     expect(revalidatePath).toHaveBeenCalledWith("/calendar");
     expect(revalidatePath).toHaveBeenCalledWith("/home");
+  });
+
+  it("leaves an event out of Google when asked", async () => {
+    await createCalendarItemAction({ ...fields, toGoogle: false });
+    expect(vi.mocked(prisma.calendarItem.create).mock.calls[0][0].data).toMatchObject({ toGoogle: false });
   });
 
   it("adds a reminder (an event with no time)", async () => {
@@ -140,8 +148,10 @@ describe("updateCalendarItemAction", () => {
     expect(prisma.calendarItem.findFirst).toHaveBeenCalledWith({ where: { id: "i1", householdId: "h1" } });
     expect(prisma.calendarItem.update).toHaveBeenCalledWith({
       where: { id: "i1" },
-      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null },
+      data: { title: "Dentist (moved)", notes: null, date: day("2026-10-09"), startTime: "14:00", endTime: null, assigneeContactId: null, repeatUnit: null, repeatEvery: 1, repeatUntil: null, toGoogle: true },
     });
+    expect(syncItemToGoogle).toHaveBeenCalledWith("i1");
+    expect(vi.mocked(prisma.calendarItem.update).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(syncItemToGoogle).mock.invocationCallOrder[0]);
   });
 
   it("treats another household's item as gone, changing nothing", async () => {
@@ -192,6 +202,13 @@ describe("deleteCalendarItemAction", () => {
     expect(await deleteCalendarItemAction("i1")).toEqual({ ok: true });
     expect(prisma.calendarItem.findFirst).toHaveBeenCalledWith({ where: { id: "i1", householdId: "h1" } });
     expect(prisma.calendarItem.delete).toHaveBeenCalledWith({ where: { id: "i1" } });
+  });
+
+  it("removes the item from Google first", async () => {
+    vi.mocked(prisma.calendarItem.findFirst).mockResolvedValue(item({ googleEventId: "ev1" }) as any);
+    await deleteCalendarItemAction("i1");
+    expect(removeItemFromGoogle).toHaveBeenCalledWith(expect.objectContaining({ householdId: "h1", googleEventId: "ev1" }));
+    expect(vi.mocked(removeItemFromGoogle).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(prisma.calendarItem.delete).mock.invocationCallOrder[0]);
   });
 
   it("treats another household's item as gone", async () => {

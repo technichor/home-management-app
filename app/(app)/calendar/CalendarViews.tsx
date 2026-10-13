@@ -5,7 +5,7 @@ import Link from "next/link";
 import { PlusOutlined } from "@ant-design/icons";
 import { formatCalendarDate, formatDayHeading, type CalendarView } from "@/lib/dates";
 import { CALENDAR_LIST_QUERY, MAX_CHIPS, groupByDate, plannerHref, timeLabel, weeksOf } from "@/lib/calendarView";
-import type { AgendaEntry, AgendaItemEntry } from "@/lib/agendaOrder";
+import type { AgendaEntry, AgendaGoogleEntry, AgendaItemEntry } from "@/lib/agendaOrder";
 import { allDayEntries, DAY_MINUTES, hhmm, hourLabel, HOUR_PX, layoutDay, minuteAt, openingMinute, type Block } from "@/lib/calendarLayout";
 
 /** What every view needs to draw an entry and react to it. */
@@ -36,6 +36,7 @@ function EntryLine({ entry, ctx, compact = false }: { entry: AgendaEntry; ctx: E
       </Link>
     );
   }
+  if (entry.source === "google") return <GoogleEntryLine entry={entry} compact={compact} />;
 
   const when = timeLabel(entry.startTime, entry.endTime);
 
@@ -45,6 +46,28 @@ function EntryLine({ entry, ctx, compact = false }: { entry: AgendaEntry; ctx: E
       <span className="cal-entry-title">{entry.title}</span>
       {entry.assigneeName && <span className="cal-muted"> {entry.assigneeName}</span>}
     </button>
+  );
+}
+
+/** Where an event from Google came from, for its tooltip: "Sam's Work (Google Calendar)". */
+const googleOrigin = (entry: AgendaGoogleEntry) => `${entry.ownerName}'s ${entry.calendarName} (Google Calendar)`;
+
+/** An event from a member's shared Google calendar: read-only, coloured like its calendar, opening it in Google. */
+function GoogleEntryLine({ entry, compact }: { entry: AgendaGoogleEntry; compact: boolean }) {
+  const when = timeLabel(entry.startTime, entry.endTime);
+  return (
+    <a
+      href={entry.link ?? undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`cal-entry cal-entry-google${compact ? " cal-chip" : ""}`}
+      style={{ borderLeftColor: entry.color ?? undefined }}
+      title={googleOrigin(entry)}
+    >
+      {when && <span className="cal-time">{when}</span>}
+      <span className="cal-entry-title">{entry.title}</span>
+      <span className="cal-muted"> {entry.ownerName}</span>
+    </a>
   );
 }
 
@@ -72,7 +95,9 @@ function useNowMinute(): number | null {
   return now;
 }
 
-const blockLabel = (b: Block) => `${timeLabel(hhmm(b.start), b.entry.source === "item" ? b.entry.endTime : null)} ${b.entry.title}`;
+/** A block's end time to show: an event's own (Domata's or Google's); meals are drawn half an hour but have no end. */
+const endOf = (entry: AgendaEntry) => (entry.source === "item" || entry.source === "google" ? entry.endTime : null);
+const blockLabel = (b: Block) => `${timeLabel(hhmm(b.start), endOf(b.entry))} ${b.entry.title}`;
 
 function GridBlock({ block, ctx }: { block: Block; ctx: EntryContext }) {
   const { entry } = block;
@@ -88,8 +113,9 @@ function GridBlock({ block, ctx }: { block: Block; ctx: EntryContext }) {
     <>
       <span className="tg-block-title">{entry.title}</span>
       <span className="tg-block-time">
-        {timeLabel(hhmm(block.start), entry.source === "item" ? entry.endTime : null)}
+        {timeLabel(hhmm(block.start), endOf(entry))}
         {entry.source === "item" && entry.assigneeName && ` · ${entry.assigneeName}`}
+        {entry.source === "google" && ` · ${entry.ownerName}`}
       </span>
     </>
   );
@@ -105,6 +131,22 @@ function GridBlock({ block, ctx }: { block: Block; ctx: EntryContext }) {
       >
         {body}
       </Link>
+    );
+  }
+  if (entry.source === "google") {
+    return (
+      <a
+        href={entry.link ?? undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="tg-block tg-block-google"
+        data-short={short}
+        style={{ ...style, borderLeftColor: entry.color ?? undefined }}
+        title={`${blockLabel(block)} · ${googleOrigin(entry)}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {body}
+      </a>
     );
   }
   return (
