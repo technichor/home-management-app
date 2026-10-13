@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.mocked(prisma.mealPlanEntry.count).mockResolvedValue(0);
   vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([]);
   vi.mocked(loadShopping).mockResolvedValue({ listId: "g1", items: [] });
-  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
+  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
 });
 
 describe("MealLibraryPage", () => {
@@ -164,11 +164,11 @@ describe("PlannerPage", () => {
   it("shows the week containing the browser's today, for a Sunday-start household", async () => {
     await run({ today: "2026-10-07" }); // a Wednesday
     expect(seen.planner).toMatchObject({ weekStart: "2026-10-04", today: "2026-10-07" });
-    expect(seen.planner.settings).toEqual({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
+    expect(seen.planner.settings).toEqual({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
   });
 
   it("starts the week on Monday when the household has chosen that, including for a Sunday", async () => {
-    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
+    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
     await run({ today: "2026-10-07" });
     expect(seen.planner.weekStart).toBe("2026-10-05");
     await run({ today: "2026-10-04" });

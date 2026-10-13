@@ -336,7 +336,7 @@ html[data-pending] body {
   display: grid;
   /* Cells flow down a column (a day's header, then its slots), so the rows line up across days. */
   grid-auto-flow: column;
-  grid-template-columns: 84px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 116px repeat(7, minmax(0, 1fr));
   grid-template-rows: auto repeat(var(--planner-rows, 2), minmax(96px, auto));
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -352,12 +352,42 @@ html[data-pending] body {
 }
 .planner-label {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
+  gap: 4px;
   padding: 10px 8px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 500;
   background: var(--subtle);
+}
+/* A meal's usual time, under its name (and in the planner settings). */
+.planner-time {
+  width: 100%;
+  max-width: 120px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+}
+.planner-time:hover,
+.planner-time:focus {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.planner-time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.planner-time-row .planner-time {
+  border-color: var(--border);
 }
 .planner-day {
   padding: 8px 10px;
@@ -1028,10 +1058,190 @@ a.brief-row:hover {
   color: var(--accent);
 }
 
+/* The hour grid (week on a wide screen, and the day view): hours down the left, blocks placed by time
+   (lib/calendarLayout.ts). The week shows it above 1100px and its list of days below that. */
+.cal-week-grid {
+  display: block;
+}
+@media (min-width: 1101px) {
+  .cal-week {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .cal-week-grid {
+    display: none;
+  }
+}
+.tg {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.tg-row {
+  display: grid;
+}
+.tg-heads > *:not(:first-child),
+.tg-allday > *:not(:first-child),
+.tg-col {
+  border-left: 1px solid var(--border);
+}
+.tg-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+.tg-head[data-today] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tg-head[data-today] .cal-day-link strong {
+  color: var(--accent);
+}
+.tg-allday {
+  border-bottom: 1px solid var(--border);
+}
+.tg-gutter-label {
+  padding: 6px 6px 0 0;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: right;
+}
+.tg-allday-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 4px;
+}
+.tg-scroll {
+  max-height: max(360px, calc(100vh - 280px));
+  overflow-y: auto;
+}
+.tg-body {
+  position: relative;
+}
+.tg-hours {
+  position: relative;
+}
+.tg-hour {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tg-col {
+  position: relative;
+  min-width: 0;
+  /* A line at every hour (HOUR_PX apart). */
+  background-image: repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 48px);
+  cursor: cell;
+}
+/* Today is tinted when there are other days beside it (the week), not in the one-day view. */
+.tg[data-days="7"] .tg-col[data-today] {
+  background-color: var(--accent-soft);
+}
+.tg-block,
+.tg-block:hover {
+  text-decoration: none;
+}
+.tg-block {
+  box-sizing: border-box;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 0;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+.tg-block:hover {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.tg-block-meal {
+  border-left-color: var(--border-strong);
+  background: var(--subtle);
+  color: var(--muted);
+}
+.tg-block-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.tg-block-time {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* A short block (half an hour or less) is one line: "Title, 9:30 AM", cut off at the end if it doesn't fit. */
+.tg-block[data-short] {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+}
+.tg-block[data-short] .tg-block-title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.tg-block[data-short] .tg-block-title::after {
+  content: ",";
+}
+.tg-block[data-short] .tg-block-time {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tg-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--danger);
+  pointer-events: none;
+}
+.tg-now::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
 /* Day */
 .cal-dayview-head {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .cal-section {
   margin-bottom: 16px;

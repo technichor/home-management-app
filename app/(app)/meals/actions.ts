@@ -204,11 +204,15 @@ export async function updateMealPlanSettingsAction(patch: {
   showBreakfast?: boolean;
   showLunch?: boolean;
   showDinner?: boolean;
+  breakfastTime?: string | null;
+  lunchTime?: string | null;
+  dinnerTime?: string | null;
 }) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     const result = await updatePlanSettings(householdId, patch);
     if (!result.ok) throw new UserError(result.error);
     refreshPlan();
+    revalidatePath("/calendar"); // the meals layer shows each meal at its time
   });
 }

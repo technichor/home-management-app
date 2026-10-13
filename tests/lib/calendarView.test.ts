@@ -63,7 +63,7 @@ describe("times", () => {
 });
 
 describe("groupByDate and weeksOf", () => {
-  const entry = (id: string, date: string) => ({ source: "meal", id, date, slot: "DINNER", title: id, createdAt: "", editable: false }) as AgendaEntry;
+  const entry = (id: string, date: string) => ({ source: "meal", id, date, slot: "DINNER", title: id, startTime: null, createdAt: "", editable: false }) as AgendaEntry;
 
   it("groups entries by date, keeping their order", () => {
     const map = groupByDate([entry("a", "2026-10-05"), entry("b", "2026-10-06"), entry("c", "2026-10-05")]);

@@ -32,6 +32,12 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 
 `CalendarItem.repeatUnit` (DAY \| WEEK \| MONTH \| YEAR, null = doesn't repeat), `repeatEvery` (1-99), `repeatUntil`. Logic is `lib/recurrence.ts` (pure, no database). Nothing is stored per occurrence: `getAgenda` expands a repeating event for the viewed range (`expandEvent`), each occurrence an entry with a unique `id` (`<item>@<date>`) and `itemId` (the stored row; actions use it). Editing or deleting changes the whole series; the edit form shows the series' start date. Occurrence n is computed from the start date, clamping to a month's last day (a year is twelve months, so Feb 29 falls on Feb 28 in other years). **Not built**: skipping or changing one occurrence, weekday patterns ("Mon and Wed").
 
+## The hour grid (2026-10-13)
+
+The week (on screens wider than 1100px) and the day view are an hour grid like Google Calendar (`TimeGrid` in `CalendarViews.tsx`, layout in `lib/calendarLayout.ts`): hours down the left, a row along the top for what has no time (reminders, birthdays and dates, meals with no usual time), and each timed entry as a block from its start to its end. An event with no end time, and every meal, is drawn **30 minutes** long (nothing is stored). Overlapping blocks share the width side by side (the usual greedy column layout). Blocks of half an hour or less are one line ("Title, 9:30 AM"). The grid opens at 7 AM, or half an hour before an earlier entry; a red line marks the current time on today. **Clicking an open spot** opens "New event" with that day and half hour filled in. On a phone the week stays the list of days, and the day view is the grid; month is unchanged.
+
+**Meal times:** each meal kind has a usual time (`MealPlanSettings.breakfastTime/lunchTime/dinnerTime`, migration 0030), set under its name in the planner's left column or in the planner settings (the column is hidden on a phone). Planned meals with a time show on the grid at that time when "Show meals" is on; without one, along the top.
+
 ## Screens
 
 `/calendar?view=day|week|month&date=&who=&today=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.

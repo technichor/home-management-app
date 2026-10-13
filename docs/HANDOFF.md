@@ -1,6 +1,6 @@
 # Handoff: current state of Domata (the home management app)
 
-Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-06 after the To-do module) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and deployed at https://domata.app, including Meal Planning, Scheduling (events only, with recurrence), To-do, Maintenance and Accounts. Production migrations 0001-0029 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). The owner has said the project is in an experimental phase: work on a branch per piece of work, run the full gate, and merge to `main` without asking first (until told otherwise); `main` auto-deploys.
+Written 2026-10-01 (accounts section revised the same day, after the move to individual user accounts; status updated 2026-10-06 after the To-do module) so a new Claude Code session on another machine can pick up cleanly. Read this first, then `CLAUDE.md` (the original build brief) and `docs/domains/*.md` (per-domain requirements). **Branch status:** everything is merged to `main` and deployed at https://domata.app, including Meal Planning, Scheduling (events only, with recurrence), To-do, Maintenance and Accounts. Production migrations 0001-0030 are all applied. Remaining work is the manual browser checks (see "Verify by hand"). The owner has said the project is in an experimental phase: work on a branch per piece of work, run the full gate, and merge to `main` without asking first (until told otherwise); `main` auto-deploys.
 
 ## One-paragraph summary
 
@@ -67,13 +67,13 @@ The app lives at **https://domata.app** (registered at Vercel; DNS is Vercel's; 
 /lists                  active lists; /archived; /[id] items; /[id]/compare (pairwise ranking)
 /messages               channel list (?archived=1) and New channel; /[id] channel view with People panel
 /todo                   the household's to-do list (?today=); /prioritize (pairwise ranking, shared with Lists)
-/calendar               day/week/month calendar (?view=&date=&who=&today=): events and reminders (repeating or not), derived contact dates, optional meals layer
+/calendar               day/week/month calendar (?view=&date=&who=&today=): events and reminders (repeating or not), derived contact dates, optional meals layer; week (wide screens) and day are an hour grid like Google Calendar
 /maintenance            inventory list; /new; /[id] (+ "Serviced today"); /[id]/edit
 /accounts               account directory; /new; /[id]; /[id]/edit
 /meals                  week planner (?week=&today=); /library (+ /new, /[id], /[id]/edit); /shopping (the shopping list)
 ```
 
-### Data model (prisma/schema.prisma; migrations 0001–0029 in prisma/migrations, all applied to production; 0020-0022 are Meal Planning, 0023 Scheduling, 0024 recurrence, 0025 Maintenance, 0026 Accounts, 0027-0028 To-do, 0029 maintenance to-dos)
+### Data model (prisma/schema.prisma; migrations 0001–0030 in prisma/migrations, all applied to production; 0020-0022 are Meal Planning, 0023 Scheduling, 0024 recurrence, 0025 Maintenance, 0026 Accounts, 0027-0028 To-do, 0029 maintenance to-dos, 0030 meal times)
 User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Contact, ActivityLogEntry, ImportVersion (Contacts) · List, ListItem (`ListSortMode` MANUAL|PAIRWISE, `rating`, `comparisonCount`) · Sync, Conversation (a channel), ConversationMember, Message (Messaging) · `List.kind` (STANDARD|GROCERY|TODO), `ListItem.category`, `ListItem.dueDate` (To-do), Meal, MealPlanEntry, MealPlanSettings (Meal Planning) · CalendarItem (events; repeat fields), CalendarSettings, `Contact.birthdayMonth/Day/Year` (Scheduling) · MaintenanceItem · AccountRecord. Contacts use soft delete (`deletedAt`) and an activity log; Lists hard-delete (no soft delete, no activity log by design); Messages are soft-delete only and never edited.
 
 ### Key files

@@ -13,7 +13,7 @@ const event = (date: string, title: string, over: Partial<AgendaItemEntry> = {})
 const birthday = (date: string, title: string, turns: number | null = null): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date, title, type: "birthday", contactId: "c", turns, editable: false,
 });
-const dinner = (date: string, dish: string): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, createdAt: "2026-10-01T00:00:00Z", editable: false });
+const dinner = (date: string, dish: string): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, startTime: null, createdAt: "2026-10-01T00:00:00Z", editable: false });
 const lunch = (date: string, dish: string): AgendaMealEntry => ({ ...dinner(date, dish), slot: "LUNCH", title: `Lunch: ${dish}` });
 
 const brief = (entries: AgendaEntry[] = [], over: Partial<Parameters<typeof buildBrief>[0]> = {}) =>

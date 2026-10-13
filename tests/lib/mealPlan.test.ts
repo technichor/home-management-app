@@ -10,7 +10,7 @@ import { mealPlanSettingsSchema, planEntrySchema, planPositionSchema } from "@/l
 
 beforeEach(() => vi.resetAllMocks());
 
-const settings = (over: object = {}) => ({ weekStartsOn: "SUNDAY" as const, showBreakfast: false, showLunch: true, showDinner: true, ...over });
+const settings = (over: object = {}) => ({ weekStartsOn: "SUNDAY" as const, showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null, ...over });
 
 describe("slots", () => {
   it("are in day order with plain labels", () => {
@@ -22,7 +22,7 @@ describe("slots", () => {
     expect(visibleSlots(settings())).toEqual(["LUNCH", "DINNER"]);
     expect(visibleSlots(settings({ showBreakfast: true }))).toEqual(["BREAKFAST", "LUNCH", "DINNER"]);
     expect(visibleSlots(settings({ showLunch: false }))).toEqual(["DINNER"]);
-    expect(visibleSlots(settings({ showBreakfast: true, showLunch: false, showDinner: false }))).toEqual(["BREAKFAST"]);
+    expect(visibleSlots(settings({ showBreakfast: true, showLunch: false, showDinner: false, breakfastTime: null, lunchTime: null, dinnerTime: null }))).toEqual(["BREAKFAST"]);
   });
 });
 

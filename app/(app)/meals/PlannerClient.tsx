@@ -7,7 +7,8 @@ import { App, Badge, Button, Drawer, Popover, Select, Typography } from "antd";
 import SuggestionsPanel from "./SuggestionsPanel";
 import { BulbOutlined, LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { addDays, formatDayHeading, formatWeekRange, weekDates, weekStartOf, type WeekStart } from "@/lib/dates";
-import { SLOTS, SLOT_LABELS, visibleSlots, type PlanSettings } from "@/lib/mealPlan";
+import { SLOTS, SLOT_LABELS, SLOT_TIME_KEY, visibleSlots, type PlanSettings } from "@/lib/mealPlan";
+import type { MealSlot } from "@prisma/client";
 import { updateMealPlanSettingsAction } from "./actions";
 import AddEntryDialog, { type Cell, type LibraryOption } from "./AddEntryDialog";
 import EntryDetailDialog, { type DetailEntry } from "./EntryDetailDialog";
@@ -18,6 +19,27 @@ import { uncheckedCount, type ShoppingItem } from "@/lib/shoppingGroups";
 export const LIST_LAYOUT_QUERY = "(max-width: 1100px)";
 
 const SHOW_KEY = { BREAKFAST: "showBreakfast", LUNCH: "showLunch", DINNER: "showDinner" } as const;
+
+/**
+ * A meal's usual time, saved when the field is left (so typing "6", "30" doesn't save twice). Empty clears it. Keyed by
+ * the saved value where it is used, so a change from elsewhere resets what is shown.
+ */
+function MealTimeInput({ slot, value, onSave }: { slot: MealSlot; value: string | null; onSave: (time: string | null) => void }) {
+  const [time, setTime] = useState(value ?? "");
+  return (
+    <input
+      type="time"
+      className="planner-time"
+      value={time}
+      aria-label={`${SLOT_LABELS[slot]} time`}
+      title="When this meal usually is (it shows at this time on the calendar)"
+      onChange={(e) => setTime(e.target.value)}
+      onBlur={() => {
+        if ((time || null) !== value) onSave(time || null);
+      }}
+    />
+  );
+}
 
 export default function PlannerClient({
   weekStart,
@@ -75,6 +97,13 @@ export default function PlannerClient({
           { value: "MONDAY", label: "Monday" },
         ]}
       />
+      <Typography.Text type="secondary">Usual meal times</Typography.Text>
+      {SLOTS.map((slot) => (
+        <label key={slot} className="planner-time-row">
+          <span>{SLOT_LABELS[slot]}</span>
+          <MealTimeInput key={settings[SLOT_TIME_KEY[slot]] ?? ""} slot={slot} value={settings[SLOT_TIME_KEY[slot]]} onSave={(t) => change({ [SLOT_TIME_KEY[slot]]: t })} />
+        </label>
+      ))}
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         Settings are shared by your whole household.
       </Typography.Text>
@@ -147,6 +176,7 @@ export default function PlannerClient({
         {slots.map((slot) => (
           <div key={slot} className="planner-label">
             {SLOT_LABELS[slot]}
+            <MealTimeInput key={settings[SLOT_TIME_KEY[slot]] ?? ""} slot={slot} value={settings[SLOT_TIME_KEY[slot]]} onSave={(t) => change({ [SLOT_TIME_KEY[slot]]: t })} />
           </div>
         ))}
         {days.map((date) => {

@@ -541,6 +541,10 @@ model MealPlanSettings {
   showBreakfast Boolean      @default(false)
   showLunch     Boolean      @default(true)
   showDinner    Boolean      @default(true)
+  // When each meal usually is ("HH:MM", wall clock), or null. Used to place planned meals on the calendar's hours.
+  breakfastTime String?
+  lunchTime     String?
+  dinnerTime    String?
   updatedAt     DateTime     @updatedAt
 }
 

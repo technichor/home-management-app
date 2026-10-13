@@ -26,7 +26,7 @@ const agendaArgs = () => vi.mocked(getAgenda).mock.calls.at(-1)!;
 beforeEach(() => {
   vi.clearAllMocks();
   for (const k of Object.keys(seen)) delete seen[k];
-  vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
+  vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
   vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
   vi.mocked(memberOptionsOf).mockResolvedValue(members);
   vi.mocked(getAgenda).mockResolvedValue({ entries: [] });
@@ -49,7 +49,7 @@ describe("CalendarPage", () => {
   });
 
   it("honors the household's week start (the planner's setting)", async () => {
-    vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true });
+    vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
     await run({ today: "2026-10-04" });
     expect(seen.client).toMatchObject({ anchor: "2026-09-28", weekStartsOn: "MONDAY" });
   });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "antd";
 
@@ -29,7 +29,7 @@ import {
   updateMealPlanSettingsAction,
 } from "@/app/(app)/meals/actions";
 
-const settings = { weekStartsOn: "SUNDAY" as const, showBreakfast: false, showLunch: true, showDinner: true };
+const settings = { weekStartsOn: "SUNDAY" as const, showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null };
 const entries = [
   { id: "e1", date: "2026-10-05", slot: "DINNER" as const, mealId: "m1", label: "Tacos", description: "Line one\n  <b>fry</b>" },
   { id: "e2", date: "2026-10-05", slot: "DINNER" as const, mealId: "m2", label: "Rice", description: null },
@@ -200,6 +200,40 @@ describe("meal toggles and settings", () => {
     await userEvent.click(screen.getByRole("button", { name: "Breakfast" }));
     expect(await screen.findByText("Keep at least one meal visible")).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("sets a meal's usual time under its name, saving when the field is left", async () => {
+    setup();
+    const label = document.querySelectorAll(".planner-label")[1] as HTMLElement; // Dinner (lunch and dinner shown)
+    expect(label).toHaveTextContent("Dinner");
+    const time = within(label).getByLabelText("Dinner time");
+    expect(time).toHaveValue("");
+    fireEvent.change(time, { target: { value: "17:30" } });
+    expect(updateMealPlanSettingsAction).not.toHaveBeenCalled(); // not while typing
+    fireEvent.blur(time);
+    expect(updateMealPlanSettingsAction).toHaveBeenCalledWith({ dinnerTime: "17:30" });
+    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+  });
+
+  it("clears a meal's time, and saves nothing when it wasn't changed", async () => {
+    setup({ settings: { ...settings, lunchTime: "12:00" } });
+    const time = within(document.querySelectorAll(".planner-label")[0] as HTMLElement).getByLabelText("Lunch time");
+    expect(time).toHaveValue("12:00");
+    fireEvent.blur(time);
+    expect(updateMealPlanSettingsAction).not.toHaveBeenCalled();
+    fireEvent.change(time, { target: { value: "" } });
+    fireEvent.blur(time);
+    expect(updateMealPlanSettingsAction).toHaveBeenCalledWith({ lunchTime: null });
+  });
+
+  it("sets every meal's time from the settings popover too (the left column is hidden on a phone)", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Planner settings" }));
+    const panel = within((await screen.findByText("Usual meal times")).parentElement as HTMLElement);
+    const breakfast = panel.getByLabelText("Breakfast time");
+    fireEvent.change(breakfast, { target: { value: "07:15" } });
+    fireEvent.blur(breakfast);
+    expect(updateMealPlanSettingsAction).toHaveBeenCalledWith({ breakfastTime: "07:15" });
   });
 
   it("changes the week's first day from the settings popover", async () => {
@@ -485,7 +519,7 @@ describe("suggestions", () => {
   });
 
   it("starts on the first day of a week that doesn't include today, and on the last visible meal when dinner is hidden", async () => {
-    await show({ weekStart: "2026-10-18", settings: { ...settings, showDinner: false } });
+    await show({ weekStart: "2026-10-18", settings: { ...settings, showDinner: false, breakfastTime: null, lunchTime: null, dinnerTime: null } });
     await userEvent.click(ideas().panel.getAllByRole("button", { name: "Add Chili" })[0]);
     await waitFor(() => expect(addPlanEntryAction).toHaveBeenCalledWith("2026-10-18", "LUNCH", "m3"));
   });

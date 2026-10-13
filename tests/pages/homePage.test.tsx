@@ -32,7 +32,7 @@ const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntr
 const birthday = (date: string, over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,
 });
-const meal = (date: string, dish = "Tacos"): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, createdAt: "", editable: false });
+const meal = (date: string, dish = "Tacos"): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, startTime: null, createdAt: "", editable: false });
 
 /** The week's entries, from the shared agenda. */
 function agendas(week: AgendaEntry[]) {
@@ -46,7 +46,7 @@ const section = (title: string) => screen.getByText(title).closest("section") as
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(pageMember).mockResolvedValue(me() as any);
-  vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true });
+  vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
   vi.mocked(loadAttention).mockResolvedValue([]);
   agendas([]);
   vi.mocked(homeTodos).mockResolvedValue([]);
@@ -73,7 +73,7 @@ describe("HomePage: the week", () => {
   });
 
   it("starts the week on Monday for a household that chose that", async () => {
-    vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true });
+    vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
     await run({ today: "2026-10-04" });
     expect(screen.getByText("Week of Sep 28 – Oct 4, 2026")).toBeInTheDocument();
     expect(vi.mocked(getAgenda).mock.calls[0].slice(1, 3)).toEqual(["2026-09-28", "2026-10-04"]);

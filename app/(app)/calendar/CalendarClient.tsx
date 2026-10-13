@@ -64,6 +64,7 @@ export default function CalendarClient({
     today,
     onOpen: (item) => setOpenId(item.id),
     onAdd: (date) => setPrefill({ date, nonce: Date.now() }),
+    onAddAt: (date, startTime) => setForm({ mode: "create", date, startTime }),
     hrefFor: (v, date) => hrefFor(v, date),
   };
 

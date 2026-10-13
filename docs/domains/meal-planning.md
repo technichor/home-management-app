@@ -22,7 +22,7 @@ Access is the same as every other domain: any signed-in household account can re
 | `ListItem.category` (`GroceryCategory`, nullable) | 0020. Null in STANDARD lists. PRODUCE, MEAT_SEAFOOD, DAIRY_EGGS, BAKERY, PANTRY, FROZEN, BEVERAGES, SNACKS, HOUSEHOLD, OTHER. Labels and the fixed display order are in `lib/groceryCategories.ts`. |
 | `Meal` | 0021. `householdId`, `name`, `nameKey` (lowercased, trimmed name), `description`, timestamps. `@@unique([householdId, nameKey])`: names are unique per household, ignoring case. |
 | `MealPlanEntry` | 0021. `householdId`, `date` (`@db.Date`), `slot` (`MealSlot`), `mealId` (nullable, `onDelete: SetNull`), `text`. Exactly one of `mealId` / `text` is set (Zod `planEntrySchema` and the action layer). `@@index([householdId, date])`. |
-| `MealPlanSettings` | 0022. One row per household, keyed by `householdId`: `weekStartsOn` (SUNDAY default), `showBreakfast` (false), `showLunch` (true), `showDinner` (true). Created with these defaults on first read (`getMealPlanSettings`). At least one `show*` must stay true. |
+| `MealPlanSettings` | 0022. One row per household, keyed by `householdId`: `weekStartsOn` (SUNDAY default), `showBreakfast` (false), `showLunch` (true), `showDinner` (true). Created with these defaults on first read (`getMealPlanSettings`). At least one `show*` must stay true. Migration 0030 added `breakfastTime`/`lunchTime`/`dinnerTime` ("HH:MM" or null): each meal's usual time, set under its name in the planner (or in the planner settings), which places planned meals on the calendar's hour grid. |
 
 ## Rules
 

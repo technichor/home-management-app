@@ -37,7 +37,7 @@ const birthday = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactDate
   source: "contact_date", id: `c${++n}`, date: TODAY, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,
 });
 const meal = (over: Partial<AgendaMealEntry> = {}): AgendaMealEntry => ({
-  source: "meal", id: `m${++n}`, date: TODAY, slot: "DINNER", title: "Dinner: Tacos", createdAt: "2026-10-01T00:00:00Z", editable: false, ...over,
+  source: "meal", id: `m${++n}`, date: TODAY, slot: "DINNER", title: "Dinner: Tacos", startTime: null, createdAt: "2026-10-01T00:00:00Z", editable: false, ...over,
 });
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }, { id: "m2", name: "Ann", fullName: "Ann Doe" }];
 
@@ -53,6 +53,10 @@ const wrap = (p: Props) => (
   </App>
 );
 const setup = (over: Partial<Props> = {}) => render(wrap(props(over)));
+// The week renders both its hour grid (wide screens) and its list of days (phones); CSS shows one. jsdom has no CSS,
+// so tests pick the one they mean.
+const grid = () => within(document.querySelector(".cal-week-grid") as HTMLElement);
+const weekList = () => within(document.querySelector(".cal-week") as HTMLElement);
 const month = (over: Partial<Props> = {}) =>
   setup({ view: "month", anchor: "2026-10-01", dates: datesInRange(viewRange("month", "2026-10-01", "SUNDAY")), prev: "2026-09-01", next: "2026-11-01", ...over });
 const day = (over: Partial<Props> = {}) =>
@@ -181,8 +185,8 @@ describe("the week", () => {
     expect(days[3]).toHaveAttribute("data-today");
     expect(days[3]).toHaveTextContent("Today");
     expect(days.filter((d) => d.hasAttribute("data-today"))).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Add to Wed Oct 7" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Mon Oct 5/ })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-05&today=2026-10-07");
+    expect(weekList().getByRole("button", { name: "Add to Wed Oct 7" })).toBeInTheDocument();
+    expect(weekList().getByRole("link", { name: /Mon Oct 5/ })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-05&today=2026-10-07");
   });
 
   it("shows each kind of entry: reminders and events with times, contact dates, meals", () => {
@@ -242,14 +246,18 @@ describe("on a narrow screen", () => {
 });
 
 describe("the day", () => {
-  it("lists a day in sections, leaving out the empty ones", () => {
-    day({ entries: [birthday(), item({ title: "Picture day" }), item({ title: "Dentist", startTime: "09:00" }), meal()] });
-    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Birthdays and dates", "Events and reminders", "Meals"]);
-  });
-
-  it("only shows sections that have something", () => {
-    day({ entries: [meal()] });
-    expect([...document.querySelectorAll(".cal-section-title")].map((h) => h.textContent)).toEqual(["Meals"]);
+  it("is an hour grid: what has no time along the top, timed events and meals as blocks at their times", () => {
+    day({ entries: [birthday(), item({ title: "Picture day" }), item({ title: "Dentist", startTime: "09:00" }), meal(), meal({ id: "m-timed", title: "Lunch: Soup", slot: "LUNCH", startTime: "12:00" })] });
+    const allDay = within(document.querySelector(".tg-allday-cell") as HTMLElement);
+    expect(allDay.getByText("Jo's birthday")).toBeInTheDocument();
+    expect(allDay.getByText("Picture day")).toBeInTheDocument();
+    expect(allDay.getByText("Dinner: Tacos")).toBeInTheDocument();
+    const column = document.querySelector(".tg-col") as HTMLElement;
+    const dentist = within(column).getByRole("button", { name: /Dentist/ });
+    expect(dentist).toHaveStyle({ top: `${9 * 48}px`, height: `${24 - 2}px` });
+    expect(dentist).toHaveTextContent("9:00 AM");
+    expect(within(column).getByRole("link", { name: /Lunch: Soup/ })).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
+    expect(document.querySelector(".tg-heads")).toBeNull(); // one day: the page title says which
   });
 
   it("says when there is nothing, and still offers to add something", () => {
@@ -387,7 +395,7 @@ describe("quick add", () => {
 
   it("a day's '+' fills in that date and moves the cursor to the box", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: "Add to Sat Oct 10" }));
+    await userEvent.click(grid().getByRole("button", { name: "Add to Sat Oct 10" }));
     expect(screen.getByLabelText("Date")).toHaveValue("2026-10-10");
     await waitFor(() => expect(title()).toHaveFocus());
   });
@@ -400,7 +408,7 @@ const dialogTitled = async (title: string) => within((await screen.findByText(ti
 
 describe("an item's details", () => {
   const open = async (title: string) => {
-    await userEvent.click(screen.getByRole("button", { name: new RegExp(title) }));
+    await userEvent.click(grid().getByRole("button", { name: new RegExp(title) }));
     return within(await screen.findByRole("dialog"));
   };
 
@@ -532,7 +540,7 @@ describe("the full form", () => {
 
   it("saves an edit, and can hand an item back to the whole household", async () => {
     setup({ entries: [item({ id: "i9", title: "Dentist", assigneeContactId: "m1", assigneeName: "Sam" })] });
-    await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
     const form = (await dialogTitled("Edit event"));
     await userEvent.clear(form.getByLabelText("Title"));
@@ -546,7 +554,7 @@ describe("the full form", () => {
   it("edits a repeating event as its series: the start date, not the occurrence, with the repeat filled in", async () => {
     const repeat = { unit: "WEEK" as const, every: 2, until: "2027-01-01", start: "2026-09-23" };
     setup({ entries: [item({ id: "i9@2026-10-07", itemId: "i9", title: "Trash", repeat })] });
-    await userEvent.click(screen.getByRole("button", { name: /Trash/ }));
+    await userEvent.click(grid().getByRole("button", { name: /Trash/ }));
     const dialog = within(await screen.findByRole("dialog"));
     expect(dialog.getByText(/Every 2 weeks, until Jan 1, 2027/)).toBeInTheDocument();
     await userEvent.click(dialog.getByRole("button", { name: "Edit" }));
@@ -561,7 +569,7 @@ describe("the full form", () => {
 
   it("keeps an assignee who has since been removed, marked as removed", async () => {
     setup({ entries: [item({ id: "i9", title: "Dentist", assigneeContactId: "gone", assigneeName: "Pat" })] });
-    await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
     const form = (await dialogTitled("Edit event"));
     expect(form.getByText("Pat (removed)")).toBeInTheDocument();
@@ -571,7 +579,7 @@ describe("the full form", () => {
 
   it("calls a removed assignee with no name a former member, and offers current members otherwise", async () => {
     setup({ entries: [item({ title: "Dentist", assigneeContactId: "gone", assigneeName: null })] });
-    await userEvent.click(screen.getByRole("button", { name: /Dentist/ }));
+    await userEvent.click(grid().getByRole("button", { name: /Dentist/ }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
     const form = (await dialogTitled("Edit event"));
     expect(form.getByText("Former member (removed)")).toBeInTheDocument();
@@ -580,4 +588,77 @@ describe("the full form", () => {
     expect(screen.getByTitle("Ann")).toBeInTheDocument();
   });
 
+});
+
+describe("the hour grid", () => {
+  const column = (date: string) => document.querySelector(`.cal-week-grid .tg-col[data-date="${date}"]`) as HTMLElement;
+
+  it("heads the week's seven days, today marked, and opens scrolled to the morning", () => {
+    setup();
+    const heads = [...document.querySelectorAll(".cal-week-grid .tg-head")];
+    expect(heads).toHaveLength(7);
+    expect(heads[3]).toHaveAttribute("data-today");
+    expect(heads[3]).toHaveTextContent("Today");
+    expect((document.querySelector(".cal-week-grid .tg-scroll") as HTMLElement).scrollTop).toBe(7 * 48 - 8); // a little above, so "7 AM" shows
+    expect([...document.querySelectorAll(".cal-week-grid .tg-hour")].map((h) => h.textContent).slice(0, 3)).toEqual(["", "1 AM", "2 AM"]);
+  });
+
+  it("never scrolls above midnight", () => {
+    setup({ entries: [item({ title: "Night feed", startTime: "00:00" })] });
+    expect((document.querySelector(".cal-week-grid .tg-scroll") as HTMLElement).scrollTop).toBe(0);
+  });
+
+  it("opens earlier when something starts before 7", () => {
+    setup({ entries: [item({ title: "Early run", startTime: "05:45" })] });
+    expect((document.querySelector(".cal-week-grid .tg-scroll") as HTMLElement).scrollTop).toBe(5.25 * 48 - 8);
+  });
+
+  it("puts overlapping events side by side", () => {
+    setup({ entries: [item({ title: "Dentist", startTime: "09:00", endTime: "10:00" }), item({ title: "Call", startTime: "09:30" })] });
+    const dentist = within(column(TODAY)).getByRole("button", { name: /Dentist/ });
+    const call = within(column(TODAY)).getByRole("button", { name: /Call/ });
+    expect(dentist).toHaveStyle({ left: "calc(0% + 2px)", width: "calc(50% - 4px)", top: `${9 * 48}px`, height: `${48 - 2}px` });
+    expect(call).toHaveStyle({ left: "calc(50% + 2px)", width: "calc(50% - 4px)" });
+    expect(dentist).toHaveAttribute("title", "9:00 AM \u2013 10:00 AM Dentist");
+    expect(dentist).not.toHaveAttribute("data-short");
+    expect(call).toHaveAttribute("data-short"); // half an hour: one line, "Call, 9:30 AM"
+    expect(call).toHaveTextContent("Call9:30 AM"); // (the comma after the title is drawn by CSS)
+  });
+
+  it("names who an event is for next to its time", () => {
+    setup({ entries: [item({ title: "Dentist", startTime: "09:00", assigneeContactId: "m1", assigneeName: "Sam" }), item({ title: "Swim", startTime: "11:00" })] });
+    expect(within(column(TODAY)).getByRole("button", { name: /Dentist/ })).toHaveTextContent("9:00 AM · Sam");
+    expect(within(column(TODAY)).getByRole("button", { name: /Swim/ })).toHaveTextContent(/11:00 AM$/);
+  });
+
+  it("starts a new event at the half hour clicked", async () => {
+    setup();
+    fireEvent.click(column("2026-10-08"), { clientY: 9.75 * 48 });
+    const form = await dialogTitled("New event");
+    expect(form.getByLabelText("Date")).toHaveValue("2026-10-08");
+    expect(form.getByLabelText("Start time")).toHaveValue("09:30");
+  });
+
+  it("opens an event, or goes to the planner for a meal, without starting a new event", async () => {
+    setup({ entries: [item({ title: "Dentist", startTime: "09:00" }), meal({ title: "Dinner: Tacos", startTime: "17:30" })], showMeals: true });
+    const tacos = within(column(TODAY)).getByRole("link", { name: /Dinner: Tacos/ });
+    expect(tacos).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
+    fireEvent.click(tacos);
+    expect(screen.queryByText("New event", { selector: ".ant-modal-title" })).toBeNull();
+    await userEvent.click(within(column(TODAY)).getByRole("button", { name: /Dentist/ }));
+    expect(await screen.findByText(/Event · Oct 7, 2026 · 9:00 AM/)).toBeInTheDocument();
+    expect(screen.queryByText("New event", { selector: ".ant-modal-title" })).toBeNull();
+  });
+
+  it("draws a line at the current time on today, and keeps it current", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 9, 7, 14, 30));
+    setup();
+    const now = () => column(TODAY).querySelector(".tg-now") as HTMLElement;
+    expect(now()).toHaveStyle({ top: `${14.5 * 48}px` });
+    expect(column("2026-10-08").querySelector(".tg-now")).toBeNull();
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(parseFloat(now().style.top)).toBeCloseTo(((14 * 60 + 31) / 60) * 48);
+    vi.useRealTimers();
+  });
 });

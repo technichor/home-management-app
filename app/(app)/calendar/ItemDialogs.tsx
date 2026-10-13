@@ -57,7 +57,7 @@ export function ItemDetailDialog({
   );
 }
 
-export type FormTarget = { mode: "create"; date: string } | { mode: "edit"; item: AgendaItemEntry };
+export type FormTarget = { mode: "create"; date: string; startTime?: string } | { mode: "edit"; item: AgendaItemEntry };
 
 /** The full form, for creating and editing an event. */
 export function ItemFormDialog({
@@ -72,7 +72,7 @@ export function ItemFormDialog({
   return (
     <Modal title={target?.mode === "edit" ? "Edit event" : "New event"} open={target !== null} onCancel={onClose} footer={null} destroyOnHidden>
       {/* Keyed so each opening starts from its own item or date. */}
-      {target && <FormBody key={target.mode === "edit" ? target.item.id : `new-${target.date}`} target={target} assignees={assignees} onClose={onClose} />}
+      {target && <FormBody key={target.mode === "edit" ? target.item.id : `new-${target.date}-${target.startTime ?? ""}`} target={target} assignees={assignees} onClose={onClose} />}
     </Modal>
   );
 }
@@ -86,7 +86,7 @@ function FormBody({ target, assignees, onClose }: { target: FormTarget; assignee
   const [repeatUnit, setRepeatUnit] = useState<RepeatUnit | "">(editing?.repeat?.unit ?? "");
   const [repeatEvery, setRepeatEvery] = useState(editing?.repeat?.every ?? 1);
   const [repeatUntil, setRepeatUntil] = useState(editing?.repeat?.until ?? "");
-  const [startTime, setStartTime] = useState(editing?.startTime ?? "");
+  const [startTime, setStartTime] = useState(editing?.startTime ?? (target.mode === "create" ? (target.startTime ?? "") : ""));
   const [endTime, setEndTime] = useState(editing?.endTime ?? "");
   const [assignee, setAssignee] = useState(editing?.assigneeContactId ?? EVERYONE);
   const [notes, setNotes] = useState(editing?.notes ?? "");

@@ -218,9 +218,9 @@ describe("setShowMealsAction", () => {
 
 describe("the week's first day is shared with the meal planner", () => {
   // One in-memory settings row, read and written by both modules through their own entry points.
-  let row: { weekStartsOn: "SUNDAY" | "MONDAY"; showBreakfast: boolean; showLunch: boolean; showDinner: boolean };
+  let row: { weekStartsOn: "SUNDAY" | "MONDAY"; showBreakfast: boolean; showLunch: boolean; showDinner: boolean; breakfastTime: string | null; lunchTime: string | null; dinnerTime: string | null };
   beforeEach(() => {
-    row = { weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true };
+    row = { weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null };
     vi.mocked(prisma.mealPlanSettings.upsert).mockImplementation((async () => ({ householdId: "h1", ...row })) as any);
     vi.mocked(prisma.mealPlanSettings.update).mockImplementation((async ({ data }: any) => Object.assign(row, data)) as any);
   });
@@ -244,7 +244,7 @@ describe("the week's first day is shared with the meal planner", () => {
 
   it("leaves the planner's meal toggles alone", async () => {
     await setWeekStartAction("MONDAY");
-    expect(row).toMatchObject({ showBreakfast: false, showLunch: true, showDinner: true });
+    expect(row).toMatchObject({ showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
   });
 
   it("rejects a value that isn't a week start", async () => {

@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.mocked(prisma.calendarItem.findMany).mockResolvedValue([]);
   vi.mocked(prisma.contact.findMany).mockResolvedValue([]);
   vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([]);
-  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
+  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
 });
 
 const run = (over: Partial<Parameters<typeof getAgenda>[3]> = {}) => getAgenda("h1", "2026-10-04", "2026-10-10", { ...over });
@@ -160,13 +160,20 @@ describe("getAgenda: meals", () => {
     expect(entries[2]).toMatchObject({ source: "meal", slot: "DINNER", editable: false });
   });
 
+  it("places each meal at its kind's usual time, and leaves one with no usual time untimed", async () => {
+    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: "17:30" } as any);
+    vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([planned(), planned({ id: "e2", slot: "LUNCH", mealId: null, text: "Leftovers", meal: null })] as any);
+    const { entries } = await run({ includeMeals: true });
+    expect(entries.map((e) => [e.title, (e as any).startTime])).toEqual([["Lunch: Leftovers", null], ["Dinner: BBQ chicken", "17:30"]]);
+  });
+
   it("shows only the slots the household has switched on", async () => {
     vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([
       planned({ id: "b", slot: "BREAKFAST", meal: { id: "m", name: "Eggs", description: null } }),
       planned({ id: "l", slot: "LUNCH", meal: { id: "m", name: "Soup", description: null } }),
     ] as any);
     expect((await run({ includeMeals: true })).entries.map((e) => e.title)).toEqual(["Lunch: Soup"]);
-    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: true, showLunch: false, showDinner: false } as any);
+    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: true, showLunch: false, showDinner: false, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
     expect((await run({ includeMeals: true })).entries.map((e) => e.title)).toEqual(["Breakfast: Eggs"]);
   });
 

@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue({ id: "e1", householdId: "h1" } as any);
   vi.mocked(prisma.mealPlanEntry.update).mockResolvedValue({} as any);
   vi.mocked(prisma.mealPlanEntry.delete).mockResolvedValue({} as any);
-  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true } as any);
+  vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
   vi.mocked(prisma.mealPlanSettings.update).mockResolvedValue({} as any);
 });
 
@@ -299,8 +299,21 @@ describe("updateMealPlanSettingsAction", () => {
   it("refuses to hide every slot, whether in one change or by turning off the last one visible", async () => {
     const message = "Keep at least one meal visible";
     expect(await updateMealPlanSettingsAction({ showLunch: false, showDinner: false })).toEqual({ ok: false, error: message });
-    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: false, showDinner: true } as any);
+    vi.mocked(prisma.mealPlanSettings.upsert).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: false, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null } as any);
     expect(await updateMealPlanSettingsAction({ showDinner: false })).toEqual({ ok: false, error: message });
+    expect(prisma.mealPlanSettings.update).not.toHaveBeenCalled();
+  });
+
+  it("sets and clears a meal's usual time, refreshing the calendar too", async () => {
+    expect(await updateMealPlanSettingsAction({ dinnerTime: "17:30" })).toEqual({ ok: true });
+    expect(prisma.mealPlanSettings.update).toHaveBeenCalledWith({ where: { householdId: "h1" }, data: { dinnerTime: "17:30" } });
+    expect(revalidatePath).toHaveBeenCalledWith("/calendar");
+    expect(await updateMealPlanSettingsAction({ lunchTime: null })).toEqual({ ok: true });
+    expect(prisma.mealPlanSettings.update).toHaveBeenLastCalledWith({ where: { householdId: "h1" }, data: { lunchTime: null } });
+  });
+
+  it.each(["5:30", "25:00", "17:60", "dinner time"])("rejects the time %s", async (time) => {
+    expect(await updateMealPlanSettingsAction({ dinnerTime: time })).toEqual({ ok: false, error: "Invalid setting" });
     expect(prisma.mealPlanSettings.update).not.toHaveBeenCalled();
   });
 

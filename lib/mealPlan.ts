@@ -13,7 +13,17 @@ export type PlanSettings = {
   showBreakfast: boolean;
   showLunch: boolean;
   showDinner: boolean;
+  /** When each meal usually is ("HH:MM"), or null: places planned meals on the calendar's hours. */
+  breakfastTime: string | null;
+  lunchTime: string | null;
+  dinnerTime: string | null;
 };
+
+/** The setting that holds each meal's usual time. */
+export const SLOT_TIME_KEY = { BREAKFAST: "breakfastTime", LUNCH: "lunchTime", DINNER: "dinnerTime" } as const satisfies Record<
+  MealSlot,
+  keyof PlanSettings
+>;
 
 /** The slots to show, in day order. */
 export function visibleSlots(settings: PlanSettings): MealSlot[] {
@@ -25,6 +35,9 @@ const pick = (s: PlanSettings): PlanSettings => ({
   showBreakfast: s.showBreakfast,
   showLunch: s.showLunch,
   showDinner: s.showDinner,
+  breakfastTime: s.breakfastTime,
+  lunchTime: s.lunchTime,
+  dinnerTime: s.dinnerTime,
 });
 
 /** The household's planner settings, created with the defaults (Sunday, lunch and dinner) on first read. */
@@ -34,7 +47,8 @@ export async function getMealPlanSettings(householdId: string): Promise<PlanSett
 }
 
 /**
- * Change the household's planner settings: the week's first day, and which meals show. At least one meal must stay
+ * Change the household's planner settings: the week's first day, which meals show, and each meal's usual time (null
+ * clears it). At least one meal must stay
  * visible. The calendar shares this (and `getMealPlanSettings`) for the week's first day, so changing it in either
  * place changes both.
  */

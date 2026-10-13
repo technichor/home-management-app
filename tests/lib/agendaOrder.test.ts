@@ -25,7 +25,7 @@ const contactDate = (over: Partial<AgendaContactDateEntry> = {}): AgendaContactD
   source: "contact_date", id: `c${n++}`, date: D, title: "Date", type: "birthday", contactId: "c", turns: null, editable: false, ...over,
 });
 const meal = (over: Partial<AgendaMealEntry> = {}): AgendaMealEntry => ({
-  source: "meal", id: `m${n++}`, date: D, slot: "DINNER", title: "Dinner: X", createdAt: created(), editable: false, ...over,
+  source: "meal", id: `m${n++}`, date: D, slot: "DINNER", title: "Dinner: X", startTime: null, createdAt: created(), editable: false, ...over,
 });
 const titles = (entries: AgendaEntry[]) => entries.map((e) => e.title);
 

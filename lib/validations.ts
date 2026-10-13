@@ -240,9 +240,19 @@ export const planEntrySchema = z
 
 export const planPositionSchema = z.object({ date: planDate, slot: planSlot });
 
+/** A meal's usual time: "HH:MM" (24-hour), or null for none. */
+const mealTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+  .nullable()
+  .optional();
+
 export const mealPlanSettingsSchema = z.object({
   weekStartsOn: z.enum(["SUNDAY", "MONDAY"]).optional(),
   showBreakfast: z.boolean().optional(),
   showLunch: z.boolean().optional(),
   showDinner: z.boolean().optional(),
+  breakfastTime: mealTime,
+  lunchTime: mealTime,
+  dinnerTime: mealTime,
 });

@@ -4,7 +4,7 @@ import { dateToString, stringToDate } from "@/lib/dates";
 import { contactDateOccurrences, calendarName } from "@/lib/contactDates";
 import { occurrencesInRange } from "@/lib/recurrence";
 import { contactsOf } from "@/lib/scope";
-import { entriesInRange, getMealPlanSettings, SLOT_LABELS, visibleSlots } from "@/lib/mealPlan";
+import { entriesInRange, getMealPlanSettings, SLOT_LABELS, SLOT_TIME_KEY, visibleSlots } from "@/lib/mealPlan";
 import {
   orderAgenda,
   type AgendaContactDateEntry,
@@ -118,7 +118,7 @@ export async function getAgenda(householdId: string, startDate: string, endDate:
   };
 }
 
-/** Planned meals in the range, for the meal slots the household has switched on, labelled like "Dinner: Tacos". */
+/** Planned meals in the range, for the meal slots the household has switched on, labelled like "Dinner: Tacos", each at its meal's usual time (if set). */
 async function loadMeals(householdId: string, start: string, end: string): Promise<AgendaMealEntry[]> {
   const [settings, entries] = await Promise.all([getMealPlanSettings(householdId), entriesInRange(householdId, start, end)]);
   const shown = visibleSlots(settings);
@@ -130,6 +130,7 @@ async function loadMeals(householdId: string, start: string, end: string): Promi
       date: e.date,
       slot: e.slot,
       title: `${SLOT_LABELS[e.slot]}: ${e.label}`,
+      startTime: settings[SLOT_TIME_KEY[e.slot]],
       createdAt: e.createdAt,
       editable: false as const,
     }));

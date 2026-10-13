@@ -220,7 +220,7 @@ test("granting and revoking superuser access: needs your password, and never rem
   await page.getByRole("link", { name: adminEmail }).click();
   await page.getByLabel("Your password").fill(PASSWORD);
   await page.getByRole("button", { name: "Revoke superuser access" }).click();
-  await page.locator(".ant-popconfirm .ant-btn-primary").click();
+  await page.locator(".ant-popconfirm:visible .ant-btn-primary").click(); // (an earlier one may still be fading out)
   await expect(page.getByText("There must always be at least one superuser.")).toBeVisible();
 
   // Granting needs the right password...
@@ -228,7 +228,7 @@ test("granting and revoking superuser access: needs your password, and never rem
   await page.getByRole("link", { name: targetEmail }).click();
   await page.getByLabel("Your password").fill("not-my-password");
   await page.getByRole("button", { name: "Grant superuser access" }).click();
-  await page.locator(".ant-popconfirm .ant-btn-primary").click();
+  await page.locator(".ant-popconfirm:visible .ant-btn-primary").click(); // (an earlier one may still be fading out)
   await expect(page.getByText("Your password is incorrect.")).toBeVisible();
   await gotoMissing(target.page, "/admin");
   await expect(target.page.getByText(/could not be found/i)).toBeVisible();
@@ -236,7 +236,7 @@ test("granting and revoking superuser access: needs your password, and never rem
   // ...and with it, the target can see the admin area straight away.
   await page.getByLabel("Your password").fill(PASSWORD);
   await page.getByRole("button", { name: "Grant superuser access" }).click();
-  await page.locator(".ant-popconfirm .ant-btn-primary").click();
+  await page.locator(".ant-popconfirm:visible .ant-btn-primary").click(); // (an earlier one may still be fading out)
   await expect(page.getByRole("button", { name: "Revoke superuser access" })).toBeVisible();
   await target.page.goto("/admin");
   await expect(target.page.getByRole("heading", { name: "Users" })).toBeVisible();
@@ -247,7 +247,7 @@ test("granting and revoking superuser access: needs your password, and never rem
   await page.getByRole("link", { name: adminEmail }).click();
   await page.getByLabel("Your password").fill(PASSWORD);
   await page.getByRole("button", { name: "Revoke superuser access" }).click();
-  await page.locator(".ant-popconfirm .ant-btn-primary").click();
+  await page.locator(".ant-popconfirm:visible .ant-btn-primary").click(); // (an earlier one may still be fading out)
   await expect.poll(async () => {
     await gotoMissing(page, "/admin");
     return page.getByText(/could not be found/i).count();

@@ -38,6 +38,8 @@ export type AgendaMealEntry = {
   date: string;
   slot: MealSlot;
   title: string;
+  /** The meal's usual time from the planner settings ("HH:MM"), or null; a meal is drawn 30 minutes long. */
+  startTime: string | null;
   createdAt: string;
   editable: false;
 };
