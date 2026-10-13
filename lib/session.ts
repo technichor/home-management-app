@@ -5,6 +5,9 @@ export interface SessionData {
   userId?: string;
   // When this session started (ms). A password change signs out sessions older than it.
   issuedAt?: number;
+  // While linking Google: the random value sent to Google and expected back (so a forged callback can't link an
+  // account to someone else's session).
+  googleState?: string;
 }
 
 export const sessionOptions: SessionOptions = {

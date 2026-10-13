@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import HouseholdClient from "./HouseholdClient";
+import HouseholdGoogleCard from "@/components/HouseholdGoogleCard";
+import { householdGoogleView, TIME_ZONES } from "@/lib/googleCalendar";
 
 export default async function HouseholdPage() {
   const user = await pageMember();
   const householdId = user.householdId;
   const isOwner = user.role === "OWNER";
-  const [members, household, invites, requests, syncRows] = await Promise.all([
+  const [members, household, invites, requests, syncRows, googleView] = await Promise.all([
     prisma.user.findMany({
       where: { householdId },
       select: { id: true, firstName: true, lastName: true, email: true, role: true },
@@ -37,6 +39,7 @@ export default async function HouseholdPage() {
       },
       orderBy: { respondedAt: "asc" },
     }),
+    householdGoogleView(householdId, user.id),
   ]);
   const syncs = syncRows.map((s) => ({
     id: s.id,
@@ -44,23 +47,26 @@ export default async function HouseholdPage() {
   }));
 
   return (
-    <HouseholdClient
-      householdName={user.household.displayName}
-      currentUserId={user.id}
-      isOwner={isOwner}
-      joinCode={isOwner ? (household?.joinCode ?? null) : null}
-      members={members}
-      syncs={syncs}
-      invites={invites.map((i) => ({
-        id: i.id,
-        createdAt: i.createdAt.toISOString(),
-        expiresAt: i.expiresAt.toISOString(),
-      }))}
-      requests={requests.map((r) => ({
-        id: r.id,
-        name: `${r.user.firstName} ${r.user.lastName}`,
-        email: r.user.email,
-      }))}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <HouseholdClient
+        householdName={user.household.displayName}
+        currentUserId={user.id}
+        isOwner={isOwner}
+        joinCode={isOwner ? (household?.joinCode ?? null) : null}
+        members={members}
+        syncs={syncs}
+        invites={invites.map((i) => ({
+          id: i.id,
+          createdAt: i.createdAt.toISOString(),
+          expiresAt: i.expiresAt.toISOString(),
+        }))}
+        requests={requests.map((r) => ({
+          id: r.id,
+          name: `${r.user.firstName} ${r.user.lastName}`,
+          email: r.user.email,
+        }))}
+      />
+      <HouseholdGoogleCard view={googleView} isOwner={isOwner} timeZones={TIME_ZONES} />
+    </div>
   );
 }

@@ -4,6 +4,9 @@ import { getCalendarSettings } from "@/lib/calendarItem";
 import { memberOptionsOf } from "@/lib/householdMembers";
 import { datesInRange, isDateString, resolveCalendarRange } from "@/lib/dates";
 import { getMealPlanSettings } from "@/lib/mealPlan";
+import { orderAgenda } from "@/lib/agendaOrder";
+import { googleConfigured } from "@/lib/google";
+import { googleAgenda, type GoogleAgenda } from "@/lib/googleEvents";
 import LocalToday from "@/components/LocalToday";
 import CalendarClient from "./CalendarClient";
 
@@ -26,10 +29,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const assigneeFilter = assignees.some((a) => a.id === who) ? (who as string) : null;
   const includeMeals = calendarSettings.showMeals && resolved.view !== "month";
 
-  const agenda = await getAgenda(householdId, resolved.range.start, resolved.range.end, {
-    assigneeContactId: assigneeFilter,
-    includeMeals,
-  });
+  const withGoogle = googleConfigured();
+  const [agenda, google] = await Promise.all([
+    getAgenda(householdId, resolved.range.start, resolved.range.end, { assigneeContactId: assigneeFilter, includeMeals }),
+    // Members' shared Google calendars, read live (cached briefly); none until Google is set up.
+    withGoogle ? googleAgenda(householdId, resolved.range, calendarSettings.timeZone) : Promise.resolve<GoogleAgenda>({ entries: [], problems: [] }),
+  ]);
+  // A member's view shows their own Google calendars only.
+  const googleEntries = assigneeFilter ? google.entries.filter((e) => e.ownerContactId === assigneeFilter) : google.entries;
 
   return (
     <>
@@ -45,7 +52,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         showMeals={calendarSettings.showMeals}
         assignees={assignees}
         assigneeFilter={assigneeFilter}
-        entries={agenda.entries}
+        entries={googleEntries.length > 0 ? orderAgenda([...agenda.entries, ...googleEntries]) : agenda.entries}
+        googleProblems={google.problems}
+        googleCalendarName={withGoogle && calendarSettings.googleCalendarId ? (calendarSettings.googleCalendarName ?? "Google Calendar") : null}
       />
     </>
   );

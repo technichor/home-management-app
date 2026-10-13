@@ -9,6 +9,8 @@ vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
 vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
 vi.mock("@/lib/householdMembers", () => ({ memberOptionsOf: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
+vi.mock("@/lib/google", () => ({ googleConfigured: vi.fn(() => false) }));
+vi.mock("@/lib/googleEvents", () => ({ googleAgenda: vi.fn() }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/calendar/CalendarClient", () => ({ default: (p: any) => ((seen.client = p), <div>calendar client</div>) }));
@@ -17,7 +19,12 @@ import { getAgenda } from "@/lib/agenda";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { memberOptionsOf } from "@/lib/householdMembers";
 import { getMealPlanSettings } from "@/lib/mealPlan";
+import { googleConfigured } from "@/lib/google";
+import { googleAgenda } from "@/lib/googleEvents";
 import CalendarPage from "@/app/(app)/calendar/page";
+
+const settings = (over: object = {}) =>
+  ({ householdId: "h1", showMeals: false, timeZone: "America/Chicago", googleCalendarId: null, googleCalendarName: null, googleCalendarUserId: null, updatedAt: new Date(), ...over }) as any;
 
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }, { id: "m2", name: "Ann", fullName: "Ann Doe" }];
 const run = async (sp: object = {}) => render(await CalendarPage({ searchParams: Promise.resolve({ today: "2026-10-07", ...sp }) }));
@@ -27,7 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
-  vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: false });
+  vi.mocked(getCalendarSettings).mockResolvedValue(settings());
   vi.mocked(memberOptionsOf).mockResolvedValue(members);
   vi.mocked(getAgenda).mockResolvedValue({ entries: [] });
 });
@@ -106,7 +113,7 @@ describe("CalendarPage", () => {
     });
 
     it("are included on the week and day views when the household turned them on", async () => {
-      vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: true });
+      vi.mocked(getCalendarSettings).mockResolvedValue(settings({ showMeals: true }));
       await run();
       expect(agendaArgs()[3]).toMatchObject({ includeMeals: true });
       await run({ view: "day" });
@@ -114,7 +121,7 @@ describe("CalendarPage", () => {
     });
 
     it("are never included on the month view, though the setting stays on", async () => {
-      vi.mocked(getCalendarSettings).mockResolvedValue({ showMeals: true });
+      vi.mocked(getCalendarSettings).mockResolvedValue(settings({ showMeals: true }));
       await run({ view: "month" });
       expect(agendaArgs()[3]).toMatchObject({ includeMeals: false });
       expect(seen.client.showMeals).toBe(true);
@@ -126,5 +133,54 @@ describe("CalendarPage", () => {
     vi.mocked(getAgenda).mockResolvedValue({ entries: entries as any });
     await run();
     expect(seen.client.entries).toEqual(entries);
+  });
+
+  describe("Google", () => {
+    const g = (id: string, over: object = {}) => ({ source: "google", id, date: "2026-10-07", title: id, startTime: null, ownerContactId: "m1", ...over });
+
+    it("reads nothing from Google and offers no Google calendar until Google is set up", async () => {
+      vi.mocked(getCalendarSettings).mockResolvedValue(settings({ googleCalendarId: "cal", googleCalendarName: "Family" }));
+      await run();
+      expect(googleAgenda).not.toHaveBeenCalled();
+      expect(seen.client).toMatchObject({ googleProblems: [], googleCalendarName: null });
+    });
+
+    describe("once set up", () => {
+      beforeEach(() => {
+        vi.mocked(googleConfigured).mockReturnValue(true);
+        vi.mocked(googleAgenda).mockResolvedValue({ entries: [], problems: [] });
+      });
+
+      it("reads members' calendars for the range in the household's time zone", async () => {
+        vi.mocked(getCalendarSettings).mockResolvedValue(settings({ timeZone: "Europe/Paris" }));
+        await run();
+        expect(googleAgenda).toHaveBeenCalledWith("h1", { start: "2026-10-04", end: "2026-10-10" }, "Europe/Paris");
+      });
+
+      it("merges Google's entries in order with Domata's, and passes on calendars that couldn't be read", async () => {
+        vi.mocked(getAgenda).mockResolvedValue({ entries: [{ source: "item", id: "i1", date: "2026-10-07", startTime: null, createdAt: "" }] as any });
+        vi.mocked(googleAgenda).mockResolvedValue({ entries: [g("g1", { date: "2026-10-05" })] as any, problems: ["Sam's Work"] });
+        await run();
+        expect(seen.client.entries.map((e: any) => e.id)).toEqual(["g1", "i1"]);
+        expect(seen.client.googleProblems).toEqual(["Sam's Work"]);
+      });
+
+      it("shows only the member's own Google calendars in their view", async () => {
+        vi.mocked(googleAgenda).mockResolvedValue({ entries: [g("mine"), g("theirs", { ownerContactId: "m2" })] as any, problems: [] });
+        await run({ who: "m1" });
+        expect(seen.client.entries.map((e: any) => e.id)).toEqual(["mine"]);
+      });
+
+      it("names the household's Google calendar, when there is one", async () => {
+        await run();
+        expect(seen.client.googleCalendarName).toBeNull();
+        vi.mocked(getCalendarSettings).mockResolvedValue(settings({ googleCalendarId: "cal", googleCalendarName: "Family" }));
+        await run();
+        expect(seen.client.googleCalendarName).toBe("Family");
+        vi.mocked(getCalendarSettings).mockResolvedValue(settings({ googleCalendarId: "cal" }));
+        await run();
+        expect(seen.client.googleCalendarName).toBe("Google Calendar");
+      });
+    });
   });
 });

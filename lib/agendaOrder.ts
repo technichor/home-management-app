@@ -16,6 +16,8 @@ export type AgendaItemEntry = {
   /** The assignee's name, kept even after their contact is removed from the household. */
   assigneeName: string | null;
   createdAt: string;
+  /** Google Calendar: whether it is to be sent there, whether it is there, and the last error sending it. */
+  google: { wanted: boolean; sent: boolean; error: string | null };
   /** How it repeats, or null. The date shown is one occurrence of the series; `start` is where the series begins. */
   repeat: { unit: RepeatUnit; every: number; until: string | null; start: string } | null;
   editable: true;
@@ -44,7 +46,27 @@ export type AgendaMealEntry = {
   editable: false;
 };
 
-export type AgendaEntry = AgendaItemEntry | AgendaContactDateEntry | AgendaMealEntry;
+/** An event from a member's shared Google calendar (lib/googleEvents.ts): read-only, opens in Google. */
+export type AgendaGoogleEntry = {
+  source: "google";
+  id: string;
+  /** Google's id for the event (the same in every calendar it is in). */
+  googleId: string;
+  date: string;
+  title: string;
+  startTime: string | null;
+  endTime: string | null;
+  /** The event in Google Calendar, or null. */
+  link: string | null;
+  calendarName: string;
+  color: string | null;
+  /** The member whose calendar it is. */
+  ownerName: string;
+  ownerContactId: string | null;
+  editable: false;
+};
+
+export type AgendaEntry = AgendaItemEntry | AgendaContactDateEntry | AgendaMealEntry | AgendaGoogleEntry;
 
 /** The sections of a day, in the order they are shown. */
 const SECTION = { contactDate: 0, untimedEvent: 1, timedEvent: 2, meal: 3 } as const;
@@ -52,6 +74,7 @@ const SECTION = { contactDate: 0, untimedEvent: 1, timedEvent: 2, meal: 3 } as c
 export function sectionOf(entry: AgendaEntry): number {
   if (entry.source === "contact_date") return SECTION.contactDate;
   if (entry.source === "meal") return SECTION.meal;
+  // Events from Google sit with the household's own events.
   return entry.startTime ? SECTION.timedEvent : SECTION.untimedEvent;
 }
 
@@ -70,11 +93,14 @@ export function compareAgenda(a: AgendaEntry, b: AgendaEntry): number {
   if (a.source === "meal" && b.source === "meal") {
     return SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot) || text(a.createdAt, b.createdAt);
   }
-  // Entries in the same section that aren't contact dates or meals are both items.
-  const x = a as AgendaItemEntry;
-  const y = b as AgendaItemEntry;
-  if (x.startTime && y.startTime) return text(x.startTime, y.startTime) || text(x.createdAt, y.createdAt);
-  return text(x.createdAt, y.createdAt);
+  // Entries in the same section that aren't contact dates or meals are events: Domata's own (in the order added), or
+  // from Google (after Domata's, by title).
+  const x = a as AgendaItemEntry | AgendaGoogleEntry;
+  const y = b as AgendaItemEntry | AgendaGoogleEntry;
+  if (x.startTime && y.startTime && x.startTime !== y.startTime) return text(x.startTime, y.startTime);
+  if (x.source !== y.source) return x.source === "item" ? -1 : 1;
+  if (x.source === "google") return text(x.title, (y as AgendaGoogleEntry).title);
+  return text(x.createdAt, (y as AgendaItemEntry).createdAt);
 }
 
 export const orderAgenda = (entries: AgendaEntry[]): AgendaEntry[] => [...entries].sort(compareAgenda);

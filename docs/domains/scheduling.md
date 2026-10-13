@@ -1,6 +1,6 @@
 # Domain: Scheduling & Reminders
 
-Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database. **Recurrence** (migration 0024, additive) is merged to `main` (2026-10-05) and applied to production.
+Status: **Built and deployed to production (merged to `main` 2026-10-05).** Migration 0023 is additive and applied to the production database. **Recurrence** (migration 0024, additive) is merged to `main` (2026-10-05) and applied to production. **Google Calendar** (migration 0031) shows members' Google calendars and sends Domata's events to a household Google calendar: see `docs/domains/google-calendar.md`.
 
 ## What this domain is
 

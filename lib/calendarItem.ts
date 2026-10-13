@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RepeatUnit } from "@prisma/client";
+import type { CalendarSettings, RepeatUnit } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isDateString } from "@/lib/dates";
 import { optionalDate, optionalId, optionalNotes, trimToNull } from "@/lib/formFields";
@@ -32,6 +32,8 @@ export const calendarItemSchema = z
     repeatUnit: z.enum(REPEAT_UNITS as [RepeatUnit, ...RepeatUnit[]]).nullish().transform((v) => v ?? null),
     repeatEvery: z.number().int("Repeat every a whole number of times").min(1, "Repeat every at least 1").max(MAX_EVERY, `Repeat every at most ${MAX_EVERY}`).nullish().transform((v) => v ?? 1),
     repeatUntil: optionalDate("end date"),
+    /** Create (and keep) it in the household's Google calendar, when there is one. On unless unticked. */
+    toGoogle: z.boolean().nullish().transform((v) => v ?? true),
   })
   .superRefine((v, ctx) => {
     if (v.repeatUntil && !v.repeatUnit) ctx.addIssue({ code: "custom", message: "An end date needs a repeat", path: ["repeatUntil"] });
@@ -44,8 +46,10 @@ export const calendarItemSchema = z
 
 export type CalendarItemFields = z.input<typeof calendarItemSchema>;
 
-/** Household-wide calendar settings, created with the defaults (meals hidden) the first time they are read. */
-export async function getCalendarSettings(householdId: string): Promise<{ showMeals: boolean }> {
-  const row = await retryOnUniqueViolation(() => prisma.calendarSettings.upsert({ where: { householdId }, create: { householdId }, update: {} }));
-  return { showMeals: row.showMeals };
+/**
+ * Household-wide calendar settings (meals shown or not, the time zone, the household's Google calendar), created with
+ * the defaults (meals hidden) the first time they are read.
+ */
+export function getCalendarSettings(householdId: string): Promise<CalendarSettings> {
+  return retryOnUniqueViolation(() => prisma.calendarSettings.upsert({ where: { householdId }, create: { householdId }, update: {} }));
 }

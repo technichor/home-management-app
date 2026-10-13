@@ -27,7 +27,7 @@ const run = async (sp: object = { today: "2026-10-07" }) => render(await HomePag
 let n = 0;
 const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
   source: "item", id: `i${++n}`, itemId: "item", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
-  assigneeName: null, createdAt: "2026-10-01T00:00:00Z", repeat: null, editable: true, ...over,
+  assigneeName: null, createdAt: "2026-10-01T00:00:00Z", repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
 const birthday = (date: string, over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
   source: "contact_date", id: `c${++n}`, date, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,

@@ -1177,6 +1177,16 @@ a.brief-row:hover {
 .tg-block:hover {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
+/* Events from members' Google calendars: read-only, with their calendar's colour on the left. */
+.cal-entry-google,
+.tg-block-google {
+  border-left: 3px solid var(--border-strong);
+  background: var(--subtle);
+  color: var(--text);
+}
+.cal-entry-google {
+  text-decoration: none;
+}
 .tg-block-meal {
   border-left-color: var(--border-strong);
   background: var(--subtle);
@@ -1506,4 +1516,14 @@ a.brief-row:hover {
   .todo-row {
     min-height: 48px;
   }
+}
+
+/* Google Calendar: a calendar's colour, as Google shows it. */
+.google-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: baseline;
 }

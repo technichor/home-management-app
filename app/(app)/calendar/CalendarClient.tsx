@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { App, Button, Select, Switch, Typography } from "antd";
+import { Alert, App, Button, Select, Switch, Typography } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { CALENDAR_VIEWS, type CalendarView, type WeekStart } from "@/lib/dates";
 import { CALENDAR_POLL_MS, calendarHref, defaultQuickAddDate, rangeTitle } from "@/lib/calendarView";
@@ -28,6 +28,8 @@ export default function CalendarClient({
   assignees,
   assigneeFilter,
   entries,
+  googleProblems = [],
+  googleCalendarName = null,
 }: {
   view: CalendarView;
   anchor: string;
@@ -40,6 +42,10 @@ export default function CalendarClient({
   assignees: MemberOption[];
   assigneeFilter: string | null;
   entries: AgendaEntry[];
+  /** Shared Google calendars that couldn't be read just now (the rest are shown). */
+  googleProblems?: string[];
+  /** The household's Google calendar, when Domata's events go to one. */
+  googleCalendarName?: string | null;
 }) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -126,6 +132,10 @@ export default function CalendarClient({
         </div>
       </div>
 
+      {googleProblems.length > 0 && (
+        <Alert type="warning" showIcon title={`Couldn't read from Google just now: ${googleProblems.join(", ")}. The rest of the calendar is up to date.`} />
+      )}
+
       <QuickAdd
         key={`${prefill?.date ?? defaultQuickAddDate(view, anchor, range, today)}|${prefill?.nonce ?? 0}`}
         defaultDate={prefill?.date ?? defaultQuickAddDate(view, anchor, range, today)}
@@ -138,13 +148,14 @@ export default function CalendarClient({
 
       <ItemDetailDialog
         item={open}
+        googleCalendarName={googleCalendarName}
         onEdit={(item) => {
           setOpenId(null);
           setForm({ mode: "edit", item });
         }}
         onClose={() => setOpenId(null)}
       />
-      <ItemFormDialog target={form} assignees={assignees} onClose={() => setForm(null)} />
+      <ItemFormDialog target={form} assignees={assignees} googleCalendarName={googleCalendarName} onClose={() => setForm(null)} />
     </div>
   );
 }
