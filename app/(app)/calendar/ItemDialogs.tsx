@@ -6,6 +6,7 @@ import { Alert, App, Button, Checkbox, Input, Modal, Popconfirm, Select, Space, 
 import type { RepeatUnit } from "@prisma/client";
 import { formatCalendarDate } from "@/lib/dates";
 import { timeLabel } from "@/lib/calendarView";
+import { DEFAULT_BLOCK_MINUTES, DURATIONS, durationLabel, durationOf, endAfter } from "@/lib/calendarLayout";
 import { describeRepeat } from "@/lib/recurrence";
 import type { MemberOption } from "@/lib/householdMembers";
 import type { AgendaItemEntry } from "@/lib/agendaOrder";
@@ -106,8 +107,10 @@ function FormBody({
   const [repeatUnit, setRepeatUnit] = useState<RepeatUnit | "">(editing?.repeat?.unit ?? "");
   const [repeatEvery, setRepeatEvery] = useState(editing?.repeat?.every ?? 1);
   const [repeatUntil, setRepeatUntil] = useState(editing?.repeat?.until ?? "");
-  const [startTime, setStartTime] = useState(editing?.startTime ?? (target.mode === "create" ? (target.startTime ?? "") : ""));
-  const [endTime, setEndTime] = useState(editing?.endTime ?? "");
+  const initialStart = editing?.startTime ?? (target.mode === "create" ? (target.startTime ?? "") : "");
+  const [startTime, setStartTime] = useState(initialStart);
+  // A new event at a time (a click on the hour grid) starts out half an hour long; a saved event keeps its own end.
+  const [endTime, setEndTime] = useState(editing ? (editing.endTime ?? "") : initialStart ? endAfter(initialStart, DEFAULT_BLOCK_MINUTES) : "");
   const [assignee, setAssignee] = useState(editing?.assigneeContactId ?? EVERYONE);
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [toGoogle, setToGoogle] = useState(editing?.google.wanted ?? true);
@@ -122,6 +125,14 @@ function FormBody({
       ? [{ value: editing.assigneeContactId, label: `${editing.assigneeName ?? "Former member"} (removed)` }]
       : []),
   ];
+
+  const duration = durationOf(startTime, endTime);
+
+  /** A new start keeps the event's length (half an hour if it had none); no start, no end. */
+  function changeStart(start: string) {
+    setStartTime(start);
+    setEndTime(start ? endAfter(start, duration ?? DEFAULT_BLOCK_MINUTES) : "");
+  }
 
   async function save() {
     setBusy(true);
@@ -154,8 +165,20 @@ function FormBody({
       <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Title" maxLength={200} autoFocus />
       <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
       <Space wrap>
-        <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} aria-label="Start time" />
+        <Input type="time" value={startTime} onChange={(e) => changeStart(e.target.value)} aria-label="Start time" />
         <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} aria-label="End time" disabled={!startTime} />
+        <Select<number>
+          value={duration ?? undefined}
+          onChange={(minutes) => setEndTime(endAfter(startTime, minutes))}
+          placeholder="Duration"
+          aria-label="Duration"
+          disabled={!startTime}
+          style={{ width: 120 }}
+          // A typed end time that isn't one of the usual lengths still shows as what it is.
+          options={[...DURATIONS, ...(duration && !(DURATIONS as readonly number[]).includes(duration) ? [duration] : [])]
+            .sort((a, b) => a - b)
+            .map((minutes) => ({ value: minutes, label: durationLabel(minutes) }))}
+        />
       </Space>
       <Space wrap>
         <Select<RepeatUnit | "">

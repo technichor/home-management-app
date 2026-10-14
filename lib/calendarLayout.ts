@@ -21,6 +21,32 @@ export function hhmm(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+/** The latest end time a day allows. */
+export const LAST_MINUTE = DAY_MINUTES - 1;
+
+/** The time `minutes` after `start` ("HH:MM"), never past 23:59 (an event ends on the day it starts). */
+export const endAfter = (start: string, minutes: number) => hhmm(Math.min(minutesOf(start) + minutes, LAST_MINUTE));
+
+/** How long an event from `start` to `end` lasts, in minutes; null without both, or if the end isn't after the start. */
+export function durationOf(start: string, end: string): number | null {
+  if (!start || !end) return null;
+  const minutes = minutesOf(end) - minutesOf(start);
+  return minutes > 0 ? minutes : null;
+}
+
+/** The lengths offered for an event, in minutes. */
+export const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240] as const;
+
+/** A length as people say it: "45 min", "1 hr", "1.5 hr", "1 hr 10 min". */
+export function durationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (rest === 0) return `${hours} hr`;
+  if (rest === 30) return `${hours}.5 hr`;
+  return `${hours} hr ${rest} min`;
+}
+
 /** An entry's start time, if it has one: events (Domata's or Google's) with a time, and meals whose kind has a usual time. */
 export function startOf(entry: AgendaEntry): string | null {
   return entry.source === "contact_date" ? null : entry.startTime;

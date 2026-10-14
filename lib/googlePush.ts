@@ -1,7 +1,7 @@
 import type { CalendarItem, RepeatUnit } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { addDays, dateToString } from "@/lib/dates";
-import { DEFAULT_BLOCK_MINUTES, hhmm, minutesOf } from "@/lib/calendarLayout";
+import { DEFAULT_BLOCK_MINUTES, endAfter } from "@/lib/calendarLayout";
 import { calendarApi, GoogleError } from "@/lib/google";
 import { clearGoogleEventCache } from "@/lib/googleEvents";
 
@@ -41,7 +41,7 @@ export function googleEventBody(item: CalendarItem, timeZone: string, attendees:
   const timing = item.startTime
     ? {
         start: { dateTime: `${date}T${item.startTime}:00`, timeZone },
-        end: { dateTime: `${date}T${item.endTime ?? hhmm(Math.min(minutesOf(item.startTime) + DEFAULT_BLOCK_MINUTES, 23 * 60 + 59))}:00`, timeZone },
+        end: { dateTime: `${date}T${item.endTime ?? endAfter(item.startTime, DEFAULT_BLOCK_MINUTES)}:00`, timeZone },
       }
     : { start: { date }, end: { date: addDays(date, 1) } };
   const until = item.repeatUntil ? dateToString(item.repeatUntil).replace(/-/g, "") : null;
