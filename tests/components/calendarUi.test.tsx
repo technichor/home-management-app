@@ -480,6 +480,78 @@ describe("the full form", () => {
     return (await dialogTitled("New event"));
   };
 
+  describe("start, end and duration", () => {
+    const durationShown = (form: ReturnType<typeof within>) => form.getByRole("combobox", { name: "Duration" }).closest(".ant-select")!.textContent;
+
+    it("has no end or duration until there is a start; then it is half an hour long", async () => {
+      setup();
+      const form = await openNew();
+      expect(form.getByLabelText("End time")).toBeDisabled();
+      expect(form.getByRole("combobox", { name: "Duration" })).toBeDisabled();
+      fireChange(form.getByLabelText("Start time"), "09:00");
+      expect(form.getByLabelText("End time")).toHaveValue("09:30");
+      expect(durationShown(form)).toBe("30 min");
+    });
+
+    it("sets the end from a chosen duration", async () => {
+      setup();
+      const form = await openNew();
+      fireChange(form.getByLabelText("Start time"), "09:00");
+      await userEvent.click(form.getByRole("combobox", { name: "Duration" }));
+      await userEvent.click(await screen.findByTitle("1.5 hr"));
+      expect(form.getByLabelText("End time")).toHaveValue("10:30");
+    });
+
+    it("keeps the length when the start moves, and clears the end with the start", async () => {
+      setup();
+      const form = await openNew();
+      fireChange(form.getByLabelText("Start time"), "09:00");
+      fireChange(form.getByLabelText("End time"), "10:00");
+      fireChange(form.getByLabelText("Start time"), "14:15");
+      expect(form.getByLabelText("End time")).toHaveValue("15:15");
+      expect(durationShown(form)).toBe("1 hr");
+      fireChange(form.getByLabelText("Start time"), "");
+      expect(form.getByLabelText("End time")).toHaveValue("");
+    });
+
+    it("shows a typed end that isn't a usual length as what it is, and no duration for an end before the start", async () => {
+      setup();
+      const form = await openNew();
+      fireChange(form.getByLabelText("Start time"), "09:00");
+      fireChange(form.getByLabelText("End time"), "10:10");
+      expect(durationShown(form)).toBe("1 hr 10 min");
+      fireChange(form.getByLabelText("End time"), "08:00");
+      expect(durationShown(form)).toBe("Duration");
+      // A moved start then falls back to half an hour.
+      fireChange(form.getByLabelText("Start time"), "11:00");
+      expect(form.getByLabelText("End time")).toHaveValue("11:30");
+    });
+
+    it("never ends past midnight", async () => {
+      setup();
+      const form = await openNew();
+      fireChange(form.getByLabelText("Start time"), "23:45");
+      expect(form.getByLabelText("End time")).toHaveValue("23:59");
+    });
+
+    it("keeps a saved event's own end, and leaves it blank if it had none", async () => {
+      setup({ entries: [item({ id: "i1", title: "Long", startTime: "09:00", endTime: "12:00" }), item({ id: "i2", title: "Open-ended", startTime: "13:00" })] });
+      await userEvent.click(grid().getByRole("button", { name: /Long/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
+      const form = await dialogTitled("Edit event");
+      expect(form.getByLabelText("End time")).toHaveValue("12:00");
+      expect(durationShown(form)).toBe("3 hr");
+    });
+
+    it("leaves a saved event with no end open-ended", async () => {
+      setup({ entries: [item({ id: "i2", title: "Open-ended", startTime: "13:00" })] });
+      await userEvent.click(grid().getByRole("button", { name: /Open-ended/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Edit" }));
+      const form = await dialogTitled("Edit event");
+      expect(form.getByLabelText("End time")).toHaveValue("");
+    });
+  });
+
   it("creates an event with every field, then closes and refreshes", async () => {
     setup();
     const form = await openNew();
@@ -649,6 +721,7 @@ describe("the hour grid", () => {
     const form = await dialogTitled("New event");
     expect(form.getByLabelText("Date")).toHaveValue("2026-10-08");
     expect(form.getByLabelText("Start time")).toHaveValue("09:30");
+    expect(form.getByLabelText("End time")).toHaveValue("10:00"); // half an hour, to start with
   });
 
   it("opens an event, or goes to the planner for a meal, without starting a new event", async () => {

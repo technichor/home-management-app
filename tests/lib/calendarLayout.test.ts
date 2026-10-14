@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   allDayEntries,
   DEFAULT_BLOCK_MINUTES,
+  DURATIONS,
+  durationLabel,
+  durationOf,
+  endAfter,
   hhmm,
   hourLabel,
   layoutDay,
@@ -114,5 +118,27 @@ describe("minuteAt", () => {
     expect(minuteAt(9 * HOUR_PX)).toBe(9 * 60);
     expect(minuteAt(-10)).toBe(0);
     expect(minuteAt(25 * HOUR_PX)).toBe(23 * 60 + 30);
+  });
+});
+
+describe("event lengths", () => {
+  it("ends an event a number of minutes after its start, never past 23:59", () => {
+    expect(endAfter("09:00", 30)).toBe("09:30");
+    expect(endAfter("09:45", 90)).toBe("11:15");
+    expect(endAfter("23:00", 120)).toBe("23:59");
+  });
+
+  it("measures an event, or not, when the end isn't after the start or a time is missing", () => {
+    expect(durationOf("09:00", "10:30")).toBe(90);
+    expect(durationOf("09:00", "09:00")).toBeNull();
+    expect(durationOf("10:00", "09:00")).toBeNull();
+    expect(durationOf("", "09:00")).toBeNull();
+    expect(durationOf("09:00", "")).toBeNull();
+  });
+
+  it("names lengths as people say them", () => {
+    expect(DURATIONS.map(durationLabel)).toEqual(["15 min", "30 min", "45 min", "1 hr", "1.5 hr", "2 hr", "3 hr", "4 hr"]);
+    expect(durationLabel(70)).toBe("1 hr 10 min");
+    expect(durationLabel(29)).toBe("29 min");
   });
 });
