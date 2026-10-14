@@ -71,7 +71,7 @@ test("views, navigation across month and year boundaries, and the week start sha
 
   // Day, week, month.
   await nav(page, "Day").click();
-  await expect(page).toHaveURL(/view=day/);
+  await expect(page).toHaveURL(new RegExp(`view=day&date=${today}`)); // today, not the week's first day
   await expect(page.getByText(/Nothing on the calendar for/)).toBeVisible();
   await nav(page, "Month").click();
   await expect(page.locator(".cal-cell")).not.toHaveCount(0);

@@ -84,8 +84,16 @@ describe("the header", () => {
     expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("href", "/calendar?view=week&date=2026-10-07");
     const views = within(screen.getByRole("navigation", { name: "View" }));
     expect(views.getByRole("link", { name: "Week" })).toHaveAttribute("aria-current", "page");
-    expect(views.getByRole("link", { name: "Day" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-04");
-    expect(views.getByRole("link", { name: "Month" })).toHaveAttribute("href", "/calendar?view=month&date=2026-10-04");
+    // Today is in this week, so switching view goes to today (the Day view opens on today, not on Sunday).
+    expect(views.getByRole("link", { name: "Day" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
+    expect(views.getByRole("link", { name: "Month" })).toHaveAttribute("href", "/calendar?view=month&date=2026-10-07");
+  });
+
+  it("switches view within the period being looked at when today isn't in it", () => {
+    setup({ anchor: "2026-10-18", dates: datesInRange(viewRange("week", "2026-10-18", "SUNDAY")), prev: "2026-10-11", next: "2026-10-25" });
+    const views = within(screen.getByRole("navigation", { name: "View" }));
+    expect(views.getByRole("link", { name: "Day" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-18");
+    expect(views.getByRole("link", { name: "Month" })).toHaveAttribute("href", "/calendar?view=month&date=2026-10-18");
   });
 
   it("keeps the chosen member in every link", () => {
