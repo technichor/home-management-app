@@ -79,19 +79,19 @@ describe("the header", () => {
   it("names what is viewed and links previous, next, today and the three views", () => {
     setup();
     expect(screen.getByRole("heading", { level: 4 })).toHaveTextContent("Oct 4 – 10, 2026");
-    expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute("href", "/calendar?view=week&date=2026-09-27&today=2026-10-07");
-    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", "/calendar?view=week&date=2026-10-11&today=2026-10-07");
-    expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("href", "/calendar?view=week&date=2026-10-07&today=2026-10-07");
+    expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute("href", "/calendar?view=week&date=2026-09-27");
+    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", "/calendar?view=week&date=2026-10-11");
+    expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("href", "/calendar?view=week&date=2026-10-07");
     const views = within(screen.getByRole("navigation", { name: "View" }));
     expect(views.getByRole("link", { name: "Week" })).toHaveAttribute("aria-current", "page");
-    expect(views.getByRole("link", { name: "Day" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-04&today=2026-10-07");
-    expect(views.getByRole("link", { name: "Month" })).toHaveAttribute("href", "/calendar?view=month&date=2026-10-04&today=2026-10-07");
+    expect(views.getByRole("link", { name: "Day" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-04");
+    expect(views.getByRole("link", { name: "Month" })).toHaveAttribute("href", "/calendar?view=month&date=2026-10-04");
   });
 
   it("keeps the chosen member in every link", () => {
     setup({ assigneeFilter: "m1" });
-    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", expect.stringContaining("&who=m1&"));
-    expect(screen.getByRole("link", { name: "Day" })).toHaveAttribute("href", expect.stringContaining("&who=m1&"));
+    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", expect.stringMatching(/&who=m1$/));
+    expect(screen.getByRole("link", { name: "Day" })).toHaveAttribute("href", expect.stringMatching(/&who=m1$/));
   });
 
   it("titles the day and month views", () => {
@@ -106,14 +106,14 @@ describe("the header", () => {
     setup();
     await userEvent.click(screen.getByRole("combobox", { name: "Show items for" }));
     await userEvent.click(await screen.findByTitle("Sam"));
-    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04&who=m1&today=2026-10-07");
+    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04&who=m1");
   });
 
   it("goes back to everyone", async () => {
     setup({ assigneeFilter: "m1" });
     await userEvent.click(screen.getByRole("combobox", { name: "Show items for" }));
     await userEvent.click(await screen.findByTitle("Everyone"));
-    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04&today=2026-10-07");
+    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04");
   });
 
   it("changes the week's first day (shared with the planner) and refreshes", async () => {
@@ -190,7 +190,7 @@ describe("the week", () => {
     expect(days[3]).toHaveTextContent("Today");
     expect(days.filter((d) => d.hasAttribute("data-today"))).toHaveLength(1);
     expect(weekList().getByRole("button", { name: "Add to Wed Oct 7" })).toBeInTheDocument();
-    expect(weekList().getByRole("link", { name: /Mon Oct 5/ })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-05&today=2026-10-07");
+    expect(weekList().getByRole("link", { name: /Mon Oct 5/ })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-05");
   });
 
   it("shows each kind of entry: reminders and events with times, contact dates, meals", () => {
@@ -209,7 +209,7 @@ describe("the week", () => {
     expect(inDay.getByText("Picture day")).toBeInTheDocument();
     expect(inDay.getByText("9:30 AM – 10:15 AM")).toBeInTheDocument();
     expect(inDay.getByText("Sam")).toBeInTheDocument();
-    expect(inDay.getByRole("link", { name: "Dinner: Tacos" })).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
+    expect(inDay.getByRole("link", { name: "Dinner: Tacos" })).toHaveAttribute("href", "/meals?week=2026-10-07");
     expect([...today.querySelectorAll(".cal-entry-title")].map((e) => e.textContent)).toEqual(["Jo's birthday", "Picture day", "Dentist", "Dinner: Tacos"]);
   });
 
@@ -260,7 +260,7 @@ describe("the day", () => {
     const dentist = within(column).getByRole("button", { name: /Dentist/ });
     expect(dentist).toHaveStyle({ top: `${9 * 48}px`, height: `${24 - 2}px` });
     expect(dentist).toHaveTextContent("9:00 AM");
-    expect(within(column).getByRole("link", { name: /Lunch: Soup/ })).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
+    expect(within(column).getByRole("link", { name: /Lunch: Soup/ })).toHaveAttribute("href", "/meals?week=2026-10-07");
     expect(document.querySelector(".tg-heads")).toBeNull(); // one day: the page title says which
   });
 
@@ -287,7 +287,7 @@ describe("the month", () => {
     expect(cells[0]).toHaveTextContent("27");
     expect(cells[4]).not.toHaveAttribute("data-outside");
     expect(cells.filter((c) => c.hasAttribute("data-today"))).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Open Oct 7, 2026" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07&today=2026-10-07");
+    expect(screen.getByRole("link", { name: "Open Oct 7, 2026" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
   });
 
   it("starts the week on Monday when the household does", () => {
@@ -300,7 +300,7 @@ describe("the month", () => {
     const cell = document.querySelector(".cal-cell[data-today]") as HTMLElement;
     expect(cell.querySelectorAll(".cal-chips .cal-entry")).toHaveLength(3);
     expect(within(cell).queryByText("Four")).toBeNull();
-    expect(within(cell).getByRole("link", { name: "+2 more" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07&today=2026-10-07");
+    expect(within(cell).getByRole("link", { name: "+2 more" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
   });
 
   it("shows exactly three with no '+N more'", () => {
@@ -312,7 +312,7 @@ describe("the month", () => {
     month({ entries: [item({ title: "A" }), item({ title: "B" })] });
     const dots = screen.getByRole("link", { name: "2 on Oct 7, 2026" });
     expect(dots).toHaveTextContent("2");
-    expect(dots).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07&today=2026-10-07");
+    expect(dots).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
     expect(document.querySelectorAll(".cal-dots")).toHaveLength(1);
   });
 
@@ -646,7 +646,7 @@ describe("the hour grid", () => {
   it("opens an event, or goes to the planner for a meal, without starting a new event", async () => {
     setup({ entries: [item({ title: "Dentist", startTime: "09:00" }), meal({ title: "Dinner: Tacos", startTime: "17:30" })], showMeals: true });
     const tacos = within(column(TODAY)).getByRole("link", { name: /Dinner: Tacos/ });
-    expect(tacos).toHaveAttribute("href", "/meals?week=2026-10-07&today=2026-10-07");
+    expect(tacos).toHaveAttribute("href", "/meals?week=2026-10-07");
     fireEvent.click(tacos);
     expect(screen.queryByText("New event", { selector: ".ant-modal-title" })).toBeNull();
     await userEvent.click(within(column(TODAY)).getByRole("button", { name: /Dentist/ }));

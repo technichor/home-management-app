@@ -12,6 +12,11 @@ const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/home/HomeTodos", () => ({ default: (p: any) => ((seen.todos = p), <section aria-label="To-do">to-dos</section>) }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 
+const clock = vi.hoisted(() => ({ today: null as string | null }));
+vi.mock("@/lib/today", async () => {
+  const { utcDateString } = await import("@/lib/dates");
+  return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
+});
 import { pageMember } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
 import { getMealPlanSettings } from "@/lib/mealPlan";
@@ -22,7 +27,10 @@ import HomePage from "@/app/(app)/home/page";
 import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 
 const me = (role = "OWNER") => ({ id: "u1", firstName: "Sam", role, householdId: "h1", contactId: "c-me", household: { displayName: "The Smiths" } });
-const run = async (sp: object = { today: "2026-10-07" }) => render(await HomePage({ searchParams: Promise.resolve(sp) }));
+const run = async (today: string | null = "2026-10-07") => {
+  clock.today = today;
+  return render(await HomePage());
+};
 
 let n = 0;
 const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
@@ -55,10 +63,9 @@ beforeEach(() => {
 
 describe("HomePage: the week", () => {
   it("waits for the browser's date before showing a week", async () => {
-    await run({});
+    await run(null);
     expect(screen.getByTestId("local-today")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-    await run({ today: "yesterday" });
     expect(getAgenda).not.toHaveBeenCalled();
   });
 
@@ -74,7 +81,7 @@ describe("HomePage: the week", () => {
 
   it("starts the week on Monday for a household that chose that", async () => {
     vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
-    await run({ today: "2026-10-04" });
+    await run("2026-10-04");
     expect(screen.getByText("Week of Sep 28 – Oct 4, 2026")).toBeInTheDocument();
     expect(vi.mocked(getAgenda).mock.calls[0].slice(1, 3)).toEqual(["2026-09-28", "2026-10-04"]);
   });
@@ -106,7 +113,7 @@ describe("HomePage: the week", () => {
     expect(days[3]).toHaveAttribute("data-today");
     const row = section("Day by day").querySelector("a[data-today]") as HTMLElement;
     expect(row).toHaveTextContent("(today)");
-    expect(row).toHaveAttribute("href", "/meals?week=2026-10-04&today=2026-10-07");
+    expect(row).toHaveAttribute("href", "/meals?week=2026-10-04");
   });
 
 });
@@ -143,7 +150,7 @@ describe("HomePage: the lists", () => {
 
   it("offers the calendar from Day by day", async () => {
     await run();
-    expect(within(section("Day by day")).getByRole("link", { name: "View calendar" })).toHaveAttribute("href", "/calendar?view=week&today=2026-10-07");
+    expect(within(section("Day by day")).getByRole("link", { name: "View calendar" })).toHaveAttribute("href", "/calendar?view=week");
   });
 
   it("passes the signed-in member's to-dos (theirs and Anyone's, by the browser's date) to the To-do column", async () => {

@@ -15,6 +15,11 @@ vi.mock("@/app/(app)/todo/TodoClient", () => ({ default: (p: any) => ((seen.clie
 vi.mock("@/app/(app)/lists/[id]/compare/CompareClient", () => ({ default: (p: any) => ((seen.compare = p), <div>compare</div>) }));
 vi.mock("@/app/(app)/todo/actions", () => ({ recordTodoComparisonAction: vi.fn() }));
 
+const clock = vi.hoisted(() => ({ today: null as string | null }));
+vi.mock("@/lib/today", async () => {
+  const { utcDateString } = await import("@/lib/dates");
+  return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
+});
 import { getIronSession } from "iron-session";
 import { loadTodo } from "@/lib/todo";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
@@ -29,6 +34,7 @@ const todo = (over: Record<string, unknown> = {}) => ({
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }];
 
 beforeEach(() => {
+  clock.today = null;
   vi.clearAllMocks();
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1", contactId: "c-me" } as any);
@@ -38,7 +44,8 @@ beforeEach(() => {
 
 describe("TodoPage", () => {
   it("loads the household's to-do list and members, with who the user is, and the browser's date", async () => {
-    render(await TodoPage({ searchParams: Promise.resolve({ today: "2026-10-07" }) }));
+    clock.today = "2026-10-07";
+    render(await TodoPage());
     expect(syncMaintenanceTodos).toHaveBeenCalledWith("h1", "2026-10-07");
     expect(vi.mocked(syncMaintenanceTodos).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(loadTodo).mock.invocationCallOrder[0]);
     expect(loadTodo).toHaveBeenCalledWith("h1");
@@ -51,14 +58,14 @@ describe("TodoPage", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-06T12:00:00Z"));
     vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
-    render(await TodoPage({ searchParams: Promise.resolve({}) }));
+    render(await TodoPage());
     expect(seen.client).toMatchObject({ today: "2026-10-06", myContactId: null });
     vi.useRealTimers();
   });
 
   it("needs a signed-in household", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(TodoPage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+    await expect(TodoPage()).rejects.toThrow();
   });
 });
 

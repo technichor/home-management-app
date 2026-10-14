@@ -20,7 +20,7 @@ The first day of the week is **not** stored here: it is `MealPlanSettings.weekSt
 
 ## Rules
 
-- **Dates are plain `YYYY-MM-DD` strings** (`lib/dates.ts`). "Today" is the browser's local date, supplied as `?today=` by `components/LocalToday.tsx`; pages wait for it rather than guess from the server clock.
+- **Dates are plain `YYYY-MM-DD` strings** (`lib/dates.ts`). "Today" is the browser's local date, worked out on the server from the browser's time zone cookie (`lib/today.ts`); on a first visit pages wait for `components/LocalToday.tsx` to set it rather than guess from the server clock.
 - **The shared agenda** (`lib/agenda.ts` `getAgenda`) returns, for a date range, events, derived contact dates and (if asked) planned meals, in one order (`lib/agendaOrder.ts`). The calendar page and the home brief use it.
 - **Derived contact dates** repeat every year, show "turns N" when a birth year is known, link to the contact, and can't be edited on the calendar. A Feb 29 birthday shows on Feb 28 in non-leap years.
 - **Meals layer**: `showMeals` adds planned meals to the day and week views (not month). It is a household setting, toggled from the calendar header.
@@ -40,7 +40,7 @@ The week (on screens wider than 1100px) and the day view are an hour grid like G
 
 ## Screens
 
-`/calendar?view=day|week|month&date=&who=&today=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.
+`/calendar?view=day|week|month&date=&who=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.
 
 ## Key files
 

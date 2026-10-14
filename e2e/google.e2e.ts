@@ -56,7 +56,7 @@ test("Google Calendar: link, share calendars, choose the household calendar, and
     body: JSON.stringify({ calendarId: `work.${ownerGoogle}`, event: { summary: "Trip to Denver", start: { date: iso() }, end: { date: iso(1) } } }),
   });
   await shareCalendars(page, ["Work"]);
-  await page.goto(`/calendar?view=week&today=${iso()}`);
+  await page.goto(`/calendar?view=week`);
   const trip = todayCell(page).getByRole("link", { name: /Trip to Denver/ });
   await expect(trip).toBeVisible();
   await expect(trip).toHaveAttribute("title", "Casey's Work (Google Calendar)");
@@ -79,7 +79,7 @@ test("Google Calendar: link, share calendars, choose the household calendar, and
   await shareCalendars(mate.page, [mateGoogle.replace(/[.+]/g, "\\$&")]);
 
   // A household event goes to Google, inviting the member (not the owner, whose calendar it is).
-  await page.goto(`/calendar?view=week&today=${iso()}`);
+  await page.goto(`/calendar?view=week`);
   await page.getByRole("button", { name: "New event" }).click();
   const form = page.getByRole("dialog").filter({ hasText: "New event" });
   await form.getByLabel("Title").fill("Soccer practice");

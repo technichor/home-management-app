@@ -69,7 +69,7 @@ export default function PlannerClient({
   const days = weekDates(weekStart);
   const slots = visibleSlots(settings);
   const currentWeek = weekStart === weekStartOf(today, settings.weekStartsOn);
-  const href = (week: string | null) => `/meals?${week ? `week=${week}&` : ""}today=${today}`;
+  const href = (week: string | null) => (week ? `/meals?week=${week}` : "/meals");
   const open = entries.find((e) => e.id === openId) ?? null;
   const weekMealIds = new Set(entries.flatMap((e) => (e.mealId ? [e.mealId] : [])));
   const openMeal = open?.mealId ? (meals.find((m) => m.id === open.mealId) ?? null) : null;

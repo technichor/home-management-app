@@ -29,6 +29,11 @@ vi.mock("@/app/(app)/meals/library/LibraryClient", () => ({ default: (p: any) =>
 vi.mock("@/app/(app)/meals/library/MealForm", () => ({ default: (p: any) => ((seen.form = p), <div>meal form</div>) }));
 vi.mock("@/app/(app)/meals/library/[id]/MealDetailClient", () => ({ default: (p: any) => ((seen.detail = p), <div>detail client</div>) }));
 
+const clock = vi.hoisted(() => ({ today: null as string | null }));
+vi.mock("@/lib/today", async () => {
+  const { utcDateString } = await import("@/lib/dates");
+  return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
+});
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import { loadShopping } from "@/lib/shopping";
@@ -40,9 +45,9 @@ import MealDetailPage from "@/app/(app)/meals/library/[id]/page";
 import EditMealPage from "@/app/(app)/meals/library/[id]/edit/page";
 
 const idParams = Promise.resolve({ id: "m1" });
-const noSearch = Promise.resolve({});
 
 beforeEach(() => {
+  clock.today = null;
   vi.clearAllMocks();
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
@@ -60,7 +65,8 @@ describe("MealLibraryPage", () => {
     vi.mocked(prisma.mealPlanEntry.groupBy).mockResolvedValue([
       { mealId: "m1", _max: { date: new Date("2026-10-03T00:00:00Z") }, _count: { _all: 2 } },
     ] as any);
-    const { getByTestId } = render(await MealLibraryPage({ searchParams: Promise.resolve({ today: "2026-10-04" }) }));
+    clock.today = "2026-10-04";
+    const { getByTestId } = render(await MealLibraryPage());
     expect(getByTestId("local-today")).toBeInTheDocument();
     expect(vi.mocked(prisma.meal.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1" });
     expect(seen.library.meals).toEqual([
@@ -74,11 +80,10 @@ describe("MealLibraryPage", () => {
     });
   });
 
-  it("falls back to the server's date when the URL has none, or a bad one", async () => {
+  it("falls back to the server's date before the browser has said", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-06T12:00:00Z"));
-    await MealLibraryPage({ searchParams: noSearch });
-    await MealLibraryPage({ searchParams: Promise.resolve({ today: "nonsense" }) });
+    await MealLibraryPage();
     vi.useRealTimers();
     for (const call of vi.mocked(prisma.mealPlanEntry.groupBy).mock.calls) {
       expect((call[0]!.where as any).date.lte).toEqual(new Date("2026-10-06T00:00:00Z"));
@@ -100,7 +105,8 @@ describe("MealDetailPage", () => {
     vi.mocked(prisma.mealPlanEntry.groupBy).mockResolvedValue([
       { mealId: "m1", _max: { date: new Date("2026-09-30T00:00:00Z") }, _count: { _all: 5 } },
     ] as any);
-    render(await MealDetailPage({ params: idParams, searchParams: Promise.resolve({ today: "2026-10-04" }) }));
+    clock.today = "2026-10-04";
+    render(await MealDetailPage({ params: idParams,  }));
     expect(prisma.meal.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
     expect(prisma.mealPlanEntry.count).toHaveBeenCalledWith({ where: { householdId: "h1", mealId: "m1" } });
     expect(seen.detail).toEqual({
@@ -113,13 +119,13 @@ describe("MealDetailPage", () => {
 
   it("shows a never-made meal with zero counts", async () => {
     vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: null } as any);
-    render(await MealDetailPage({ params: idParams, searchParams: noSearch }));
+    render(await MealDetailPage({ params: idParams }));
     expect(seen.detail).toMatchObject({ lastMade: null, timesMade: 0, entryCount: 0 });
   });
 
   it("404s for a meal that is missing or another household's", async () => {
     vi.mocked(prisma.meal.findFirst).mockResolvedValue(null);
-    await expect(MealDetailPage({ params: idParams, searchParams: noSearch })).rejects.toThrow("NOT_FOUND");
+    await expect(MealDetailPage({ params: idParams })).rejects.toThrow("NOT_FOUND");
   });
 });
 
@@ -138,7 +144,10 @@ describe("EditMealPage", () => {
 });
 
 describe("PlannerPage", () => {
-  const run = async (sp: object) => render(await PlannerPage({ searchParams: Promise.resolve(sp) }));
+  const run = async ({ today = null, ...sp }: { today?: string | null; week?: string }) => {
+    clock.today = today;
+    return render(await PlannerPage({ searchParams: Promise.resolve(sp) }));
+  };
   const entry = (over: object = {}) => ({
     id: "e1", date: new Date("2026-10-06T00:00:00Z"), slot: "DINNER", mealId: "m1", text: null,
     meal: { id: "m1", name: "Tacos", description: "Fry" }, ...over,
@@ -149,7 +158,7 @@ describe("PlannerPage", () => {
     expect(getByTestId("local-today")).toBeInTheDocument();
     expect(seen.planner).toBeUndefined();
     expect(prisma.mealPlanEntry.findMany).not.toHaveBeenCalled();
-    await run({ today: "not-a-date", week: "2026-10-04" });
+    await run({ week: "2026-10-04" });
     expect(seen.planner).toBeUndefined();
   });
 

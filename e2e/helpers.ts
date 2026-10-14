@@ -267,3 +267,11 @@ export async function reloadUntil(page: Page, check: () => Promise<void>) {
     await check();
   }).toPass();
 }
+
+/** Today in a time zone as the calendar and planner label a day, e.g. "Sat Oct 10". */
+export function dayLabelIn(timeZone: string, now: Date = new Date()): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }).formatToParts(now).map((p) => [p.type, p.value]),
+  );
+  return `${parts.weekday} ${parts.month} ${parts.day}`;
+}

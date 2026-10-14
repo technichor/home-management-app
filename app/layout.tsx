@@ -7,6 +7,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 import { BRAND_NAME, TAGLINE } from "@/lib/brand";
 import { PALETTE, SCHEME_COOKIE, SCHEME_SCRIPT, paletteCss, type Scheme } from "@/lib/palette";
 import { appUrl } from "@/lib/email";
+import { TIME_ZONE_SCRIPT } from "@/lib/timeZoneCookie";
 import "./globals.css";
 
 // The brand's display face (headings), self-hosted by next/font at build time.
@@ -54,6 +55,7 @@ export default async function RootLayout({
       <head>
         <style dangerouslySetInnerHTML={{ __html: paletteCss() }} />
         <script dangerouslySetInnerHTML={{ __html: SCHEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: TIME_ZONE_SCRIPT }} />
       </head>
       <body>
         <AntdRegistry>

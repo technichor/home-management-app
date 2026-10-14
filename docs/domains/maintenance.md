@@ -15,7 +15,7 @@ An inventory of the things a household has to take care of: the furnaces, the re
 - **Age** is the calendar-year difference between the browser's "today" and `installedYear` (`lib/maintenance.ts`).
 - **Next service** is derived: `lastServicedOn` + `serviceEveryMonths`, on the same day of the month (clamped to a shorter month's end). It is never stored. A scheduled item with no recorded service says so and is not called overdue; one past its date reads "Service was due ...", in the danger colour.
 - **"Serviced today"** on the detail page records the browser's date as `lastServicedOn` (and checks off the item's to-do, if one is open).
-- **Due services become to-dos** 7 days ahead; checking one off records the service. See `docs/domains/todo.md`. "Today" is the browser's date, supplied as `?today=` by `components/LocalToday.tsx`, as in Meals and the Calendar.
+- **Due services become to-dos** 7 days ahead; checking one off records the service. See `docs/domains/todo.md`. "Today" is the browser's date (`lib/today.ts`), as in Meals and the Calendar.
 - **`manualUrl` is a link only** (http or https, checked when saved so it can never be a `javascript:` link; opened in a new tab with `rel="noopener noreferrer"`). There is no file storage yet, so manuals can't be attached.
 - Notes are plain text.
 

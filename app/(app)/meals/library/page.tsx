@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/db";
 import { pageHouseholdId } from "@/lib/auth";
-import { dateOr, utcDateString } from "@/lib/dates";
+import { pageTodayOrUtc } from "@/lib/today";
 import { mealStats } from "@/lib/meals";
 import LocalToday from "@/components/LocalToday";
 import LibraryClient from "./LibraryClient";
 
-export default async function MealLibraryPage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
+export default async function MealLibraryPage() {
   const householdId = await pageHouseholdId();
-  const today = dateOr((await searchParams).today, utcDateString());
+  const today = await pageTodayOrUtc();
 
   const [meals, stats] = await Promise.all([
     prisma.meal.findMany({ where: { householdId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -16,7 +16,7 @@ export default async function MealLibraryPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <LocalToday />
+      <LocalToday today={today} />
       <LibraryClient
         meals={meals.map((m) => ({
           id: m.id,

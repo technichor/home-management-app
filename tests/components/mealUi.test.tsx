@@ -174,21 +174,27 @@ describe("MealDetailClient", () => {
 });
 
 describe("LocalToday", () => {
-  it("puts the device's date in the URL when it is missing, keeping other parameters", () => {
-    params = new URLSearchParams("sort=name");
-    render(<LocalToday />);
-    expect(router.replace).toHaveBeenCalledWith(`/meals/library?sort=name&today=${localDateString()}`, { scroll: false });
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  beforeEach(() => {
+    document.cookie = "tz=; path=/; max-age=0";
   });
 
-  it("replaces a stale date (it is a new day)", () => {
-    params = new URLSearchParams("today=2001-01-01");
-    render(<LocalToday />);
-    expect(router.replace).toHaveBeenCalledWith(`/meals/library?today=${localDateString()}`, { scroll: false });
+  it("on a first visit (the server didn't know the date), saves the browser's time zone and asks again", () => {
+    render(<LocalToday today={null} />);
+    expect(document.cookie).toContain(`tz=${encodeURIComponent(zone)}`);
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("asks again when the page's date is stale (it is a new day, or the device moved)", () => {
+    render(<LocalToday today="2001-01-01" />);
+    expect(router.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when the date is already right", () => {
-    params = new URLSearchParams(`today=${localDateString()}`);
-    render(<LocalToday />);
-    expect(router.replace).not.toHaveBeenCalled();
+    render(<LocalToday today={localDateString()} />);
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(document.cookie).not.toContain("tz=");
   });
 });
+

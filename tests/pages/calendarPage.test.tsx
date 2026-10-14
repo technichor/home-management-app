@@ -15,6 +15,8 @@ vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/calendar/CalendarClient", () => ({ default: (p: any) => ((seen.client = p), <div>calendar client</div>) }));
 
+const clock = vi.hoisted(() => ({ today: null as string | null }));
+vi.mock("@/lib/today", () => ({ pageToday: async () => clock.today }));
 import { getAgenda } from "@/lib/agenda";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { memberOptionsOf } from "@/lib/householdMembers";
@@ -27,7 +29,10 @@ const settings = (over: object = {}) =>
   ({ householdId: "h1", showMeals: false, timeZone: "America/Chicago", googleCalendarId: null, googleCalendarName: null, googleCalendarUserId: null, updatedAt: new Date(), ...over }) as any;
 
 const members = [{ id: "m1", name: "Sam", fullName: "Sam Doe" }, { id: "m2", name: "Ann", fullName: "Ann Doe" }];
-const run = async (sp: object = {}) => render(await CalendarPage({ searchParams: Promise.resolve({ today: "2026-10-07", ...sp }) }));
+const run = async ({ today = "2026-10-07", ...sp }: { today?: string | null; [param: string]: unknown } = {}) => {
+  clock.today = today;
+  return render(await CalendarPage({ searchParams: Promise.resolve(sp) }));
+};
 const agendaArgs = () => vi.mocked(getAgenda).mock.calls.at(-1)!;
 
 beforeEach(() => {
@@ -41,10 +46,9 @@ beforeEach(() => {
 
 describe("CalendarPage", () => {
   it("waits for the browser's date before showing anything, and reads nothing meanwhile", async () => {
-    const { getByTestId } = render(await CalendarPage({ searchParams: Promise.resolve({}) }));
+    const { getByTestId } = await run({ today: null });
     expect(getByTestId("local-today")).toBeInTheDocument();
     expect(seen.client).toBeUndefined();
-    render(await CalendarPage({ searchParams: Promise.resolve({ today: "soon" }) }));
     expect(getAgenda).not.toHaveBeenCalled();
   });
 

@@ -65,7 +65,7 @@ export default function CalendarClient({
     };
   }, [router]);
 
-  const hrefFor = (v: CalendarView, date?: string) => calendarHref({ view: v, date, who: assigneeFilter, today });
+  const hrefFor = (v: CalendarView, date?: string) => calendarHref({ view: v, date, who: assigneeFilter });
   const ctx: EntryContext = {
     today,
     onOpen: (item) => setOpenId(item.id),
@@ -114,7 +114,7 @@ export default function CalendarClient({
             aria-label="Show items for"
             value={assigneeFilter ?? ""}
             style={{ minWidth: 150 }}
-            onChange={(v) => router.push(calendarHref({ view, date: anchor, who: v || null, today }))}
+            onChange={(v) => router.push(calendarHref({ view, date: anchor, who: v || null }))}
             options={[{ value: "", label: "Everyone" }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
           />
           <Select<WeekStart>

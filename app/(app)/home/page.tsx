@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { pageMember } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
-import { addDays, formatWeekRange, isDateString, weekStartOf } from "@/lib/dates";
+import { addDays, formatWeekRange, weekStartOf } from "@/lib/dates";
+import { pageToday } from "@/lib/today";
 import { loadAttention } from "@/lib/homeAttention";
 import { calendarHref, plannerHref } from "@/lib/calendarView";
 import { getMealPlanSettings } from "@/lib/mealPlan";
@@ -12,12 +13,13 @@ import LocalToday from "@/components/LocalToday";
 import WeekDrawing from "@/components/WeekDrawing";
 import HomeTodos from "./HomeTodos";
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ today?: string }> }) {
+export default async function HomePage() {
   const me = await pageMember();
-  const { today } = await searchParams;
+  const today = await pageToday();
 
-  // The week is the user's own, so it needs their browser's date; LocalToday puts it in the URL straight away.
-  if (!isDateString(today)) return <LocalToday />;
+  // The week is the user's own, so it needs their browser's date (lib/today.ts); on a first visit, LocalToday saves
+  // the browser's time zone and asks again.
+  if (!today) return <LocalToday today={null} />;
 
   const householdId = me.householdId;
   const mealSettings = await getMealPlanSettings(householdId);
@@ -33,13 +35,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   ]);
 
   const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
-  const calendarWeek = calendarHref({ view: "week", today });
-  const plannerWeek = plannerHref(weekStart, today);
+  const calendarWeek = calendarHref({ view: "week" });
+  const plannerWeek = plannerHref(weekStart);
   const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
 
   return (
     <>
-      <LocalToday />
+      <LocalToday today={today} />
       <div className="brief-top">
         <div className="brief-inner">
           <div className="brief-date">Week of {formatWeekRange(weekStart)}</div>
