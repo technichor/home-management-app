@@ -75,6 +75,9 @@ export default function CalendarClient({
   };
 
   const range = { start: dates[0], end: dates[dates.length - 1] };
+  // Switching view keeps today when it is on screen (the week's Day view opens on today, not the week's first day),
+  // otherwise the period being looked at.
+  const switchDate = today >= range.start && today <= range.end ? today : anchor;
   const open = entries.find((e): e is AgendaItemEntry => e.source === "item" && e.id === openId) ?? null;
 
   async function save(action: () => Promise<{ ok: true } | { ok: false; error: string }>) {
@@ -103,7 +106,7 @@ export default function CalendarClient({
           </div>
           <nav className="subnav" aria-label="View">
             {CALENDAR_VIEWS.map((v) => (
-              <Link key={v} href={hrefFor(v, anchor)} aria-current={v === view ? "page" : undefined}>
+              <Link key={v} href={hrefFor(v, switchDate)} aria-current={v === view ? "page" : undefined}>
                 {VIEW_LABELS[v]}
               </Link>
             ))}
