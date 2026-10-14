@@ -71,10 +71,10 @@ describe("the week and its navigation", () => {
     expect(screen.getByText("Mon").closest(".planner-day")).not.toHaveAttribute("data-today");
   });
 
-  it("links to the previous and next week, carrying the browser's today", () => {
+  it("links to the previous and next week", () => {
     setup();
-    expect(screen.getByRole("link", { name: "Previous week" })).toHaveAttribute("href", "/meals?week=2026-09-27&today=2026-10-07");
-    expect(screen.getByRole("link", { name: "Next week" })).toHaveAttribute("href", "/meals?week=2026-10-11&today=2026-10-07");
+    expect(screen.getByRole("link", { name: "Previous week" })).toHaveAttribute("href", "/meals?week=2026-09-27");
+    expect(screen.getByRole("link", { name: "Next week" })).toHaveAttribute("href", "/meals?week=2026-10-11");
   });
 
   it("has no 'This week' button on the current week, and one elsewhere", () => {
@@ -82,7 +82,7 @@ describe("the week and its navigation", () => {
     expect(screen.queryByRole("link", { name: "This week" })).toBeNull();
     unmount();
     setup({ weekStart: "2026-10-18" });
-    expect(screen.getByRole("link", { name: "This week" })).toHaveAttribute("href", "/meals?today=2026-10-07");
+    expect(screen.getByRole("link", { name: "This week" })).toHaveAttribute("href", "/meals");
     expect(screen.getByRole("heading", { name: "Oct 18 – 24, 2026" })).toBeInTheDocument();
   });
 

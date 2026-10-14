@@ -20,6 +20,11 @@ vi.mock("@/app/(app)/maintenance/MaintenanceClient", () => ({ default: (p: any) 
 vi.mock("@/app/(app)/maintenance/MaintenanceForm", () => ({ default: (p: any) => ((seen.form = p), <div>form</div>) }));
 vi.mock("@/app/(app)/maintenance/[id]/MaintenanceDetailClient", () => ({ default: (p: any) => ((seen.detail = p), <div>detail</div>) }));
 
+const clock = vi.hoisted(() => ({ today: null as string | null }));
+vi.mock("@/lib/today", async () => {
+  const { utcDateString } = await import("@/lib/dates");
+  return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
+});
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
 import MaintenancePage from "@/app/(app)/maintenance/page";
@@ -35,6 +40,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 const idParams = Promise.resolve({ id: "m1" });
 
 beforeEach(() => {
+  clock.today = null;
   vi.clearAllMocks();
   for (const k of Object.keys(seen)) delete seen[k];
   vi.mocked(getIronSession).mockResolvedValue({ householdId: "h1" } as any);
@@ -44,7 +50,8 @@ beforeEach(() => {
 describe("MaintenancePage", () => {
   it("lists this household's items, with dates as plain strings, and asks the browser for today", async () => {
     vi.mocked(prisma.maintenanceItem.findMany).mockResolvedValue([row(), row({ id: "m2", lastServicedOn: null, installedYear: null })] as any);
-    const { getByTestId } = render(await MaintenancePage({ searchParams: Promise.resolve({ today: "2026-10-05" }) }));
+    clock.today = "2026-10-05";
+    const { getByTestId } = render(await MaintenancePage());
     expect(getByTestId("local-today")).toBeInTheDocument();
     expect(vi.mocked(prisma.maintenanceItem.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1" });
     expect(seen.list.today).toBe("2026-10-05");
@@ -52,17 +59,17 @@ describe("MaintenancePage", () => {
     expect(seen.list.items[1]).toMatchObject({ id: "m2", lastServicedOn: null, installedYear: null });
   });
 
-  it("falls back to the server's date when the URL has none", async () => {
+  it("falls back to the server's date before the browser has said", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-06T12:00:00Z"));
-    render(await MaintenancePage({ searchParams: Promise.resolve({}) }));
+    render(await MaintenancePage());
     expect(seen.list.today).toBe("2026-10-06");
     vi.useRealTimers();
   });
 
   it("needs a signed-in household", async () => {
     vi.mocked(getIronSession).mockResolvedValue({} as any);
-    await expect(MaintenancePage({ searchParams: Promise.resolve({}) })).rejects.toThrow();
+    await expect(MaintenancePage()).rejects.toThrow();
   });
 });
 
@@ -80,19 +87,20 @@ describe("NewMaintenanceItemPage", () => {
 describe("MaintenanceItemPage", () => {
   it("finds the item only through the household and passes it on", async () => {
     vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(row() as any);
-    render(await MaintenanceItemPage({ params: idParams, searchParams: Promise.resolve({ today: "2026-10-05" }) }));
+    clock.today = "2026-10-05";
+    render(await MaintenanceItemPage({ params: idParams,  }));
     expect(prisma.maintenanceItem.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
     expect(seen.detail.today).toBe("2026-10-05");
     expect(seen.detail.item).toMatchObject({ id: "m1", warrantyUntil: "2030-01-02", lastServicedOn: "2026-01-03", manualUrl: "https://x.test" });
   });
   it("handles an item with no dates", async () => {
     vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(row({ warrantyUntil: null, lastServicedOn: null }) as any);
-    render(await MaintenanceItemPage({ params: idParams, searchParams: Promise.resolve({}) }));
+    render(await MaintenanceItemPage({ params: idParams }));
     expect(seen.detail.item).toMatchObject({ warrantyUntil: null, lastServicedOn: null });
   });
   it("is a 404 for an item that isn't this household's", async () => {
     vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(null);
-    await expect(MaintenanceItemPage({ params: idParams, searchParams: Promise.resolve({}) })).rejects.toThrow("NOT_FOUND");
+    await expect(MaintenanceItemPage({ params: idParams })).rejects.toThrow("NOT_FOUND");
   });
 });
 

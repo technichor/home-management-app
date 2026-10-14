@@ -23,13 +23,13 @@ describe("constants", () => {
 });
 
 describe("calendarHref", () => {
-  it("carries the view, date, member and the browser's today", () => {
-    expect(calendarHref({ view: "week", date: "2026-10-04", who: "c1", today: "2026-10-07" })).toBe("/calendar?view=week&date=2026-10-04&who=c1&today=2026-10-07");
+  it("carries the view, date and member (never today: the server knows it from the browser's time zone)", () => {
+    expect(calendarHref({ view: "week", date: "2026-10-04", who: "c1" })).toBe("/calendar?view=week&date=2026-10-04&who=c1");
   });
 
   it("leaves out a date or member that isn't set", () => {
-    expect(calendarHref({ view: "month", today: "2026-10-07" })).toBe("/calendar?view=month&today=2026-10-07");
-    expect(calendarHref({ view: "day", date: "2026-10-07", who: null, today: "2026-10-07" })).toBe("/calendar?view=day&date=2026-10-07&today=2026-10-07");
+    expect(calendarHref({ view: "month" })).toBe("/calendar?view=month");
+    expect(calendarHref({ view: "day", date: "2026-10-07", who: null })).toBe("/calendar?view=day&date=2026-10-07");
   });
 });
 
@@ -98,7 +98,7 @@ describe("defaultQuickAddDate and plannerHref", () => {
     expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-10-03")).toBe("2026-10-04");
   });
 
-  it("links a meal to its planner week, with the browser's today", () => {
-    expect(plannerHref("2026-10-08", "2026-10-07")).toBe("/meals?week=2026-10-08&today=2026-10-07");
+  it("links a meal to its planner week", () => {
+    expect(plannerHref("2026-10-08")).toBe("/meals?week=2026-10-08");
   });
 });

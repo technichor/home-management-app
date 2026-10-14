@@ -1,7 +1,7 @@
 /**
  * Calendar dates as plain "YYYY-MM-DD" strings, with no time or time zone. The server runs in UTC but a
- * family's "today" is the date on their own device, so "today" is always passed in from the browser
- * (see components/LocalToday.tsx) and never read from the server clock for anything the user sees.
+ * family's "today" is the date on their own device, so it comes from the browser's time zone (lib/today.ts)
+ * and is never the server's own date for anything the user sees.
  */
 
 export type WeekStart = "SUNDAY" | "MONDAY";
@@ -25,12 +25,12 @@ export function localDateString(now: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-/** The server's own UTC date: only a fallback for when the browser hasn't said what its date is. */
+/** The server's own UTC date: only a fallback for when the browser hasn't said what its time zone is. */
 export function utcDateString(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
-/** A valid date string from a URL parameter, else the fallback. */
+/** A valid date string (e.g. from a URL parameter), else the fallback. */
 export function dateOr(value: unknown, fallback: string): string {
   return isDateString(value) ? value : fallback;
 }

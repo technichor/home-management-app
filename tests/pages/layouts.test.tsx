@@ -53,6 +53,7 @@ describe("RootLayout", () => {
     expect(html).toContain("<p>hello</p>");
     expect(html).toContain("--accent:#0F7A3D");
     expect(html).toContain("prefers-color-scheme: dark");
+    expect(html).toContain('document.cookie=\"tz=\"'); // the browser's time zone, for "today" (lib/today.ts)
   });
 
   it("starts in dark when the saved scheme cookie says so", async () => {

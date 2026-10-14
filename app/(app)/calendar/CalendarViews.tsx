@@ -31,7 +31,7 @@ function EntryLine({ entry, ctx, compact = false }: { entry: AgendaEntry; ctx: E
   }
   if (entry.source === "meal") {
     return (
-      <Link href={plannerHref(entry.date, ctx.today)} className={`cal-entry cal-entry-meal${compact ? " cal-chip" : ""}`}>
+      <Link href={plannerHref(entry.date)} className={`cal-entry cal-entry-meal${compact ? " cal-chip" : ""}`}>
         <span className="cal-entry-title">{entry.title}</span>
       </Link>
     );
@@ -122,7 +122,7 @@ function GridBlock({ block, ctx }: { block: Block; ctx: EntryContext }) {
   if (entry.source === "meal") {
     return (
       <Link
-        href={plannerHref(entry.date, ctx.today)}
+        href={plannerHref(entry.date)}
         className="tg-block tg-block-meal"
         data-short={short}
         style={style}

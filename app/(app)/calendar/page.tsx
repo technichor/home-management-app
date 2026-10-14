@@ -2,7 +2,8 @@ import { pageHouseholdId } from "@/lib/auth";
 import { getAgenda } from "@/lib/agenda";
 import { getCalendarSettings } from "@/lib/calendarItem";
 import { memberOptionsOf } from "@/lib/householdMembers";
-import { datesInRange, isDateString, resolveCalendarRange } from "@/lib/dates";
+import { datesInRange, resolveCalendarRange } from "@/lib/dates";
+import { pageToday } from "@/lib/today";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { orderAgenda } from "@/lib/agendaOrder";
 import { googleConfigured } from "@/lib/google";
@@ -10,14 +11,15 @@ import { googleAgenda, type GoogleAgenda } from "@/lib/googleEvents";
 import LocalToday from "@/components/LocalToday";
 import CalendarClient from "./CalendarClient";
 
-type Params = { view?: string; date?: string; today?: string; who?: string };
+type Params = { view?: string; date?: string; who?: string };
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Params> }) {
   const householdId = await pageHouseholdId();
-  const { view, date, today, who } = await searchParams;
+  const { view, date, who } = await searchParams;
+  const today = await pageToday();
 
-  // Today is the user's own date, which only the browser knows (LocalToday adds it to the URL straight away).
-  if (!isDateString(today)) return <LocalToday />;
+  // Today is the user's own date (lib/today.ts); on a first visit, wait for LocalToday to save the browser's time zone.
+  if (!today) return <LocalToday today={null} />;
 
   const [mealSettings, calendarSettings, assignees] = await Promise.all([
     getMealPlanSettings(householdId),
@@ -40,7 +42,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <LocalToday />
+      <LocalToday today={today} />
       <CalendarClient
         view={resolved.view}
         anchor={resolved.anchor}

@@ -165,7 +165,7 @@ test("Home has a To-do column: yours and Anyone's, due ones first, checkable the
   await expect(mate.page.getByRole("region", { name: "To-do" }).locator(".home-todo-row .brief-title")).toHaveText(["Overdue thing", "Not mine"]);
   await mate.context.close();
 
-  await page.goto(`/calendar?view=week&today=${iso(0)}`);
+  await page.goto(`/calendar?view=week`);
   await expect(page.getByText("Overdue thing")).toHaveCount(0);
 });
 

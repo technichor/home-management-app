@@ -1,19 +1,21 @@
 import { prisma } from "@/lib/db";
 import { pageHouseholdId } from "@/lib/auth";
-import { dateOr, isDateString, weekStartOf } from "@/lib/dates";
+import { dateOr, weekStartOf } from "@/lib/dates";
+import { pageToday } from "@/lib/today";
 import { getMealPlanSettings, visibleSlots, weekEntries } from "@/lib/mealPlan";
 import { mealStats } from "@/lib/meals";
 import { loadShopping } from "@/lib/shopping";
 import LocalToday from "@/components/LocalToday";
 import PlannerClient from "./PlannerClient";
 
-export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ week?: string; today?: string }> }) {
+export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ week?: string }> }) {
   const householdId = await pageHouseholdId();
-  const { week, today } = await searchParams;
+  const { week } = await searchParams;
+  const today = await pageToday();
 
-  // The week shown depends on the user's own date, which only the browser knows, so wait for it
-  // (LocalToday adds it to the URL straight away) rather than flash the wrong week.
-  if (!isDateString(today)) return <LocalToday />;
+  // The week shown depends on the user's own date (lib/today.ts), so on a first visit wait for LocalToday to save
+  // the browser's time zone rather than flash the wrong week.
+  if (!today) return <LocalToday today={null} />;
 
   const settings = await getMealPlanSettings(householdId);
   const weekStart = weekStartOf(dateOr(week, today), settings.weekStartsOn);
@@ -27,7 +29,7 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
   const shown = visibleSlots(settings);
   return (
     <>
-      <LocalToday />
+      <LocalToday today={today} />
       <PlannerClient
         weekStart={weekStart}
         today={today}

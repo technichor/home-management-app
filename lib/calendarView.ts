@@ -11,12 +11,11 @@ export const CALENDAR_LIST_QUERY = "(max-width: 1100px)";
 /** A month cell shows at most this many entries, then "+N more". */
 export const MAX_CHIPS = 3;
 
-/** The address of a calendar view. `today` is the browser's date, which pages need to know. */
-export function calendarHref(p: { view: CalendarView; date?: string; who?: string | null; today: string }): string {
+/** The address of a calendar view. */
+export function calendarHref(p: { view: CalendarView; date?: string; who?: string | null }): string {
   const q = new URLSearchParams({ view: p.view });
   if (p.date) q.set("date", p.date);
   if (p.who) q.set("who", p.who);
-  q.set("today", p.today);
   return `/calendar?${q.toString()}`;
 }
 
@@ -61,4 +60,4 @@ export function defaultQuickAddDate(view: CalendarView, anchor: string, range: D
 }
 
 /** The planner week a meal entry links to. */
-export const plannerHref = (date: string, today: string) => `/meals?week=${date}&today=${today}`;
+export const plannerHref = (date: string) => `/meals?week=${date}`;

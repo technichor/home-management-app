@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { newOwner, newSession, reloadUntil, seedPlanEntry, test } from "./helpers";
+import { dayLabelIn, newOwner, newSession, reloadUntil, seedPlanEntry, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
 
@@ -89,9 +89,9 @@ test("week navigation is unbounded, and 'This week' comes back", async ({ page }
   await expect(page.getByRole("link", { name: "This week" })).toHaveCount(0);
 
   // Years back and forth work too.
-  await page.goto("/meals?week=1999-12-26&today=2026-10-05");
+  await page.goto("/meals?week=1999-12-26");
   await expect(heading).toHaveText("Dec 26, 1999 – Jan 1, 2000");
-  await page.goto("/meals?week=2099-01-04&today=2026-10-05");
+  await page.goto("/meals?week=2099-01-04");
   await expect(heading).toHaveText("Jan 4 – 10, 2099");
 });
 
@@ -127,22 +127,18 @@ test("meals can be switched on and off, entries in hidden ones are noted, and th
 });
 
 // "Today" is the browser's date: the server (UTC) must not decide it.
-for (const [zone, instant, today, week] of [
-  // 21:00 on Saturday 10 Oct in Samoa (UTC-11) is already Sunday 11 Oct in UTC.
-  ["Pacific/Pago_Pago", "2026-10-11T08:00:00Z", "Sat Oct 10", "Oct 4 – 10, 2026"],
-  // 10:00 on Sunday 11 Oct on Kiritimati (UTC+14) is still Saturday 10 Oct in UTC.
-  ["Pacific/Kiritimati", "2026-10-10T20:00:00Z", "Sun Oct 11", "Oct 11 – 17, 2026"],
-] as const) {
+// "Today" is the date in the browser's time zone (lib/today.ts): Samoa (UTC-11) and Kiritimati (UTC+14) are always on
+// different dates, so at least one of them differs from the server's UTC date at any moment.
+for (const zone of ["Pacific/Pago_Pago", "Pacific/Kiritimati"]) {
   test(`today is the browser's local date (${zone}), not the server's`, async ({ browser }) => {
     const ctx = await browser.newContext({ baseURL: base, timezoneId: zone });
-    await ctx.clock.setFixedTime(new Date(instant));
     const p = await ctx.newPage();
     await newOwner(p, `plantz${zone.slice(-4).toLowerCase()}`, `The ${zone}ers`);
     await p.goto("/meals");
-    await expect(p.getByRole("heading", { level: 4 })).toHaveText(week);
     const marked = p.locator(".planner-day[data-today]");
     await expect(marked).toHaveCount(1);
-    await expect(marked).toContainText(today);
+    await expect(marked).toContainText(dayLabelIn(zone));
+    expect(p.url()).not.toContain("today=");
     await ctx.close();
   });
 }
