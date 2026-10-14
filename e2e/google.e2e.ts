@@ -60,6 +60,11 @@ test("Google Calendar: link, share calendars, choose the household calendar, and
   const trip = todayCell(page).getByRole("link", { name: /Trip to Denver/ });
   await expect(trip).toBeVisible();
   await expect(trip).toHaveAttribute("title", "Casey's Work (Google Calendar)");
+  // The home page's week shows it too, as the calendar does.
+  await page.goto("/home");
+  const homeToday = page.locator("section", { has: page.getByRole("heading", { name: "Day by day" }) }).locator(".brief-row[data-today]");
+  await expect(homeToday).toContainText("Trip to Denver");
+  await page.goto(`/calendar?view=week`);
 
   // No household calendar yet: the event form doesn't offer Google.
   await page.getByRole("button", { name: "New event" }).click();

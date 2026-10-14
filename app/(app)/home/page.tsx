@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { pageMember } from "@/lib/auth";
-import { getAgenda } from "@/lib/agenda";
+import { calendarEntries } from "@/lib/calendarEntries";
+import { getCalendarSettings } from "@/lib/calendarItem";
 import { addDays, formatWeekRange, weekStartOf } from "@/lib/dates";
 import { pageToday } from "@/lib/today";
 import { loadAttention } from "@/lib/homeAttention";
-import { calendarHref, plannerHref } from "@/lib/calendarView";
+import { calendarHref } from "@/lib/calendarView";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { homeTodos } from "@/lib/todo";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
-import { buildBrief } from "@/lib/weekBrief";
+import { buildBrief, earlierInWeek, type BriefDay } from "@/lib/weekBrief";
 import LocalToday from "@/components/LocalToday";
 import WeekDrawing from "@/components/WeekDrawing";
 import HomeTodos from "./HomeTodos";
@@ -22,13 +23,13 @@ export default async function HomePage() {
   if (!today) return <LocalToday today={null} />;
 
   const householdId = me.householdId;
-  const mealSettings = await getMealPlanSettings(householdId);
+  const [mealSettings, calendarSettings] = await Promise.all([getMealPlanSettings(householdId), getCalendarSettings(householdId)]);
   const weekStart = weekStartOf(today, mealSettings.weekStartsOn);
   const weekEnd = addDays(weekStart, 6);
 
-  // The week shows meals as well as events and contact dates.
+  // The week is what the calendar shows for it (Google events included, meals if the calendar shows them).
   const [week, attention, todos] = await Promise.all([
-    getAgenda(householdId, weekStart, weekEnd, { includeMeals: true }),
+    calendarEntries(householdId, { start: weekStart, end: weekEnd }, { timeZone: calendarSettings.timeZone, includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
     // Maintenance services that have come due join the to-do list first.
     syncMaintenanceTodos(householdId, today).then(() => homeTodos(householdId, me.contactId ?? null, today)),
@@ -36,7 +37,19 @@ export default async function HomePage() {
 
   const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
   const calendarWeek = calendarHref({ view: "week" });
-  const plannerWeek = plannerHref(weekStart);
+  const earlier = earlierInWeek(brief.days, today);
+  const dayRow = (d: BriefDay) => (
+    <Link key={d.date} href={calendarHref({ view: "day", date: d.date })} className="brief-row" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
+      <span className="brief-index">
+        {d.weekday}
+        {d.isToday && <span className="sr-only"> (today)</span>}
+      </span>
+      <div>
+        <div className="brief-title">{d.title}</div>
+        <div className="brief-support">{d.support}</div>
+      </div>
+    </Link>
+  );
   const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
 
   return (
@@ -91,18 +104,20 @@ export default async function HomePage() {
 
         <section className="home-days">
           <h2 className="brief-section">Day by day</h2>
-          {brief.days.map((d) => (
-            <Link key={d.date} href={plannerWeek} className="brief-row" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
-              <span className="brief-index">
-                {d.weekday}
-                {d.isToday && <span className="sr-only"> (today)</span>}
-              </span>
-              <div>
-                <div className="brief-title">{d.title}</div>
-                <div className="brief-support">{d.support}</div>
-              </div>
-            </Link>
-          ))}
+          {/* The days already gone fold into one row, opened on demand. */}
+          {earlier && (
+            <details className="brief-earlier">
+              <summary className="brief-row">
+                <span className="brief-index">Earlier</span>
+                <div>
+                  <div className="brief-title">{earlier.label}</div>
+                  <div className="brief-support">{earlier.support}</div>
+                </div>
+              </summary>
+              {earlier.days.map(dayRow)}
+            </details>
+          )}
+          {brief.days.filter((d) => d.date >= today).map(dayRow)}
           <p className="brief-link">
             <Link href={calendarWeek}>View calendar</Link>
           </p>

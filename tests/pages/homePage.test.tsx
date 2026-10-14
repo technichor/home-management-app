@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 
 vi.mock("@/lib/auth", () => ({ pageMember: vi.fn() }));
-vi.mock("@/lib/agenda", () => ({ getAgenda: vi.fn() }));
+vi.mock("@/lib/calendarEntries", () => ({ calendarEntries: vi.fn() }));
+vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
 vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
 vi.mock("@/lib/homeAttention", () => ({ loadAttention: vi.fn() }));
 vi.mock("@/lib/maintenanceTodos", () => ({ syncMaintenanceTodos: vi.fn() }));
@@ -18,13 +19,14 @@ vi.mock("@/lib/today", async () => {
   return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
 });
 import { pageMember } from "@/lib/auth";
-import { getAgenda } from "@/lib/agenda";
+import { calendarEntries } from "@/lib/calendarEntries";
+import { getCalendarSettings } from "@/lib/calendarItem";
 import { getMealPlanSettings } from "@/lib/mealPlan";
 import { loadAttention } from "@/lib/homeAttention";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
 import { homeTodos, type TodoItem } from "@/lib/todo";
 import HomePage from "@/app/(app)/home/page";
-import type { AgendaContactDateEntry, AgendaEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
+import type { AgendaContactDateEntry, AgendaEntry, AgendaGoogleEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 
 const me = (role = "OWNER") => ({ id: "u1", firstName: "Sam", role, householdId: "h1", contactId: "c-me", household: { displayName: "The Smiths" } });
 const run = async (today: string | null = "2026-10-07") => {
@@ -42,10 +44,17 @@ const birthday = (date: string, over: Partial<AgendaContactDateEntry> = {}): Age
 });
 const meal = (date: string, dish = "Tacos"): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, startTime: null, createdAt: "", editable: false });
 
-/** The week's entries, from the shared agenda. */
+const googleEvent = (date: string, title: string, startTime: string | null = null): AgendaGoogleEntry => ({
+  source: "google", id: `g${++n}`, googleId: `g${n}`, date, title, startTime, endTime: null, link: null, calendarName: "Work",
+  color: null, ownerName: "Sam", ownerContactId: "c-me", editable: false,
+});
+
+/** The week's entries, as the calendar shows them. */
 function agendas(week: AgendaEntry[]) {
-  vi.mocked(getAgenda).mockResolvedValue({ entries: week });
+  vi.mocked(calendarEntries).mockResolvedValue({ entries: week, googleProblems: [] });
 }
+const calendarSettings = (over: object = {}) =>
+  vi.mocked(getCalendarSettings).mockResolvedValue({ householdId: "h1", showMeals: false, timeZone: "America/Chicago", googleCalendarId: null, googleCalendarName: null, googleCalendarUserId: null, updatedAt: new Date(), ...over });
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
   id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: "2026-10-07", done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
@@ -57,6 +66,7 @@ beforeEach(() => {
   vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
   vi.mocked(loadAttention).mockResolvedValue([]);
   agendas([]);
+  calendarSettings();
   vi.mocked(homeTodos).mockResolvedValue([]);
   vi.mocked(syncMaintenanceTodos).mockResolvedValue();
 });
@@ -66,7 +76,7 @@ describe("HomePage: the week", () => {
     await run(null);
     expect(screen.getByTestId("local-today")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-    expect(getAgenda).not.toHaveBeenCalled();
+    expect(calendarEntries).not.toHaveBeenCalled();
   });
 
   it("shows the week of the browser's today as an empty, flat week with calm empty states", async () => {
@@ -83,14 +93,23 @@ describe("HomePage: the week", () => {
     vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
     await run("2026-10-04");
     expect(screen.getByText("Week of Sep 28 – Oct 4, 2026")).toBeInTheDocument();
-    expect(vi.mocked(getAgenda).mock.calls[0].slice(1, 3)).toEqual(["2026-09-28", "2026-10-04"]);
+    expect(vi.mocked(calendarEntries).mock.calls[0][1]).toEqual({ start: "2026-09-28", end: "2026-10-04" });
   });
 
-  it("asks the shared agenda for the week with meals always on, scoped to the household", async () => {
+  it("asks for what the calendar shows for the week (meals only when the calendar shows them), in the household's zone", async () => {
     await run();
-    const [householdId, start, end, options] = vi.mocked(getAgenda).mock.calls[0];
-    expect([householdId, start, end]).toEqual(["h1", "2026-10-04", "2026-10-10"]);
-    expect(options).toEqual({ includeMeals: true });
+    expect(calendarEntries).toHaveBeenCalledWith("h1", { start: "2026-10-04", end: "2026-10-10" }, { timeZone: "America/Chicago", includeMeals: false });
+    calendarSettings({ showMeals: true, timeZone: "Europe/Paris" });
+    await run();
+    expect(calendarEntries).toHaveBeenLastCalledWith("h1", { start: "2026-10-04", end: "2026-10-10" }, { timeZone: "Europe/Paris", includeMeals: true });
+  });
+
+  it("counts and shows Google events like Domata's own", async () => {
+    agendas([googleEvent("2026-10-07", "Flight to Denver", "14:00"), googleEvent("2026-10-09", "School play")]);
+    await run();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("A light week");
+    expect(section("Day by day")).toHaveTextContent("2:00 PM Flight to Denver.");
+    expect(document.querySelectorAll(".brief-drawing circle")).toHaveLength(2);
   });
 
   it("builds the headline, drawing and day rows from every kind of entry", async () => {
@@ -106,14 +125,48 @@ describe("HomePage: the week", () => {
     expect(document.querySelectorAll(".brief-drawing circle")).toHaveLength(2);
   });
 
-  it("breaks every day out, marking today and linking each day to the planner's week", async () => {
+  it("breaks every day out, marking today and linking each day to that day on the calendar", async () => {
     await run();
     const days = [...document.querySelectorAll(".brief-strip .brief-day")];
     expect(days.map((d) => d.querySelector(".brief-day-initial")!.textContent)).toEqual(["S", "M", "T", "W", "T", "F", "S"]);
     expect(days[3]).toHaveAttribute("data-today");
     const row = section("Day by day").querySelector("a[data-today]") as HTMLElement;
     expect(row).toHaveTextContent("(today)");
-    expect(row).toHaveAttribute("href", "/meals?week=2026-10-04");
+    expect(row).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
+  });
+
+  describe("days already gone", () => {
+    const earlier = () => section("Day by day").querySelector("details.brief-earlier") as HTMLDetailsElement | null;
+
+    it("fold into one closed row at the top, saying what was on them, and open to show them", async () => {
+      agendas([item("2026-10-04", { title: "Brunch" }), meal("2026-10-05"), item("2026-10-08", { title: "Later" })]);
+      await run();
+      const folded = earlier()!;
+      expect(folded.open).toBe(false);
+      expect(folded.querySelector("summary")).toHaveTextContent("Earlier");
+      expect(folded.querySelector("summary")).toHaveTextContent("Sun – Tue");
+      expect(folded.querySelector("summary")).toHaveTextContent("2 things.");
+      expect([...folded.querySelectorAll("a.brief-row .brief-index")].map((d) => d.textContent)).toEqual(["Sun", "Mon", "Tue"]);
+      // Today and the rest of the week stay open, after it.
+      const open = [...section("Day by day").querySelectorAll(":scope > a.brief-row .brief-index")].map((d) => d.textContent);
+      expect(open).toEqual(["Wed (today)", "Thu", "Fri", "Sat"]);
+    });
+
+    it("name one day by itself, and say when nothing was planned", async () => {
+      const { unmount } = await run("2026-10-05");
+      expect(earlier()!.querySelector("summary")).toHaveTextContent("Sun");
+      expect(earlier()!.querySelector("summary")).not.toHaveTextContent("–");
+      expect(earlier()!.querySelector("summary")).toHaveTextContent("Nothing was planned.");
+      unmount();
+      agendas([item("2026-10-04")]);
+      await run("2026-10-05");
+      expect(earlier()!.querySelector("summary")).toHaveTextContent("1 thing.");
+    });
+
+    it("aren't there on the week's first day", async () => {
+      await run("2026-10-04");
+      expect(earlier()).toBeNull();
+    });
   });
 
 });
@@ -136,7 +189,7 @@ describe("HomePage: needs attention", () => {
 describe("HomePage: the lists", () => {
   it("asks the agenda once, for the week only (there is no separate today-and-ahead list)", async () => {
     await run();
-    expect(getAgenda).toHaveBeenCalledTimes(1);
+    expect(calendarEntries).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/Today & coming up/)).toBeNull();
   });
 
