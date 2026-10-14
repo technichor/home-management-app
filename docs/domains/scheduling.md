@@ -40,7 +40,7 @@ The week (on screens wider than 1100px) and the day view are an hour grid like G
 
 ## Screens
 
-`/calendar?view=day|week|month&date=&who=` with a quick-add line (a title, date, optional start time) and a full form (title, date, times, repeat, assignee, notes). Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.
+`/calendar?view=day|week|month&date=&who=`. The header has New event (the main button; the full form: title, date, start, end or a duration, repeat, assignee, notes), previous/next/today and the title on the left, and the views and a settings button on the right. Settings (a dialog) holds the member filter, the week's first day and Show meals; a member filter in force shows as "Only Sam" beside the title, removable. Each day's "+" opens New event on that day. (The quick-add line was removed on 2026-10-14.) Week is a seven-column grid on wide screens and a list of days on narrower ones; month is a grid (compact on phones) with "+N more" past three chips. The home page's weekly brief and Day by day read the same agenda.
 
 ## Key files
 
@@ -63,7 +63,7 @@ Migration 0023 is additive. Apply it to production (`npx prisma db execute --fil
 
 ## Still needs a manual check in a real browser
 
-1. **A real phone**: the day/week/month views, quick add with the on-screen keyboard, and reaching Calendar under More.
+1. **A real phone**: the day/week/month views, New event with the on-screen keyboard, and reaching Calendar under More.
 2. **Evening "today"**: in your own time zone, confirm the highlighted day on the calendar and on Home uses your local date.
 3. **Two devices**: add or check an item on one; the other catches up within about 30 seconds.
 4. **Dark mode** on all three views, the strip and the home panel.

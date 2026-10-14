@@ -110,55 +110,123 @@ describe("the header", () => {
     expect(screen.getByRole("heading", { level: 4 })).toHaveTextContent("October 2026");
   });
 
-  it("filters by member, keeping the view and date", async () => {
+  it("makes New event the main button, starting on today when today is in view", async () => {
     setup();
-    await userEvent.click(screen.getByRole("combobox", { name: "Show items for" }));
-    await userEvent.click(await screen.findByTitle("Sam"));
-    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04&who=m1");
+    const button = screen.getByRole("button", { name: "New event" });
+    expect(button).toHaveClass("ant-btn-primary");
+    await userEvent.click(button);
+    expect((await dialogTitled("New event")).getByLabelText("Date")).toHaveValue(TODAY);
   });
 
-  it("goes back to everyone", async () => {
-    setup({ assigneeFilter: "m1" });
-    await userEvent.click(screen.getByRole("combobox", { name: "Show items for" }));
-    await userEvent.click(await screen.findByTitle("Everyone"));
-    expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04");
-  });
-
-  it("changes the week's first day (shared with the planner) and refreshes", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("combobox", { name: "Week starts on" }));
-    await userEvent.click(await screen.findByTitle("Starts Monday"));
-    expect(setWeekStartAction).toHaveBeenCalledWith("MONDAY");
-    await waitFor(() => expect(router.refresh).toHaveBeenCalled());
-  });
-
-  it("shows the reason when a setting can't be saved", async () => {
-    vi.mocked(setWeekStartAction).mockResolvedValue({ ok: false, error: "Invalid setting" });
-    setup();
-    await userEvent.click(screen.getByRole("combobox", { name: "Week starts on" }));
-    await userEvent.click(await screen.findByTitle("Starts Monday"));
-    expect(await screen.findByText("Invalid setting")).toBeInTheDocument();
-    expect(router.refresh).not.toHaveBeenCalled();
-  });
-
-  it("turns planned meals on and off", async () => {
-    const { unmount } = setup();
-    const toggle = screen.getByRole("switch", { name: "Show meals" });
-    expect(toggle).not.toBeChecked();
-    await userEvent.click(toggle);
-    expect(setShowMealsAction).toHaveBeenCalledWith(true);
+  it("starts a new event on the day being viewed, or the first day of a period without today", async () => {
+    const { unmount } = day({ anchor: "2026-10-09", dates: ["2026-10-09"] });
+    await userEvent.click(screen.getByRole("button", { name: /New event/ }));
+    expect((await dialogTitled("New event")).getByLabelText("Date")).toHaveValue("2026-10-09");
     unmount();
-    setup({ showMeals: true });
-    await userEvent.click(screen.getByRole("switch", { name: "Show meals" }));
-    expect(setShowMealsAction).toHaveBeenLastCalledWith(false);
+    setup({ anchor: "2026-10-18", dates: datesInRange(viewRange("week", "2026-10-18", "SUNDAY")) });
+    await userEvent.click(screen.getByRole("button", { name: /New event/ }));
+    expect((await dialogTitled("New event")).getByLabelText("Date")).toHaveValue("2026-10-18");
   });
 
-  it("disables the meals toggle on the month view, which never shows them", () => {
-    month({ showMeals: true });
-    const toggle = screen.getByRole("switch", { name: "Show meals" });
-    expect(toggle).toBeDisabled();
-    expect(toggle).not.toBeChecked();
-    expect(screen.getByText("Show meals (week and day)")).toBeInTheDocument();
+  it("has no quick-add line", () => {
+    setup();
+    expect(screen.queryByPlaceholderText(/Add an event/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+  });
+
+  describe("settings", () => {
+    const openSettings = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Calendar settings" }));
+      return dialogTitled("Calendar settings");
+    };
+
+    it("are behind a button beside the views, not on the page", async () => {
+      setup();
+      expect(screen.queryByRole("combobox", { name: "Show items for" })).toBeNull();
+      expect(screen.queryByRole("switch", { name: "Show meals" })).toBeNull();
+      const settings = await openSettings();
+      expect(settings.getByRole("combobox", { name: "Show items for" })).toBeInTheDocument();
+      expect(settings.getByRole("combobox", { name: "Week starts on" })).toBeInTheDocument();
+      expect(settings.getByRole("switch", { name: "Show meals" })).toBeInTheDocument();
+      await userEvent.click(settings.getByRole("button", { name: "Done" }));
+      // Closing (jsdom never finishes Ant Design's closing animation, so check that it has started).
+      await waitFor(() => expect(document.querySelector(".ant-modal")!.className).toMatch(/leave/));
+    });
+
+    it("close with their corner button too", async () => {
+      setup();
+      const settings = await openSettings();
+      await userEvent.click(settings.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(document.querySelector(".ant-modal")!.className).toMatch(/leave/));
+    });
+
+    it("filters by member, keeping the view and date", async () => {
+      setup();
+      const settings = await openSettings();
+      await userEvent.click(settings.getByRole("combobox", { name: "Show items for" }));
+      await userEvent.click(await screen.findByTitle("Sam"));
+      expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04&who=m1");
+    });
+
+    it("goes back to everyone", async () => {
+      setup({ assigneeFilter: "m1" });
+      const settings = await openSettings();
+      await userEvent.click(settings.getByRole("combobox", { name: "Show items for" }));
+      await userEvent.click(await screen.findByTitle("Everyone"));
+      expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04");
+    });
+
+    it("changes the week's first day (shared with the planner) and refreshes", async () => {
+      setup();
+      const settings = await openSettings();
+      await userEvent.click(settings.getByRole("combobox", { name: "Week starts on" }));
+      await userEvent.click(await screen.findByTitle("Monday"));
+      expect(setWeekStartAction).toHaveBeenCalledWith("MONDAY");
+      await waitFor(() => expect(router.refresh).toHaveBeenCalled());
+    });
+
+    it("shows the reason when a setting can't be saved", async () => {
+      vi.mocked(setWeekStartAction).mockResolvedValue({ ok: false, error: "Invalid setting" });
+      setup();
+      const settings = await openSettings();
+      await userEvent.click(settings.getByRole("combobox", { name: "Week starts on" }));
+      await userEvent.click(await screen.findByTitle("Monday"));
+      expect(await screen.findByText("Invalid setting")).toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("turns planned meals on and off, on any view", async () => {
+      const { unmount } = setup();
+      let toggle = (await openSettings()).getByRole("switch", { name: "Show meals" });
+      expect(toggle).not.toBeChecked();
+      await userEvent.click(toggle);
+      expect(setShowMealsAction).toHaveBeenCalledWith(true);
+      unmount();
+      month({ showMeals: true });
+      toggle = (await openSettings()).getByRole("switch", { name: "Show meals" });
+      expect(toggle).toBeChecked();
+      await userEvent.click(toggle);
+      expect(setShowMealsAction).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  describe("a member filter", () => {
+    it("is shown by the title, with a way back to everyone, and marked on the settings button", async () => {
+      setup({ assigneeFilter: "m2" });
+      expect(screen.getByText("Only Ann")).toBeInTheDocument();
+      expect(document.querySelector(".ant-badge-dot")).not.toBeNull();
+      await userEvent.click(screen.getByLabelText("Show everyone"));
+      expect(router.push).toHaveBeenCalledWith("/calendar?view=week&date=2026-10-04");
+    });
+
+    it("isn't shown for everyone, or for someone who is no longer a member", () => {
+      const { unmount } = setup();
+      expect(screen.queryByText(/^Only /)).toBeNull();
+      expect(document.querySelector(".ant-badge-dot")).toBeNull();
+      unmount();
+      setup({ assigneeFilter: "gone" });
+      expect(screen.queryByText(/^Only /)).toBeNull();
+    });
   });
 });
 
@@ -343,75 +411,16 @@ describe("the month", () => {
 
 
 
-describe("quick add", () => {
-  const title = () => screen.getByLabelText("Title");
-
-  it("defaults to today's date when today is in view, and to the day on the day view", () => {
-    const { unmount } = setup();
-    expect(screen.getByLabelText("Date")).toHaveValue(TODAY);
-    unmount();
-    day({ anchor: "2026-10-09", dates: ["2026-10-09"] });
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-10-09");
-  });
-
-  it("adds an event on Enter, clears the box and keeps the cursor there, then refreshes", async () => {
-    setup();
-    await userEvent.type(title(), "  Picture day {Enter}");
-    expect(createCalendarItemAction).toHaveBeenCalledWith({ title: "Picture day", date: TODAY, startTime: "" });
-    await waitFor(() => expect(title()).toHaveValue(""));
-    expect(title()).toHaveFocus();
-    expect(router.refresh).toHaveBeenCalled();
-  });
-
-  it("adds several in a row", async () => {
-    setup();
-    await userEvent.type(title(), "One{Enter}");
-    await waitFor(() => expect(title()).toHaveValue(""));
-    await userEvent.type(title(), "Two{Enter}");
-    await waitFor(() => expect(createCalendarItemAction).toHaveBeenCalledTimes(2));
-  });
-
-  it("adds a timed event with the chosen date and start time", async () => {
-    setup();
-    fireChange(screen.getByLabelText("Date"), "2026-10-09");
-    fireChange(screen.getByLabelText("Start time"), "14:30");
-    await userEvent.type(title(), "Dentist{Enter}");
-    expect(createCalendarItemAction).toHaveBeenCalledWith({ title: "Dentist", date: "2026-10-09", startTime: "14:30" });
-    await waitFor(() => expect(screen.getByLabelText("Start time")).toHaveValue(""));
-  });
-
-
-  it("adds with the Add button, which is off while the box is empty", async () => {
-    setup();
-    const add = screen.getByRole("button", { name: "Add" });
-    expect(add).toBeDisabled();
-    await userEvent.type(title(), "Thing");
-    await userEvent.click(add);
-    expect(createCalendarItemAction).toHaveBeenCalledTimes(1);
-  });
-
-  it("ignores Enter on a blank box", async () => {
-    setup();
-    await userEvent.type(title(), "   {Enter}");
-    expect(createCalendarItemAction).not.toHaveBeenCalled();
-  });
-
-  it("keeps what was typed and shows the reason when adding fails", async () => {
-    vi.mocked(createCalendarItemAction).mockResolvedValue({ ok: false, error: "Choose a valid date" });
-    setup();
-    await userEvent.type(title(), "Thing{Enter}");
-    expect(await screen.findByText("Choose a valid date")).toBeInTheDocument();
-    expect(title()).toHaveValue("Thing");
-    expect(router.refresh).not.toHaveBeenCalled();
-  });
-
-  it("a day's '+' fills in that date and moves the cursor to the box", async () => {
+describe("a day's '+'", () => {
+  it("opens a new event on that day", async () => {
     setup();
     await userEvent.click(grid().getByRole("button", { name: "Add to Sat Oct 10" }));
-    expect(screen.getByLabelText("Date")).toHaveValue("2026-10-10");
-    await waitFor(() => expect(title()).toHaveFocus());
+    const form = await dialogTitled("New event");
+    expect(form.getByLabelText("Date")).toHaveValue("2026-10-10");
+    expect(form.getByLabelText("Title")).toHaveFocus();
   });
 });
+
 
 // jsdom's date/time inputs are plain inputs: set them the way a browser would.
 import { fireEvent } from "@testing-library/react";

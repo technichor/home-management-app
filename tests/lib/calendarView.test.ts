@@ -4,7 +4,7 @@ import {
   CALENDAR_POLL_MS,
   MAX_CHIPS,
   calendarHref,
-  defaultQuickAddDate,
+  defaultNewEventDate,
   formatTime,
   groupByDate,
   plannerHref,
@@ -82,20 +82,20 @@ describe("groupByDate and weeksOf", () => {
   });
 });
 
-describe("defaultQuickAddDate and plannerHref", () => {
+describe("defaultNewEventDate and plannerHref", () => {
   const range = { start: "2026-10-04", end: "2026-10-10" };
 
   it("is the viewed day on the day view", () => {
-    expect(defaultQuickAddDate("day", "2026-10-09", { start: "2026-10-09", end: "2026-10-09" }, "2026-10-07")).toBe("2026-10-09");
+    expect(defaultNewEventDate("day", "2026-10-09", { start: "2026-10-09", end: "2026-10-09" }, "2026-10-07")).toBe("2026-10-09");
   });
 
   it("is today when it is in view, else the start of what's viewed", () => {
-    expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-10-07")).toBe("2026-10-07");
-    expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-10-04")).toBe("2026-10-04");
-    expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-10-10")).toBe("2026-10-10");
-    expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-11-01")).toBe("2026-10-04");
-    expect(defaultQuickAddDate("month", "2026-10-01", { start: "2026-09-27", end: "2026-10-31" }, "2026-09-28")).toBe("2026-09-28");
-    expect(defaultQuickAddDate("week", "2026-10-04", range, "2026-10-03")).toBe("2026-10-04");
+    expect(defaultNewEventDate("week", "2026-10-04", range, "2026-10-07")).toBe("2026-10-07");
+    expect(defaultNewEventDate("week", "2026-10-04", range, "2026-10-04")).toBe("2026-10-04");
+    expect(defaultNewEventDate("week", "2026-10-04", range, "2026-10-10")).toBe("2026-10-10");
+    expect(defaultNewEventDate("week", "2026-10-04", range, "2026-11-01")).toBe("2026-10-04");
+    expect(defaultNewEventDate("month", "2026-10-01", { start: "2026-09-27", end: "2026-10-31" }, "2026-09-28")).toBe("2026-09-28");
+    expect(defaultNewEventDate("week", "2026-10-04", range, "2026-10-03")).toBe("2026-10-04");
   });
 
   it("links a meal to its planner week", () => {
