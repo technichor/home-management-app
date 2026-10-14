@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Card, Input, Button, Space, Typography, Alert } from "antd";
 import type { AuthState } from "@/app/signup/actions";
-import { BRAND_NAME, TAGLINE } from "@/lib/brand";
+import { TAGLINE } from "@/lib/brand";
+import Logo from "@/components/Logo";
 
 const withNext = (path: string, next?: string) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 const required = <span style={{ color: "var(--danger)" }}>*</span>;
@@ -37,9 +38,9 @@ export default function AuthForm({
       <div style={{ width: "100%", maxWidth: 400 }}>
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <div style={{ marginBottom: 12 }}>
-              <strong style={{ fontSize: 18 }}>{BRAND_NAME}</strong>
-              <span style={{ marginLeft: 8, color: "var(--muted)", fontSize: 13 }}>{TAGLINE}</span>
+            <div style={{ marginBottom: 20 }}>
+              <Logo width={136} />
+              <div style={{ marginTop: 6, color: "var(--muted)", fontSize: 13 }}>{TAGLINE}</div>
             </div>
             <Typography.Title level={3} style={{ marginBottom: 4 }}>
               {signup ? "Create your account" : "Log in"}

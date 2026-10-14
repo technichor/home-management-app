@@ -30,9 +30,10 @@ describe("AppNav", () => {
   const sidebar = () => within(screen.getByRole("complementary"));
   const tabbar = () => within(screen.getByRole("navigation", { name: "Main" }));
 
-  it("shows the product name and the household, in the sidebar and the phone header", () => {
+  it("shows the logo (named Domata) and the household, in the sidebar and the phone header", () => {
     setup();
-    expect(screen.getAllByText("Domata")).toHaveLength(2);
+    expect(screen.getAllByRole("img", { name: "Domata" })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /^Domata/ }).map((l) => l.getAttribute("href"))).toEqual(["/home", "/home"]);
     expect(sidebar().getByText("The Smiths")).toBeInTheDocument();
   });
 

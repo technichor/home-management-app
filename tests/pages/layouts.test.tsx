@@ -29,11 +29,12 @@ const cookieValue = vi.hoisted(() => ({ scheme: undefined as string | undefined 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (name: string) => (name === "scheme" && cookieValue.scheme ? { value: cookieValue.scheme } : undefined) }),
 }));
+vi.mock("next/font/google", () => ({ Outfit: () => ({ variable: "font-outfit" }) }));
 vi.mock("@/lib/messaging", () => ({ totalUnread: vi.fn().mockResolvedValue(0) }));
 
 import { getSessionUser } from "@/lib/auth";
 import { totalUnread } from "@/lib/messaging";
-import RootLayout, { metadata } from "@/app/layout";
+import RootLayout, { metadata, viewport } from "@/app/layout";
 import RootPage from "@/app/page";
 import AppLayout from "@/app/(app)/layout";
 import ContactsLayout from "@/app/(app)/contacts/layout";
@@ -48,9 +49,9 @@ beforeEach(() => {
 describe("RootLayout", () => {
   it("wraps children in an html document", async () => {
     const html = renderToStaticMarkup(await RootLayout({ children: <p>hello</p> }));
-    expect(html).toContain('<html lang="en" data-theme="light">');
+    expect(html).toContain('<html lang="en" data-theme="light" class="font-outfit">');
     expect(html).toContain("<p>hello</p>");
-    expect(html).toContain("--accent:#0f766e");
+    expect(html).toContain("--accent:#0F7A3D");
     expect(html).toContain("prefers-color-scheme: dark");
   });
 
@@ -61,6 +62,22 @@ describe("RootLayout", () => {
     expect(html).toContain('data-theme="dark"');
     expect(metadata.title).toBe("Domata");
     expect(metadata.description).toBe("Your family's home directory");
+  });
+
+  it("points at the brand's icons, manifest and link-preview image", () => {
+    expect(metadata.icons).toEqual({
+      icon: [
+        { url: "/favicon.ico", sizes: "48x48" },
+        { url: "/favicon.svg", type: "image/svg+xml" },
+      ],
+      apple: "/apple-touch-icon.png",
+    });
+    expect(metadata.manifest).toBe("/site.webmanifest");
+    expect(metadata.openGraph?.images).toEqual([{ url: "/og-image.png", width: 1200, height: 630 }]);
+    expect(viewport.themeColor).toEqual([
+      { media: "(prefers-color-scheme: light)", color: "#F3F1EE" },
+      { media: "(prefers-color-scheme: dark)", color: "#26262B" },
+    ]);
   });
 });
 
@@ -80,6 +97,7 @@ describe("RootPage", () => {
     render(await RootPage());
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
+    expect(screen.getByRole("heading", { level: 1, name: "Domata" })).toBeInTheDocument();
   });
 });
 
