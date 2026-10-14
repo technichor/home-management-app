@@ -874,6 +874,27 @@ a.brief-row:hover {
   color: var(--muted);
   font-weight: 500;
 }
+/* Day by day: the week's days already gone, folded into one row (a <details>) that opens to show them. */
+.brief-earlier > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.brief-earlier > summary::-webkit-details-marker {
+  display: none;
+}
+.brief-earlier > summary:hover {
+  background: var(--hover);
+}
+.brief-earlier > summary .brief-index::after {
+  content: " ›";
+}
+.brief-earlier[open] > summary .brief-index::after {
+  content: " ⌄";
+}
+.brief-earlier > summary .brief-title {
+  color: var(--muted);
+  font-weight: 500;
+}
 .sr-only {
   position: absolute;
   width: 1px;

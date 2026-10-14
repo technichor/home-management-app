@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { addMember, addServiceProvider, choose, newOwner, test } from "./helpers";
+import { addMember, addServiceProvider, choose, dayLabelIn, newOwner, test } from "./helpers";
 
 test("the home page is a weekly brief: the week's meals, what needs attention, and what's coming up", async ({ page, browser }) => {
   await newOwner(page, "home", "The Homes");
@@ -14,21 +14,29 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   await expect(page.locator(".brief-day[data-today]")).toHaveCount(1);
   await expect(page.locator(".brief-day-title").first()).toHaveText("Open");
 
-  // Meals planned this week appear in the headline, the drawing and the day-by-day list.
+  // The week is what the calendar shows: meals planned for today appear only once the calendar shows meals.
   await page.goto("/meals");
-  await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
+  await page.getByRole("button", { name: `Add to Dinner on ${dayLabelIn(Intl.DateTimeFormat().resolvedOptions().timeZone)}` }).click();
   await page.getByRole("dialog").getByLabel("Meal").fill("Tacos");
   await page.getByRole("dialog").getByRole("button", { name: /Create .Tacos. and add/ }).click();
   await expect(page.locator('.planner-cell[data-slot="DINNER"] .plan-entry')).toHaveText(["Tacos"]);
   await page.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(brief).toHaveText("Nothing is planned this week yet, Casey.");
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Calendar settings" }).click();
+  const showMeals = page.getByRole("dialog").getByRole("switch", { name: "Show meals" });
+  await showMeals.click();
+  await expect(showMeals).toBeChecked(); // saved (the switch shows the household's setting once it is back)
+  await page.getByRole("dialog").getByRole("button", { name: "Done" }).click();
+  await page.goto("/home");
   await expect(brief).toContainText("A light week, Casey, with the most planned on");
   await expect(page.locator(".brief-row", { hasText: "Dinner: Tacos." })).toHaveCount(1);
   await expect(page.locator(".brief-row[data-today]")).toHaveCount(1);
   await expect(page.locator(".brief-drawing circle")).toHaveCount(1);
   await expect(page.locator(".brief-day", { hasText: "Tacos" }).locator(".brief-day-title")).toHaveText("Tacos");
-  // A day links to that week in the planner.
+  // A day links to that day on the calendar.
   await page.locator(".brief-row", { hasText: "Dinner: Tacos." }).click();
-  await expect(page).toHaveURL(/\/meals\?week=\d{4}-\d{2}-\d{2}/);
+  await expect(page).toHaveURL(/\/calendar\?view=day&date=\d{4}-\d{2}-\d{2}/);
 
   // A contact's birthday today is part of the week (and today's row in Day by day).
   const iso = (offset: number) => {
@@ -51,6 +59,14 @@ test("the home page is a weekly brief: the week's meals, what needs attention, a
   const days = page.locator("section", { has: page.getByRole("heading", { name: "Day by day" }) });
   await expect(days.locator(".brief-row[data-today]")).toContainText("Bertie: Birthday");
   await expect(days.getByRole("link", { name: "View calendar" })).toHaveAttribute("href", /\/calendar\?view=week/);
+  // Days already gone this week (none on its first day) fold into one closed row that opens.
+  const earlier = days.locator("details.brief-earlier");
+  if ((await earlier.count()) > 0) {
+    await expect(earlier).not.toHaveAttribute("open");
+    await earlier.locator("summary").click();
+    await expect(earlier).toHaveAttribute("open", "");
+    await expect(earlier.locator("a.brief-row").first()).toBeVisible();
+  }
   await expect(page.getByText("Today & coming up")).toHaveCount(0);
 
   // What needs attention: a message from someone else in the household shows up with a link to it.
@@ -180,7 +196,7 @@ test.describe("on a phone", () => {
     await expect(page.locator(".brief-day-initial")).toHaveText(["S", "M", "T", "W", "T", "F", "S"]);
     await expect(page.locator(".brief-day-full").first()).toBeHidden();
     await expect(page.locator(".brief-day-title").first()).toBeHidden();
-    await expect(page.locator(".brief-row", { hasText: "Nothing planned." }).first()).toBeVisible();
+    await expect(page.locator(".brief-row[data-today]", { hasText: "Nothing planned." })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   });
 

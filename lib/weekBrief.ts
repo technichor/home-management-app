@@ -97,8 +97,8 @@ function lineOf(e: AgendaEntry): string {
 const nameOf = (e: AgendaEntry) => (e.source === "meal" ? e.title.replace(/^[^:]+: /, "") : e.title);
 
 /**
- * The week for the home page, from the shared agenda's entries (calendar items, contact dates and planned meals) for
- * those seven days. A day's load is how many entries it has. Its main item is the first thing that isn't a meal, else
+ * The week for the home page, from what the calendar shows for those seven days (lib/calendarEntries.ts: Domata's
+ * events, contact dates, members' Google events, and planned meals when the calendar shows them). A day's load is how many entries it has. Its main item is the first thing that isn't a meal, else
  * its dinner, else its first meal.
  */
 export function buildBrief(input: { firstName: string; weekStart: string; today: string; entries: AgendaEntry[] }): Brief {
@@ -129,5 +129,20 @@ export function buildBrief(input: { firstName: string; weekStart: string; today:
     total: loads.reduce((a, b) => a + b, 0),
     headline: headlineFor(firstName, loads, days),
     drawing: buildDrawing(loads, days.map((d) => d.weekday), todayIndex),
+  };
+}
+
+/**
+ * The folded row for the days of the week already gone (before `today`): "Sun – Tue" and what was on them, or null
+ * when today is the week's first day.
+ */
+export function earlierInWeek(days: BriefDay[], today: string): { days: BriefDay[]; label: string; support: string } | null {
+  const past = days.filter((d) => d.date < today);
+  if (past.length === 0) return null;
+  const load = past.reduce((n, d) => n + d.load, 0);
+  return {
+    days: past,
+    label: past.length === 1 ? past[0].weekday : `${past[0].weekday} – ${past[past.length - 1].weekday}`,
+    support: load === 0 ? "Nothing was planned." : `${load} ${load === 1 ? "thing" : "things"}.`,
   };
 }
