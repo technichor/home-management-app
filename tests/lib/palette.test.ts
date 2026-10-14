@@ -10,9 +10,9 @@ describe("palette", () => {
     const css = paletteCss();
     expect(css).toContain(":root{color-scheme:light;");
     expect(css).toContain(':root[data-theme="dark"]{color-scheme:dark;');
-    expect(css).toContain("--border-strong:#d9d9de;");
-    expect(css).toContain("--accent-soft:rgba(45, 212, 191, 0.14);");
-    expect(css).toContain("--on-accent:#042f2e;");
+    expect(css).toContain("--border-strong:#8A8A92;");
+    expect(css).toContain("--on-accent-soft:#9AF0BD;");
+    expect(css).toContain("--logo-ink:#FFFFFF;");
   });
 
   it("sets the scheme before paint from the system preference", () => {

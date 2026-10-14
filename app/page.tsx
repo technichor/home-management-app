@@ -2,7 +2,8 @@ import { getSessionUser, homePathFor } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Space } from "antd";
-import { BRAND_NAME, TAGLINE } from "@/lib/brand";
+import { TAGLINE } from "@/lib/brand";
+import Logo from "@/components/Logo";
 
 export default async function RootPage() {
   const user = await getSessionUser();
@@ -22,9 +23,9 @@ export default async function RootPage() {
       <div style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
         <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div>
-            <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 24, fontWeight: 600 }}>
-              {BRAND_NAME}
-            </h2>
+            <h1 style={{ margin: "0 0 12px", display: "flex", justifyContent: "center" }}>
+              <Logo variant="stacked" width={150} />
+            </h1>
             <div style={{ fontSize: 16, marginBottom: 8 }}>{TAGLINE}</div>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>
               Log in with your email address, or create an account.

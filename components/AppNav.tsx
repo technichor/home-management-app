@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge, Drawer } from "antd";
 import { EllipsisOutlined, LogoutOutlined, SafetyCertificateOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
-import { BRAND_NAME } from "@/lib/brand";
+import Logo from "@/components/Logo";
 import { MODULES, TAB_BAR_COUNT } from "./navModules";
 
 interface AppNavProps {
@@ -59,11 +59,8 @@ export default function AppNav({ householdName, isSuperuser, unreadMessages = 0,
     <>
       <aside className="sidebar">
         <Link href="/home" className="brand">
-          <span className="brand-mark">D</span>
-          <span className="brand-text">
-            <span className="brand-name">{BRAND_NAME}</span>
-            <span className="brand-household">{householdName}</span>
-          </span>
+          <Logo width={112} />
+          <span className="brand-household">{householdName}</span>
         </Link>
 
         <nav className="nav-group" aria-label="Modules">
@@ -91,10 +88,7 @@ export default function AppNav({ householdName, isSuperuser, unreadMessages = 0,
 
       <header className="mobile-top">
         <Link href="/home" className="brand">
-          <span className="brand-mark">D</span>
-          <span className="brand-text">
-            <span className="brand-name">{BRAND_NAME}</span>
-          </span>
+          <Logo width={104} />
         </Link>
       </header>
 

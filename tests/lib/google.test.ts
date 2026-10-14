@@ -76,7 +76,7 @@ describe("configuration", () => {
 
 describe("connectGoogle", () => {
   it("trades the code for tokens and keeps them encrypted, with the account's email", async () => {
-    fetchMock.mockResolvedValue(answer(200, { access_token: "a1", refresh_token: "r1", expires_in: 3600, id_token: idToken({ email: "Sam@Gmail.com" }) }));
+    fetchMock.mockResolvedValue(answer(200, { access_token: "a1", refresh_token: "refresh-token-value", expires_in: 3600, id_token: idToken({ email: "Sam@Gmail.com" }) }));
     expect(await connectGoogle("u1", "code9")).toEqual({ email: "sam@gmail.com" });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://oauth2.googleapis.com/token");
@@ -86,8 +86,8 @@ describe("connectGoogle", () => {
     const call = vi.mocked(prisma.googleConnection.upsert).mock.calls[0][0];
     expect(call.where).toEqual({ userId: "u1" });
     expect(call.create).toMatchObject({ userId: "u1", googleEmail: "sam@gmail.com", needsReconnect: false });
-    expect(call.create.refreshToken).not.toContain("r1");
-    expect(open(call.create.refreshToken as string)).toBe("r1");
+    expect(call.create.refreshToken).not.toContain("refresh-token-value");
+    expect(open(call.create.refreshToken as string)).toBe("refresh-token-value");
     expect(open(call.update.accessToken as string)).toBe("a1");
   });
 
