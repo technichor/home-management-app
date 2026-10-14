@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { addMember, dayLabelIn, newOwner, newSession, reloadUntil, seedPlanEntry, test } from "./helpers";
 
 const base = `http://localhost:${process.env.E2E_APP_PORT ?? 3100}`;
@@ -9,34 +9,44 @@ const iso = (offset = 0) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-const quick = (page: Page) => page.locator(".cal-quickadd");
-async function quickAdd(page: Page, text: string) {
-  await quick(page).getByLabel("Title").fill(text);
-  await quick(page).getByLabel("Title").press("Enter");
+/** Add an event through New event (on today when today is in view), optionally at a start time; waits for the save. */
+async function addEvent(page: Page, title: string, startTime?: string) {
+  await page.getByRole("button", { name: "New event" }).click();
+  const form = page.getByRole("dialog").filter({ hasText: "New event" });
+  await form.getByLabel("Title").fill(title);
+  if (startTime) await form.getByLabel("Start time").fill(startTime);
+  await form.getByRole("button", { name: "Add" }).click();
+  await expect(form).toBeHidden();
+}
+/** Change calendar settings in their dialog, then close it. */
+async function inSettings(page: Page, change: (settings: Locator) => Promise<void>) {
+  await page.getByRole("button", { name: "Calendar settings" }).click();
+  const settings = page.getByRole("dialog").filter({ hasText: "Calendar settings" });
+  await change(settings);
+  await settings.getByRole("button", { name: "Done" }).click();
+  await expect(settings).toBeHidden();
 }
 // Today on the week's hour grid (the screen is wide): its cell in the row along the top and its column of hours.
 const todayCell = (page: Page) => page.locator(".cal-week-grid .tg-allday-cell[data-today], .cal-week-grid .tg-col[data-today]");
 const gridDays = (page: Page) => page.locator(".cal-week-grid .tg-col");
 const nav = (page: Page, view: string) => page.getByRole("navigation", { name: "View" }).getByRole("link", { name: view });
 
-test("the calendar: quick add, several in a row, details, edit and delete", async ({ page }) => {
+test("the calendar: New event, details, edit and delete", async ({ page }) => {
   await newOwner(page, "cal1", "The Calendars");
   await page.goto("/calendar");
   await expect(page.getByRole("heading", { level: 4 })).toBeVisible();
   await expect(todayCell(page).first()).toBeVisible();
 
-  // Quick-add several in a row; focus stays in the box.
-  await quickAdd(page, "Picture day");
+  // New event is the page's main button; there is no quick-add line.
+  await expect(page.getByRole("button", { name: "New event" })).toHaveClass(/ant-btn-primary/);
+  await expect(page.getByPlaceholder(/Add an event/)).toHaveCount(0);
+  await addEvent(page, "Picture day");
   await expect(todayCell(page).getByText("Picture day")).toBeVisible();
-  await expect(quick(page).getByLabel("Title")).toBeFocused();
-  await quickAdd(page, "Call the vet");
+  await addEvent(page, "Call the vet");
   await expect(todayCell(page).getByText("Call the vet")).toBeVisible();
   // Events and reminders only: tasks live on the to-do list.
-  await expect(quick(page).getByText("Task", { exact: true })).toHaveCount(0);
   await expect(todayCell(page).getByRole("checkbox")).toHaveCount(0);
-  await quick(page).getByLabel("Start time").fill("09:30");
-  await quick(page).getByLabel("Title").fill("Dentist");
-  await quick(page).getByLabel("Title").press("Enter");
+  await addEvent(page, "Dentist", "09:30");
   await expect(todayCell(page).getByText("Dentist")).toBeVisible();
   await expect(todayCell(page).getByText("9:30 AM")).toBeVisible();
 
@@ -111,8 +121,10 @@ test("views, navigation across month and year boundaries, and the week start sha
   // The week's first day is the planner's setting: change it here and the planner follows.
   await page.goto(`/calendar?view=week`);
   await expect(page.locator(".cal-week-grid .tg-head").first()).toContainText("Sun");
-  await page.getByRole("combobox", { name: "Week starts on" }).click();
-  await page.locator('.ant-select-item-option[title="Starts Monday"]').click();
+  await inSettings(page, async (settings) => {
+    await settings.getByRole("combobox", { name: "Week starts on" }).click();
+    await page.locator('.ant-select-item-option[title="Monday"]').click();
+  });
   await expect(page.locator(".cal-week-grid .tg-head").first()).toContainText("Mon");
   await page.goto(`/meals`);
   await expect(page.locator(".planner-day").first()).toContainText("Mon");
@@ -159,7 +171,7 @@ test("birthdays and important dates come from contacts, read-only, and link to t
   await page.goto(`/calendar?view=month`);
   await expect(page.locator(".cal-cell[data-today]").getByText(/Withyear's birthday/)).toBeVisible();
   await page.goto(`/calendar?view=day`);
-  await quickAdd(page, "Plain reminder");
+  await addEvent(page, "Plain reminder");
   // Birthdays and dates come first along the top, before the reminder.
   await expect(page.locator(".tg-allday-cell .cal-entry-title")).toHaveText([/birthday/, /birthday/, "Plain reminder"]);
 
@@ -199,16 +211,19 @@ test("assignees: the household's members, and the filter shows a member's items 
   await expect(todayCell(page).getByText("Joiner").first()).toBeVisible(); // the assignee's name is shown
 
   // Only the household's own members are offered (here the owner and the joiner), not strangers.
-  await page.getByRole("combobox", { name: "Show items for" }).click();
-  await expect(page.locator(".ant-select-item-option")).toHaveCount(3); // Everyone, Casey, Joiner
-  await page.locator('.ant-select-item-option[title="Joiner"]').click();
-  await expect(page).toHaveURL(/who=/);
+  await inSettings(page, async (settings) => {
+    await settings.getByRole("combobox", { name: "Show items for" }).click();
+    await expect(page.locator(".ant-select-item-option")).toHaveCount(3); // Everyone, Casey, Joiner
+    await page.locator('.ant-select-item-option[title="Joiner"]').click();
+    await expect(page).toHaveURL(/who=/);
+  });
+  await expect(page.getByText("Only Joiner")).toBeVisible(); // the filter is shown on the page
   await expect(todayCell(page).getByText("For the mate")).toBeVisible();
   await expect(todayCell(page).getByText("For everyone")).toBeVisible();
   await expect(todayCell(page).getByText("For Casey")).toHaveCount(0);
 
-  await page.getByRole("combobox", { name: "Show items for" }).click();
-  await page.locator('.ant-select-item-option[title="Everyone"]').click();
+  await page.getByLabel("Show everyone").click(); // back to everyone, from the page
+  await expect(page.getByText("Only Joiner")).toHaveCount(0);
   await expect(todayCell(page).getByText("For Casey")).toBeVisible();
   await mate.context.close();
   await owner.context.close();
@@ -224,7 +239,7 @@ test("planned meals can be shown, on the week and day views but not the month", 
 
   await page.goto(`/calendar?view=week`);
   await expect(todayCell(page).getByText("Dinner: Tacos")).toHaveCount(0);
-  await page.getByRole("switch", { name: "Show meals" }).click();
+  await inSettings(page, (settings) => settings.getByRole("switch", { name: "Show meals" }).click());
   await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toBeVisible();
   await expect(todayCell(page).getByRole("link", { name: "Dinner: Tacos" })).toHaveAttribute("href", /\/meals\?week=/);
   await reloadUntil(page, async () => {
@@ -234,10 +249,9 @@ test("planned meals can be shown, on the week and day views but not the month", 
   await page.goto(`/calendar?view=day`);
   await expect(page.locator(".tg-allday-cell").getByRole("link", { name: "Dinner: Tacos" })).toBeVisible();
   await page.goto(`/calendar?view=month`);
-  await expect(page.getByText("Dinner: Tacos")).toHaveCount(0);
-  await expect(page.getByRole("switch", { name: "Show meals" })).toBeDisabled();
+  await expect(page.getByText("Dinner: Tacos")).toHaveCount(0); // never on the month
   await page.goto(`/calendar?view=week`);
-  await page.getByRole("switch", { name: "Show meals" }).click();
+  await inSettings(page, (settings) => settings.getByRole("switch", { name: "Show meals" }).click());
   await expect(todayCell(page).getByText("Dinner: Tacos")).toHaveCount(0);
 });
 
@@ -262,7 +276,7 @@ test("on a phone: the week is a list with today first, the month is a compact gr
   await page.goto(`/calendar?view=week`);
   await expect(page.locator(".cal-day[data-today]")).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
-  await quickAdd(page, "Phone reminder");
+  await addEvent(page, "Phone reminder");
   await expect(page.locator(".cal-day[data-today]").getByText("Phone reminder")).toBeVisible(); // the list, on a phone
   await expect(page.locator(".cal-week-grid")).toBeHidden();
 
@@ -284,7 +298,7 @@ test("two people in a household see each other's changes without a manual refres
   const mate = await addMember(browser, owner.page, "cal8mate");
   await owner.page.goto(`/calendar?view=week`);
   await mate.page.goto(`/calendar?view=week`);
-  await quickAdd(mate.page, "From the mate");
+  await addEvent(mate.page, "From the mate");
   await expect(todayCell(mate.page).getByText("From the mate")).toBeVisible();
   await expect(todayCell(owner.page).getByText("From the mate")).toBeVisible({ timeout: 60_000 });
   await mate.context.close();
@@ -297,7 +311,7 @@ test("another household's calendar is separate", async ({ browser }) => {
   await newOwner(a.page, "cala", "The Calas");
   await newOwner(b.page, "calb", "The Calbs");
   await a.page.goto(`/calendar?view=week`);
-  await quickAdd(a.page, "A's private reminder");
+  await addEvent(a.page, "A's private reminder");
   await expect(todayCell(a.page).getByText("A's private reminder")).toBeVisible();
   await b.page.goto(`/calendar?view=week`);
   await expect(todayCell(b.page).first()).toBeVisible();
@@ -329,7 +343,7 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
 
   // Breakfast is hidden in the planner by default, so the calendar leaves it out too; dinner is in.
   await page.goto(`/calendar?view=week`);
-  await page.getByRole("switch", { name: "Show meals" }).click();
+  await inSettings(page, (settings) => settings.getByRole("switch", { name: "Show meals" }).click());
   await expect(todayCell(page).getByText("Dinner: Leftovers")).toBeVisible();
   await expect(todayCell(page).getByText("Breakfast: Pancakes")).toHaveCount(0);
 
@@ -342,7 +356,7 @@ test("the meals layer follows the planner: its visible meals, one-offs, the righ
 
   // On the day view, with no usual meal times set, the meals sit along the top after the events.
   await page.goto(`/calendar?view=day`);
-  await quickAdd(page, "Call the vet");
+  await addEvent(page, "Call the vet");
   await expect(page.locator(".tg-allday-cell .cal-entry-title")).toHaveText(["Call the vet", "Breakfast: Pancakes", "Dinner: Leftovers"]);
 
   // Lighter than real items, read-only (no checkbox), and each links to that week in the planner.
@@ -401,8 +415,7 @@ test("the hour grid: timed events at their hours, overlaps side by side, click a
   await expect(dentist).toBeVisible();
 
   // Another at 10:00 overlaps it: they share the width, side by side.
-  await quick(page).getByLabel("Start time").fill("10:00");
-  await quickAdd(page, "Call the school");
+  await addEvent(page, "Call the school", "10:00");
   const call = column.getByRole("button", { name: /Call the school/ });
   await expect(call).toBeVisible();
   const [d, c] = [(await dentist.boundingBox())!, (await call.boundingBox())!];
@@ -422,7 +435,7 @@ test("the hour grid: timed events at their hours, overlaps side by side, click a
   await dinnerTime.fill("17:30");
   await dinnerTime.blur();
   await page.goto(`/calendar?view=week`);
-  await page.getByRole("switch", { name: "Show meals" }).click();
+  await inSettings(page, (settings) => settings.getByRole("switch", { name: "Show meals" }).click());
   const dinner = page.locator(`.cal-week-grid .tg-col[data-date="${today}"]`).getByRole("link", { name: /Dinner: Tacos/ });
   await expect(dinner).toBeVisible();
   await expect(dinner).toContainText("5:30 PM");

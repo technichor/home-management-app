@@ -908,19 +908,16 @@ a.brief-row:hover {
   flex-direction: column;
   gap: 14px;
 }
+/* One row: New event, previous/next/today and the title on the left; the views and settings on the right. */
 .cal-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.cal-header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
 }
-.cal-nav {
+.cal-nav,
+.cal-tools {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -929,37 +926,28 @@ a.brief-row:hover {
 .cal-header .subnav {
   margin-bottom: 0;
 }
-.cal-filters {
-  justify-content: flex-start;
+.cal-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+.cal-settings label:not(.cal-switch) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
 }
 .cal-switch {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--muted);
 }
 .cal-muted {
   color: var(--muted);
   font-size: 13px;
 }
-.cal-quickadd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.cal-quickadd .ant-input {
-  flex: 1 1 220px;
-  min-width: 0;
-}
-.cal-quickadd .cal-quickadd-date,
-.cal-quickadd .cal-quickadd-time {
-  flex: 0 0 auto;
-  width: auto;
-}
-
-
 /* Entries */
 .cal-entry,
 .cal-entry:hover {

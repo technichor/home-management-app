@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert, App, Button, Select, Switch, Typography } from "antd";
-import { LeftOutlined, RightOutlined } from "@ant-design/icons";
+import { Alert, App, Badge, Button, Modal, Select, Switch, Tag, Tooltip, Typography } from "antd";
+import { LeftOutlined, PlusOutlined, RightOutlined, SettingOutlined } from "@ant-design/icons";
 import { CALENDAR_VIEWS, type CalendarView, type WeekStart } from "@/lib/dates";
-import { CALENDAR_POLL_MS, calendarHref, defaultQuickAddDate, rangeTitle } from "@/lib/calendarView";
+import { CALENDAR_POLL_MS, calendarHref, defaultNewEventDate, rangeTitle } from "@/lib/calendarView";
 import type { MemberOption } from "@/lib/householdMembers";
 import type { AgendaEntry, AgendaItemEntry } from "@/lib/agendaOrder";
 import { setShowMealsAction, setWeekStartAction } from "./actions";
 import { DayView, MonthView, WeekView, type EntryContext } from "./CalendarViews";
 import { ItemDetailDialog, ItemFormDialog, type FormTarget } from "./ItemDialogs";
-import QuickAdd, { type QuickAddPrefill } from "./QuickAdd";
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
 
@@ -51,7 +50,7 @@ export default function CalendarClient({
   const { message } = App.useApp();
   const [openId, setOpenId] = useState<string | null>(null);
   const [form, setForm] = useState<FormTarget | null>(null);
-  const [prefill, setPrefill] = useState<QuickAddPrefill>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Near-real-time: look again every 30 seconds while the tab is visible, and when the window regains focus.
   useEffect(() => {
     const check = () => {
@@ -69,7 +68,7 @@ export default function CalendarClient({
   const ctx: EntryContext = {
     today,
     onOpen: (item) => setOpenId(item.id),
-    onAdd: (date) => setPrefill({ date, nonce: Date.now() }),
+    onAdd: (date) => setForm({ mode: "create", date }),
     onAddAt: (date, startTime) => setForm({ mode: "create", date, startTime }),
     hrefFor: (v, date) => hrefFor(v, date),
   };
@@ -78,6 +77,8 @@ export default function CalendarClient({
   // Switching view keeps today when it is on screen (the week's Day view opens on today, not the week's first day),
   // otherwise the period being looked at.
   const switchDate = today >= range.start && today <= range.end ? today : anchor;
+  const filteredTo = assignees.find((a) => a.id === assigneeFilter) ?? null;
+  const showFor = (who: string | null) => router.push(calendarHref({ view, date: anchor, who }));
   const open = entries.find((e): e is AgendaItemEntry => e.source === "item" && e.id === openId) ?? null;
 
   async function save(action: () => Promise<{ ok: true } | { ok: false; error: string }>) {
@@ -89,21 +90,30 @@ export default function CalendarClient({
   return (
     <div className="cal">
       <div className="cal-header">
-        <div className="cal-header-row">
-          <div className="cal-nav">
-            <Link href={hrefFor(view, prev)} aria-label="Previous">
-              <Button icon={<LeftOutlined aria-hidden />} />
-            </Link>
-            <Link href={hrefFor(view, next)} aria-label="Next">
-              <Button icon={<RightOutlined aria-hidden />} />
-            </Link>
-            <Link href={hrefFor(view, today)}>
-              <Button>Today</Button>
-            </Link>
-            <Typography.Title level={4} style={{ margin: "0 4px" }}>
-              {rangeTitle(view, anchor)}
-            </Typography.Title>
-          </div>
+        <div className="cal-nav">
+          <Button type="primary" icon={<PlusOutlined aria-hidden />} onClick={() => setForm({ mode: "create", date: defaultNewEventDate(view, anchor, range, today) })}>
+            New event
+          </Button>
+          <Link href={hrefFor(view, prev)} aria-label="Previous">
+            <Button icon={<LeftOutlined aria-hidden />} />
+          </Link>
+          <Link href={hrefFor(view, next)} aria-label="Next">
+            <Button icon={<RightOutlined aria-hidden />} />
+          </Link>
+          <Link href={hrefFor(view, today)}>
+            <Button>Today</Button>
+          </Link>
+          <Typography.Title level={4} style={{ margin: "0 4px" }}>
+            {rangeTitle(view, anchor)}
+          </Typography.Title>
+          {/* The member filter lives in the settings, so say when it is on, with a way back to everyone. */}
+          {filteredTo && (
+            <Tag closable onClose={(e) => (e.preventDefault(), showFor(null))} closeIcon={<span aria-label="Show everyone">×</span>}>
+              Only {filteredTo.name}
+            </Tag>
+          )}
+        </div>
+        <div className="cal-tools">
           <nav className="subnav" aria-label="View">
             {CALENDAR_VIEWS.map((v) => (
               <Link key={v} href={hrefFor(v, switchDate)} aria-current={v === view ? "page" : undefined}>
@@ -111,39 +121,47 @@ export default function CalendarClient({
               </Link>
             ))}
           </nav>
-        </div>
-        <div className="cal-header-row cal-filters">
-          <Select<string>
-            aria-label="Show items for"
-            value={assigneeFilter ?? ""}
-            style={{ minWidth: 150 }}
-            onChange={(v) => router.push(calendarHref({ view, date: anchor, who: v || null }))}
-            options={[{ value: "", label: "Everyone" }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
-          />
-          <Select<WeekStart>
-            aria-label="Week starts on"
-            value={weekStartsOn}
-            style={{ width: 130 }}
-            onChange={(v) => save(() => setWeekStartAction(v))}
-            options={[{ value: "SUNDAY", label: "Starts Sunday" }, { value: "MONDAY", label: "Starts Monday" }]}
-          />
-          <label className="cal-switch">
-            <Switch size="small" checked={showMeals && view !== "month"} disabled={view === "month"} onChange={(v) => save(() => setShowMealsAction(v))} aria-label="Show meals" />
-            <span>Show meals{view === "month" ? " (week and day)" : ""}</span>
-          </label>
-          <Button onClick={() => setForm({ mode: "create", date: defaultQuickAddDate(view, anchor, range, today) })}>New event</Button>
+          <Tooltip title="Calendar settings">
+            <Badge dot={filteredTo !== null} offset={[-4, 4]}>
+              <Button icon={<SettingOutlined aria-hidden />} aria-label="Calendar settings" onClick={() => setSettingsOpen(true)} />
+            </Badge>
+          </Tooltip>
         </div>
       </div>
+
+      <Modal title="Calendar settings" open={settingsOpen} destroyOnHidden onCancel={() => setSettingsOpen(false)} footer={<Button onClick={() => setSettingsOpen(false)}>Done</Button>}>
+        <div className="cal-settings">
+          <label>
+            <span>Show items for</span>
+            <Select<string>
+              aria-label="Show items for"
+              value={assigneeFilter ?? ""}
+              onChange={(v) => showFor(v || null)}
+              options={[{ value: "", label: "Everyone" }, ...assignees.map((a) => ({ value: a.id, label: a.name }))]}
+            />
+          </label>
+          <label>
+            <span>Week starts on</span>
+            <Select<WeekStart>
+              aria-label="Week starts on"
+              value={weekStartsOn}
+              onChange={(v) => save(() => setWeekStartAction(v))}
+              options={[{ value: "SUNDAY", label: "Sunday" }, { value: "MONDAY", label: "Monday" }]}
+            />
+          </label>
+          <label className="cal-switch">
+            <Switch size="small" checked={showMeals} onChange={(v) => save(() => setShowMealsAction(v))} aria-label="Show meals" />
+            <span>Show planned meals (on the week and day views)</span>
+          </label>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            The week&apos;s first day is shared with the meal planner, and both settings apply to the whole household.
+          </Typography.Text>
+        </div>
+      </Modal>
 
       {googleProblems.length > 0 && (
         <Alert type="warning" showIcon title={`Couldn't read from Google just now: ${googleProblems.join(", ")}. The rest of the calendar is up to date.`} />
       )}
-
-      <QuickAdd
-        key={`${prefill?.date ?? defaultQuickAddDate(view, anchor, range, today)}|${prefill?.nonce ?? 0}`}
-        defaultDate={prefill?.date ?? defaultQuickAddDate(view, anchor, range, today)}
-        focusOnMount={prefill !== null}
-      />
 
       {view === "week" && <WeekView dates={dates} entries={entries} ctx={ctx} />}
       {view === "day" && <DayView date={anchor} entries={entries} ctx={ctx} />}

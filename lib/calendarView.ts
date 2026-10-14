@@ -53,8 +53,8 @@ export function timeLabel(startTime: string | null, endTime: string | null): str
   return endTime ? `${formatTime(startTime)} – ${formatTime(endTime)}` : formatTime(startTime);
 }
 
-/** Where a date should go when quick-add is opened with nothing chosen: the viewed day, or today if it's in view. */
-export function defaultQuickAddDate(view: CalendarView, anchor: string, range: DateRange, today: string): string {
+/** The date a new event starts on when none was chosen: the viewed day, or today if it's in view. */
+export function defaultNewEventDate(view: CalendarView, anchor: string, range: DateRange, today: string): string {
   if (view === "day") return anchor;
   return today >= range.start && today <= range.end ? today : anchor;
 }
