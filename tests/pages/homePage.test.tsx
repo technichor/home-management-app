@@ -161,6 +161,7 @@ describe("HomePage", () => {
       expect(rows[2]).toHaveTextContent("10:30 AM");
       expect(rows[2]).toHaveTextContent("Sam");
       expect(rows[3]).toHaveTextContent("11:30 AMFree · 3.5 hoursUntil 3:00 PM");
+      expect(rows[3]).not.toHaveAttribute("data-now"); // later free time isn't marked as now
       expect(rows[4].querySelector(".home-detail")).toBeNull();
       expect(rows[6]).toHaveTextContent("From the meal plan");
     });
@@ -170,6 +171,7 @@ describe("HomePage", () => {
     entries([item(TODAY, "Lunch", { startTime: "12:00" })]);
     await run(10 * 60 + 2);
     expect(timelineRows()[0]).toHaveTextContent("NowFree · 1 hour 55 minUntil 12:00 PM");
+    expect(timelineRows()[0]).toHaveAttribute("data-now");
   });
 
   describe("the next two days", () => {

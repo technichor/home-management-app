@@ -823,7 +823,7 @@ a.home-row:hover {
   color: var(--muted);
   font-size: 12px;
 }
-/* Done already: quieter. On now: marked with the accent. Free time: a green tint with a light hatch. */
+/* Done already: quieter. On now (an event, or free time starting now): green text. Free time: a light hatch. */
 .home-timeline [data-state="past"] .home-row {
   color: var(--faint);
 }
@@ -840,12 +840,15 @@ a.home-row:hover {
   font-weight: 600;
 }
 .home-row[data-free] {
-  color: var(--on-accent-soft);
   background: repeating-linear-gradient(135deg, transparent 0 8px, var(--hover) 8px 16px);
 }
-.home-row[data-free] .home-time,
-.home-row[data-free] .home-detail {
+.home-row[data-free][data-now],
+.home-row[data-free][data-now] .home-time,
+.home-row[data-free][data-now] .home-detail {
   color: var(--on-accent-soft);
+}
+.home-row[data-free][data-now] .home-time {
+  font-weight: 600;
 }
 /* The next days, side by side (stacked on a phone). */
 .home-ahead {
