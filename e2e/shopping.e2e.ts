@@ -117,8 +117,10 @@ test("the shopping list stays out of the Lists module", async ({ page }) => {
     await gotoMissing(page, path);
     await expect(page.getByText(/could not be found/i), path).toBeVisible();
   }
+  // Home mentions it only as a link to the shopping page, never as a list.
   await page.goto("/home");
-  await expect(page.getByText("Shopping list")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Shopping list/ })).toHaveAttribute("href", "/meals/shopping");
+  await expect(page.locator(`a[href^="/lists/${id}"]`)).toHaveCount(0);
 });
 
 test("one household's shopping list is invisible to another", async ({ browser }) => {

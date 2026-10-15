@@ -5,7 +5,7 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (name: string) => (name === "tz" && jar.tz !== undefined ? { value: jar.tz } : undefined) }),
 }));
 
-import { dateInTimeZone, pageToday, pageTodayOrUtc } from "@/lib/today";
+import { clockInTimeZone, dateInTimeZone, pageClock, pageToday, pageTodayOrUtc } from "@/lib/today";
 import { TIME_ZONE_COOKIE, TIME_ZONE_SCRIPT, timeZoneCookie } from "@/lib/timeZoneCookie";
 
 // 03:30 UTC on Oct 8 is still the evening of Oct 7 in Chicago, and already Oct 8 in Tokyo.
@@ -27,6 +27,23 @@ describe("dateInTimeZone", () => {
 
   it("is null for a zone it doesn't know", () => {
     expect(dateInTimeZone("Mars/Base", NOW)).toBeNull();
+  });
+});
+
+describe("clockInTimeZone", () => {
+  it("gives the date and the minutes past midnight in the zone", () => {
+    expect(clockInTimeZone("America/Chicago", NOW)).toEqual({ date: "2026-10-07", minutes: 22 * 60 + 30 });
+    expect(clockInTimeZone("Asia/Tokyo", NOW)).toEqual({ date: "2026-10-08", minutes: 12 * 60 + 30 });
+    expect(clockInTimeZone("Mars/Base", NOW)).toBeNull();
+  });
+});
+
+describe("pageClock", () => {
+  it("is the time on the browser's clock face, from its time zone cookie", async () => {
+    jar.tz = "America/Chicago";
+    expect(await pageClock()).toEqual({ date: "2026-10-07", minutes: 22 * 60 + 30 });
+    jar.tz = undefined;
+    expect(await pageClock()).toBeNull();
   });
 });
 

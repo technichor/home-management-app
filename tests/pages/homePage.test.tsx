@@ -3,221 +3,244 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 
 vi.mock("@/lib/auth", () => ({ pageMember: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { mealPlanEntry: { findFirst: vi.fn() } } }));
 vi.mock("@/lib/calendarEntries", () => ({ calendarEntries: vi.fn() }));
 vi.mock("@/lib/calendarItem", () => ({ getCalendarSettings: vi.fn() }));
-vi.mock("@/lib/mealPlan", () => ({ getMealPlanSettings: vi.fn() }));
 vi.mock("@/lib/homeAttention", () => ({ loadAttention: vi.fn() }));
 vi.mock("@/lib/maintenanceTodos", () => ({ syncMaintenanceTodos: vi.fn() }));
+vi.mock("@/lib/shopping", () => ({ loadShopping: vi.fn() }));
+vi.mock("@/lib/householdMembers", () => ({ memberOptionsOf: vi.fn() }));
+vi.mock("@/lib/google", () => ({ googleConfigured: vi.fn(() => false) }));
 vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/todo")>()), homeTodos: vi.fn() }));
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/home/HomeTodos", () => ({ default: (p: any) => ((seen.todos = p), <section aria-label="To-do">to-dos</section>) }));
-vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
+vi.mock("@/app/(app)/home/HomeHeaderActions", () => ({ default: (p: any) => ((seen.actions = p), <div>header actions</div>) }));
+vi.mock("@/components/LocalToday", () => ({ default: ({ today }: any) => <i data-testid="local-today" data-today={today ?? "none"} /> }));
 
-const clock = vi.hoisted(() => ({ today: null as string | null }));
-vi.mock("@/lib/today", async () => {
-  const { utcDateString } = await import("@/lib/dates");
-  return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
-});
+const clock = vi.hoisted(() => ({ now: null as { date: string; minutes: number } | null }));
+vi.mock("@/lib/today", () => ({ pageClock: async () => clock.now }));
+
+import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import { calendarEntries } from "@/lib/calendarEntries";
 import { getCalendarSettings } from "@/lib/calendarItem";
-import { getMealPlanSettings } from "@/lib/mealPlan";
 import { loadAttention } from "@/lib/homeAttention";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
+import { loadShopping } from "@/lib/shopping";
+import { memberOptionsOf } from "@/lib/householdMembers";
+import { googleConfigured } from "@/lib/google";
 import { homeTodos, type TodoItem } from "@/lib/todo";
 import HomePage from "@/app/(app)/home/page";
 import type { AgendaContactDateEntry, AgendaEntry, AgendaGoogleEntry, AgendaItemEntry, AgendaMealEntry } from "@/lib/agendaOrder";
 
-const me = (role = "OWNER") => ({ id: "u1", firstName: "Sam", role, householdId: "h1", contactId: "c-me", household: { displayName: "The Smiths" } });
-const run = async (today: string | null = "2026-10-07") => {
-  clock.today = today;
+// Thursday 15 October 2026; "now" is 9:35 AM unless a test says otherwise.
+const TODAY = "2026-10-15";
+const me = { id: "u1", firstName: "Casey", role: "OWNER", householdId: "h1", contactId: "c-me", household: { displayName: "The Beckers" } };
+const run = async (minutes: number | null = 9 * 60 + 35, date = TODAY) => {
+  clock.now = minutes === null ? null : { date, minutes };
   return render(await HomePage());
 };
 
 let n = 0;
-const item = (date: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
-  source: "item", id: `i${++n}`, itemId: "item", date, title: "Item", notes: null, startTime: null, endTime: null, assigneeContactId: null,
+const item = (date: string, title: string, over: Partial<AgendaItemEntry> = {}): AgendaItemEntry => ({
+  source: "item", id: `i${++n}`, itemId: `i${n}`, date, title, notes: null, startTime: null, endTime: null, assigneeContactId: null,
   assigneeName: null, createdAt: "2026-10-01T00:00:00Z", repeat: null, google: { wanted: true, sent: false, error: null }, editable: true, ...over,
 });
+const google = (date: string, title: string, over: Partial<AgendaGoogleEntry> = {}): AgendaGoogleEntry => ({
+  source: "google", id: `g${++n}`, googleId: `g${n}`, date, title, startTime: null, endTime: null, link: "https://calendar.google.com/e",
+  calendarName: "Work", color: "#3b6fd8", ownerName: "Casey", ownerContactId: "c-me", editable: false, ...over,
+});
 const birthday = (date: string, over: Partial<AgendaContactDateEntry> = {}): AgendaContactDateEntry => ({
-  source: "contact_date", id: `c${++n}`, date, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: null, editable: false, ...over,
+  source: "contact_date", id: `c${++n}`, date, title: "Jo's birthday", type: "birthday", contactId: "c9", turns: 9, editable: false, ...over,
 });
-const meal = (date: string, dish = "Tacos"): AgendaMealEntry => ({ source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, startTime: null, createdAt: "", editable: false });
-
-const googleEvent = (date: string, title: string, startTime: string | null = null): AgendaGoogleEntry => ({
-  source: "google", id: `g${++n}`, googleId: `g${n}`, date, title, startTime, endTime: null, link: null, calendarName: "Work",
-  color: null, ownerName: "Sam", ownerContactId: "c-me", editable: false,
+const meal = (date: string, dish: string, startTime: string | null = null): AgendaMealEntry => ({
+  source: "meal", id: `m${++n}`, date, slot: "DINNER", title: `Dinner: ${dish}`, startTime, createdAt: "", editable: false,
 });
-
-/** The week's entries, as the calendar shows them. */
-function agendas(week: AgendaEntry[]) {
-  vi.mocked(calendarEntries).mockResolvedValue({ entries: week, googleProblems: [] });
-}
-const calendarSettings = (over: object = {}) =>
-  vi.mocked(getCalendarSettings).mockResolvedValue({ householdId: "h1", showMeals: false, timeZone: "America/Chicago", googleCalendarId: null, googleCalendarName: null, googleCalendarUserId: null, updatedAt: new Date(), ...over });
 const todo = (over: Partial<TodoItem> = {}): TodoItem => ({
-  id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: "2026-10-07", done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
+  id: `t${++n}`, text: "To-do", notes: null, assigneeContactId: null, assigneeName: null, dueDate: null, done: false, rating: 1500, comparisonCount: 0, maintenance: null, ...over,
 });
-const section = (title: string) => screen.getByText(title).closest("section") as HTMLElement;
+const entries = (list: AgendaEntry[]) => vi.mocked(calendarEntries).mockResolvedValue({ entries: list, googleProblems: [] });
+const settings = (over: object = {}) =>
+  vi.mocked(getCalendarSettings).mockResolvedValue({ householdId: "h1", showMeals: false, timeZone: "America/Chicago", googleCalendarId: null, googleCalendarName: null, googleCalendarUserId: null, updatedAt: new Date(), ...over });
+const section = (name: string) => screen.getByRole("heading", { name }).closest("section") as HTMLElement;
+const timelineRows = () => [...section("Today").querySelectorAll(".home-timeline > li")];
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(pageMember).mockResolvedValue(me() as any);
-  vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "SUNDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
+  for (const k of Object.keys(seen)) delete seen[k];
+  vi.mocked(pageMember).mockResolvedValue(me as any);
+  settings();
+  entries([]);
   vi.mocked(loadAttention).mockResolvedValue([]);
-  agendas([]);
-  calendarSettings();
   vi.mocked(homeTodos).mockResolvedValue([]);
   vi.mocked(syncMaintenanceTodos).mockResolvedValue();
+  vi.mocked(loadShopping).mockResolvedValue({ listId: "s1", items: [] });
+  vi.mocked(memberOptionsOf).mockResolvedValue([{ id: "c-me", name: "Casey", fullName: "Casey Becker" }]);
+  vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue(null);
 });
 
-describe("HomePage: the week", () => {
-  it("waits for the browser's date before showing a week", async () => {
+describe("HomePage", () => {
+  it("waits for the browser's time zone before showing anything, and reads nothing meanwhile", async () => {
     await run(null);
-    expect(screen.getByTestId("local-today")).toBeInTheDocument();
+    expect(screen.getByTestId("local-today")).toHaveAttribute("data-today", "none");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     expect(calendarEntries).not.toHaveBeenCalled();
   });
 
-  it("shows the week of the browser's today as an empty, flat week with calm empty states", async () => {
-    await run();
-    expect(screen.getByText("Week of Oct 4 – 10, 2026")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Nothing is planned this week yet, Sam.");
-    expect(screen.getByText("Nothing needs attention")).toBeInTheDocument();
-    expect(document.querySelectorAll("a.brief-row[data-open]")).toHaveLength(7);
-    expect(document.querySelectorAll(".brief-day[data-open]")).toHaveLength(7);
-    expect(screen.getByRole("img")).toHaveAttribute("aria-label", expect.stringContaining("Sunday: open"));
+  it("greets by the time of day, under the date", async () => {
+    const { unmount } = await run(9 * 60);
+    expect(screen.getByText("Thursday, October 15")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Good morning, Casey.");
+    expect(screen.getByTestId("local-today")).toHaveAttribute("data-today", TODAY);
+    unmount();
+    const second = await run(13 * 60);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Good afternoon, Casey.");
+    second.unmount();
+    await run(19 * 60);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Good evening, Casey.");
   });
 
-  it("starts the week on Monday for a household that chose that", async () => {
-    vi.mocked(getMealPlanSettings).mockResolvedValue({ weekStartsOn: "MONDAY", showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null });
-    await run("2026-10-04");
-    expect(screen.getByText("Week of Sep 28 – Oct 4, 2026")).toBeInTheDocument();
-    expect(vi.mocked(calendarEntries).mock.calls[0][1]).toEqual({ start: "2026-09-28", end: "2026-10-04" });
+  it("reads what the calendar shows for today and the next two days, in the household's zone (meals as the calendar has them)", async () => {
+    settings({ showMeals: true, timeZone: "Europe/Paris" });
+    await run();
+    expect(calendarEntries).toHaveBeenCalledWith("h1", { start: TODAY, end: "2026-10-17" }, { timeZone: "Europe/Paris", includeMeals: true });
   });
 
-  it("asks for what the calendar shows for the week (meals only when the calendar shows them), in the household's zone", async () => {
+  it("hands the header the date, the members, and what needs attention (no Google calendar until one is chosen)", async () => {
+    const attention = [{ key: "a", title: "Weekend plans has 2 unread messages", support: "In Messages.", href: "/messages/c1" }];
+    vi.mocked(loadAttention).mockResolvedValue(attention);
     await run();
-    expect(calendarEntries).toHaveBeenCalledWith("h1", { start: "2026-10-04", end: "2026-10-10" }, { timeZone: "America/Chicago", includeMeals: false });
-    calendarSettings({ showMeals: true, timeZone: "Europe/Paris" });
-    await run();
-    expect(calendarEntries).toHaveBeenLastCalledWith("h1", { start: "2026-10-04", end: "2026-10-10" }, { timeZone: "Europe/Paris", includeMeals: true });
+    expect(seen.actions).toEqual({ today: TODAY, assignees: [{ id: "c-me", name: "Casey", fullName: "Casey Becker" }], googleCalendarName: null, attention });
   });
 
-  it("counts and shows Google events like Domata's own", async () => {
-    agendas([googleEvent("2026-10-07", "Flight to Denver", "14:00"), googleEvent("2026-10-09", "School play")]);
+  it("names the household's Google calendar for the New event form once Google is set up and one is chosen", async () => {
+    vi.mocked(googleConfigured).mockReturnValue(true);
+    settings({ googleCalendarId: "fam", googleCalendarName: "Family" });
+    const { unmount } = await run();
+    expect(seen.actions.googleCalendarName).toBe("Family");
+    unmount();
+    settings({ googleCalendarId: "fam" });
     await run();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("A light week");
-    expect(section("Day by day")).toHaveTextContent("2:00 PM Flight to Denver.");
-    expect(document.querySelectorAll(".brief-drawing circle")).toHaveLength(2);
+    expect(seen.actions.googleCalendarName).toBe("Google Calendar");
   });
 
-  it("builds the headline, drawing and day rows from every kind of entry", async () => {
-    agendas([birthday("2026-10-08"), item("2026-10-08", { title: "Dentist", startTime: "09:30" }), item("2026-10-08", { title: "Soccer" }), meal("2026-10-05")]);
-    await run();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("most planned on Thursday");
-    const days = [...document.querySelectorAll(".brief-strip .brief-day")];
-    expect(days).toHaveLength(7);
-    expect(days[4].querySelector(".brief-day-title")).toHaveTextContent("Jo's birthday");
-    expect(days[4].querySelector(".brief-day-more")).toHaveTextContent("+2 more");
-    expect(days[1].querySelector(".brief-day-title")).toHaveTextContent("Tacos");
-    expect(section("Day by day")).toHaveTextContent("9:30 AM Dentist.");
-    expect(document.querySelectorAll(".brief-drawing circle")).toHaveLength(2);
-  });
-
-  it("breaks every day out, marking today and linking each day to that day on the calendar", async () => {
-    await run();
-    const days = [...document.querySelectorAll(".brief-strip .brief-day")];
-    expect(days.map((d) => d.querySelector(".brief-day-initial")!.textContent)).toEqual(["S", "M", "T", "W", "T", "F", "S"]);
-    expect(days[3]).toHaveAttribute("data-today");
-    const row = section("Day by day").querySelector("a[data-today]") as HTMLElement;
-    expect(row).toHaveTextContent("(today)");
-    expect(row).toHaveAttribute("href", "/calendar?view=day&date=2026-10-07");
-  });
-
-  describe("days already gone", () => {
-    const earlier = () => section("Day by day").querySelector("details.brief-earlier") as HTMLDetailsElement | null;
-
-    it("fold into one closed row at the top, saying what was on them, and open to show them", async () => {
-      agendas([item("2026-10-04", { title: "Brunch" }), meal("2026-10-05"), item("2026-10-08", { title: "Later" })]);
+  describe("today", () => {
+    it("says when there is nothing on the calendar", async () => {
       await run();
-      const folded = earlier()!;
-      expect(folded.open).toBe(false);
-      expect(folded.querySelector("summary")).toHaveTextContent("Earlier");
-      expect(folded.querySelector("summary")).toHaveTextContent("Sun – Tue");
-      expect(folded.querySelector("summary")).toHaveTextContent("2 things.");
-      expect([...folded.querySelectorAll("a.brief-row .brief-index")].map((d) => d.textContent)).toEqual(["Sun", "Mon", "Tue"]);
-      // Today and the rest of the week stay open, after it.
-      const open = [...section("Day by day").querySelectorAll(":scope > a.brief-row .brief-index")].map((d) => d.textContent);
-      expect(open).toEqual(["Wed (today)", "Thu", "Fri", "Sat"]);
+      expect(within(section("Today")).getByText("Nothing on the calendar today.")).toBeInTheDocument();
+      expect(within(section("Today")).getByRole("link", { name: "Open calendar" })).toHaveAttribute("href", `/calendar?view=day&date=${TODAY}`);
     });
 
-    it("name one day by itself, and say when nothing was planned", async () => {
-      const { unmount } = await run("2026-10-05");
-      expect(earlier()!.querySelector("summary")).toHaveTextContent("Sun");
-      expect(earlier()!.querySelector("summary")).not.toHaveTextContent("–");
-      expect(earlier()!.querySelector("summary")).toHaveTextContent("Nothing was planned.");
+    it("puts what has no time along the top, each linking where it lives", async () => {
+      entries([birthday(TODAY), google(TODAY, "Sam out of office", { color: null }), birthday(TODAY, { title: "Anniversary", turns: null }), item(TODAY, "Picture day")]);
+      await run();
+      const chips = within(section("Today")).getByRole("list", { name: "All day" });
+      expect(within(chips).getAllByRole("link").map((l) => l.textContent)).toEqual(["Jo's birthday · turns 9", "Sam out of office · Google", "Anniversary", "Picture day"]);
+      expect(within(chips).getByRole("link", { name: /Sam out of office/ })).toHaveAttribute("href", "https://calendar.google.com/e");
+      expect(within(chips).getByRole("link", { name: "Picture day" })).toHaveAttribute("href", `/calendar?view=day&date=${TODAY}`);
+      expect(within(section("Today")).getByText("Nothing else at a set time today.")).toBeInTheDocument();
+    });
+
+    it("lists timed things in order: done ones quieter, the one on now marked, and the free time ahead", async () => {
+      entries([
+        item(TODAY, "School drop-off", { startTime: "07:30", endTime: "08:00", assigneeName: "Casey" }),
+        google(TODAY, "Team standup", { startTime: "09:00", endTime: "10:00" }),
+        item(TODAY, "Dentist", { startTime: "10:30", endTime: "11:30", assigneeName: "Sam" }),
+        item(TODAY, "School pickup", { startTime: "15:00" }),
+        meal(TODAY, "Tacos", "18:00"),
+      ]);
+      await run();
+      const rows = timelineRows();
+      expect(rows.map((r) => r.querySelector("strong")!.textContent)).toEqual(["School drop-off", "Team standup", "Dentist", "Free · 3.5 hours", "School pickup", "Free · 2.5 hours", "Dinner: Tacos"]);
+      expect(rows[0]).toHaveAttribute("data-state", "past");
+      expect(rows[1]).toHaveAttribute("data-state", "now");
+      expect(rows[1]).toHaveTextContent("Now");
+      expect(rows[1]).toHaveTextContent("Until 10:00 AM · Casey's Work · Google");
+      expect(rows[1].querySelector("a")).toHaveAttribute("href", "https://calendar.google.com/e");
+      expect(rows[2]).toHaveAttribute("data-state", "later");
+      expect(rows[2]).toHaveTextContent("10:30 AM");
+      expect(rows[2]).toHaveTextContent("Sam");
+      expect(rows[3]).toHaveTextContent("11:30 AMFree · 3.5 hoursUntil 3:00 PM");
+      expect(rows[4].querySelector(".home-detail")).toBeNull();
+      expect(rows[6]).toHaveTextContent("From the meal plan");
+    });
+  });
+
+  it("calls free time that starts now \"Now\"", async () => {
+    entries([item(TODAY, "Lunch", { startTime: "12:00" })]);
+    await run(10 * 60 + 2);
+    expect(timelineRows()[0]).toHaveTextContent("NowFree · 1 hour 55 minUntil 12:00 PM");
+  });
+
+  describe("the next two days", () => {
+    it("shows each with its entries, linking the day to the calendar, and says when nothing is planned", async () => {
+      entries([item("2026-10-16", "Garbage & recycling", { startTime: "07:00" }), google("2026-10-16", "Conference", { startTime: "19:00", link: null }), birthday("2026-10-16")]);
+      await run();
+      const cards = [...section("Next 2 days").querySelectorAll(".home-card")] as HTMLElement[];
+      expect(cards).toHaveLength(2);
+      expect(within(cards[0]).getByRole("link", { name: "Friday Oct 16" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-16");
+      expect(cards[0]).toHaveTextContent("7:00 AMGarbage & recycling");
+      expect(cards[0]).toHaveTextContent("7:00 PMConference · Google");
+      expect(cards[0]).toHaveTextContent("All dayJo's birthday · turns 9");
+      // A Google event without a link opens its day on the calendar.
+      expect(within(cards[0]).getByRole("link", { name: "Conference · Google" })).toHaveAttribute("href", "/calendar?view=day&date=2026-10-16");
+      expect(cards[1]).toHaveTextContent("Saturday Oct 17");
+      expect(cards[1]).toHaveTextContent("Nothing planned.");
+    });
+  });
+
+  describe("the side column", () => {
+    it("passes the member's to-dos (theirs and Anyone's) by the browser's date, after due maintenance joins the list", async () => {
+      const items = [todo({ text: "Renew passport" })];
+      vi.mocked(homeTodos).mockResolvedValue(items);
+      await run();
+      expect(syncMaintenanceTodos).toHaveBeenCalledWith("h1", TODAY);
+      expect(homeTodos).toHaveBeenCalledWith("h1", "c-me", TODAY);
+      expect(seen.todos).toEqual({ items, today: TODAY });
+    });
+
+    it("asks for no member's to-dos when the user has no contact", async () => {
+      vi.mocked(pageMember).mockResolvedValue({ ...me, contactId: null } as any);
+      await run();
+      expect(homeTodos).toHaveBeenCalledWith("h1", null, TODAY);
+    });
+
+    it("says what's left to buy and what's for dinner tonight", async () => {
+      vi.mocked(loadShopping).mockResolvedValue({ listId: "s1", items: [{ checked: false }, { checked: true }, { checked: false }] as any });
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue({ text: null, meal: { name: "Tacos" } } as any);
+      const { unmount } = await run();
+      const also = section("Also today");
+      expect(within(also).getByRole("link", { name: /Shopping list/ })).toHaveTextContent("2 items");
+      expect(within(also).getByRole("link", { name: /Shopping list/ })).toHaveAttribute("href", "/meals/shopping");
+      expect(within(also).getByRole("link", { name: /Dinner tonight/ })).toHaveTextContent("Tacos");
+      expect(vi.mocked(prisma.mealPlanEntry.findFirst).mock.calls[0][0]!.where).toEqual({ householdId: "h1", date: new Date(`${TODAY}T00:00:00Z`), slot: "DINNER" });
       unmount();
-      agendas([item("2026-10-04")]);
-      await run("2026-10-05");
-      expect(earlier()!.querySelector("summary")).toHaveTextContent("1 thing.");
+      vi.mocked(loadShopping).mockResolvedValue({ listId: "s1", items: [{ checked: false }] as any });
+      vi.mocked(prisma.mealPlanEntry.findFirst).mockResolvedValue({ text: "Leftovers", meal: null } as any);
+      await run();
+      expect(within(section("Also today")).getByRole("link", { name: /Shopping list/ })).toHaveTextContent("1 item");
+      expect(within(section("Also today")).getByRole("link", { name: /Dinner tonight/ })).toHaveTextContent("Leftovers");
     });
 
-    it("aren't there on the week's first day", async () => {
-      await run("2026-10-04");
-      expect(earlier()).toBeNull();
+    it("says when nothing is left to buy and dinner isn't planned", async () => {
+      await run();
+      expect(within(section("Also today")).getByRole("link", { name: /Shopping list/ })).toHaveTextContent("Nothing to buy");
+      expect(within(section("Also today")).getByRole("link", { name: /Dinner tonight/ })).toHaveTextContent("Not planned");
+    });
+
+    it("lists what needs attention last, each linking where the work is", async () => {
+      vi.mocked(loadAttention).mockResolvedValue([
+        { key: "a", title: "Weekend plans has 2 unread messages", support: "In Messages.", href: "/messages/c1" },
+        { key: "b", title: "Ann Ray asked to join your household", support: "On the Household page.", href: "/household" },
+      ]);
+      await run();
+      const attention = section("Needs attention · 2");
+      expect(within(attention).getAllByRole("link").map((l) => l.getAttribute("href"))).toEqual(["/messages/c1", "/household"]);
+    });
+
+    it("says when nothing needs attention", async () => {
+      await run();
+      expect(within(section("Needs attention")).getByText("Nothing needs attention.")).toBeInTheDocument();
     });
   });
-
-});
-
-describe("HomePage: needs attention", () => {
-  it("lists what needs attention, numbered, each linking where the work is", async () => {
-    vi.mocked(loadAttention).mockResolvedValue([
-      { key: "a", title: "Weekend plans has 2 unread messages", support: "In Messages.", href: "/messages/c1" },
-      { key: "b", title: "Ann Ray asked to join your household", support: "On the Household page.", href: "/household" },
-    ]);
-    await run();
-    const links = within(section("Needs attention")).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/messages/c1", "/household"]);
-    expect(links[0]).toHaveTextContent("1");
-    expect(links[1]).toHaveTextContent("2");
-    expect(loadAttention).toHaveBeenCalledWith(expect.objectContaining({ id: "u1", role: "OWNER", householdId: "h1" }));
-  });
-});
-
-describe("HomePage: the lists", () => {
-  it("asks the agenda once, for the week only (there is no separate today-and-ahead list)", async () => {
-    await run();
-    expect(calendarEntries).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText(/Today & coming up/)).toBeNull();
-  });
-
-  it("puts Needs attention, then To-do, then Day by day (the order on a phone; the grid moves Day by day right on a wide screen)", async () => {
-    await run();
-    const order = [...document.querySelectorAll(".brief-lists > section")].map((el) => el.getAttribute("aria-label") ?? el.querySelector("h2")?.textContent);
-    expect(order).toEqual(["Needs attention", "To-do", "Day by day"]);
-    expect(section("Needs attention")).toHaveClass("home-attention");
-    expect(section("Day by day")).toHaveClass("home-days");
-  });
-
-  it("offers the calendar from Day by day", async () => {
-    await run();
-    expect(within(section("Day by day")).getByRole("link", { name: "View calendar" })).toHaveAttribute("href", "/calendar?view=week");
-  });
-
-  it("passes the signed-in member's to-dos (theirs and Anyone's, by the browser's date) to the To-do column", async () => {
-    const items = [todo({ text: "Renew passport" })];
-    vi.mocked(homeTodos).mockResolvedValue(items);
-    await run();
-    expect(syncMaintenanceTodos).toHaveBeenCalledWith("h1", "2026-10-07"); // services that came due join first
-    expect(vi.mocked(syncMaintenanceTodos).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(homeTodos).mock.invocationCallOrder[0]);
-    expect(homeTodos).toHaveBeenCalledWith("h1", "c-me", "2026-10-07");
-    expect(seen.todos).toEqual({ items, today: "2026-10-07" });
-    expect(screen.getByRole("region", { name: "To-do" })).toBeInTheDocument();
-    vi.mocked(pageMember).mockResolvedValue({ ...me(), contactId: undefined } as any);
-    await run();
-    expect(homeTodos).toHaveBeenLastCalledWith("h1", null, "2026-10-07");
-  });
-
 });
