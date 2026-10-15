@@ -135,7 +135,7 @@ export default async function HomePage() {
               <ol className="home-timeline">
                 {rows.map((row) =>
                   row.kind === "free" ? (
-                    <li key={`free-${row.start}`} className="home-row" data-free>
+                    <li key={`free-${row.start}`} className="home-row" data-free data-now={row.fromNow || undefined}>
                       <span className="home-time">{row.fromNow ? "Now" : formatTime(hhmm(row.start))}</span>
                       <span>
                         <strong>Free · {freeLabel(row.end - row.start)}</strong>
