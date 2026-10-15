@@ -25,7 +25,7 @@ test("sign up, confirm the email, create a household and land in the app", async
   await confirmEmail(page, email);
   await expect(page).toHaveURL(/\/onboarding$/);
   await createHousehold(page, "The Signups");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Nothing is planned this week yet, Sam.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Good (morning|afternoon|evening), Sam\.$/);
   await expect(page.getByText("The Signups").first()).toBeVisible();
 });
 

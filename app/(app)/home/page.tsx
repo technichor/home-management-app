@@ -1,128 +1,229 @@
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { pageMember } from "@/lib/auth";
 import { calendarEntries } from "@/lib/calendarEntries";
 import { getCalendarSettings } from "@/lib/calendarItem";
-import { addDays, formatWeekRange, weekStartOf } from "@/lib/dates";
-import { pageToday } from "@/lib/today";
+import { addDays, stringToDate } from "@/lib/dates";
+import { pageClock } from "@/lib/today";
 import { loadAttention } from "@/lib/homeAttention";
-import { calendarHref } from "@/lib/calendarView";
-import { getMealPlanSettings } from "@/lib/mealPlan";
+import { calendarHref, formatTime, timeLabel } from "@/lib/calendarView";
+import { hhmm } from "@/lib/calendarLayout";
 import { homeTodos } from "@/lib/todo";
 import { syncMaintenanceTodos } from "@/lib/maintenanceTodos";
-import { buildBrief, earlierInWeek, type BriefDay } from "@/lib/weekBrief";
+import { loadShopping } from "@/lib/shopping";
+import { memberOptionsOf } from "@/lib/householdMembers";
+import { googleConfigured } from "@/lib/google";
+import { freeLabel, greeting, longDate, todayTimeline, upcomingDays, DAYS_AHEAD } from "@/lib/homeDay";
+import type { AgendaEntry } from "@/lib/agendaOrder";
 import LocalToday from "@/components/LocalToday";
-import WeekDrawing from "@/components/WeekDrawing";
 import HomeTodos from "./HomeTodos";
+import HomeHeaderActions from "./HomeHeaderActions";
 
+/** What an entry is called in a list: a birthday says how old, an event from Google says so. */
+function entryName(e: AgendaEntry): string {
+  if (e.source === "contact_date") return e.turns !== null ? `${e.title} · turns ${e.turns}` : e.title;
+  if (e.source === "google") return `${e.title} · Google`;
+  return e.title;
+}
+
+/** The line under an entry on today's timeline. */
+function entryDetail(e: AgendaEntry): string {
+  const until = (e.source === "item" || e.source === "google") && e.endTime ? `Until ${formatTime(e.endTime)}` : "";
+  if (e.source === "google") return [until, `${e.ownerName}'s ${e.calendarName} · Google`].filter(Boolean).join(" · ");
+  if (e.source === "meal") return "From the meal plan";
+  return until;
+}
+
+/** Who an entry is for, on the right of its row. */
+function entryWho(e: AgendaEntry): string {
+  if (e.source === "item") return e.assigneeName ?? "";
+  return "";
+}
+
+/** An entry opens where it lives: a Google event in Google, everything else on that day in the calendar. */
+function EntryLink({ entry, className, children }: { entry: AgendaEntry; className: string; children: React.ReactNode }) {
+  if (entry.source === "google" && entry.link) {
+    return (
+      <a href={entry.link} target="_blank" rel="noopener noreferrer" className={className}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={calendarHref({ view: "day", date: entry.date })} className={className}>
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * HOME: today first (what's done, what's on now, what's next, and the free time between), then the next couple of
+ * days; the to-do list on the right, then what else is on today and what needs attention (also behind the bell).
+ */
 export default async function HomePage() {
   const me = await pageMember();
-  const today = await pageToday();
+  const clock = await pageClock();
 
-  // The week is the user's own, so it needs their browser's date (lib/today.ts); on a first visit, LocalToday saves
-  // the browser's time zone and asks again.
-  if (!today) return <LocalToday today={null} />;
+  // "Today" and "now" are the user's own, so they need the browser's time zone (lib/today.ts); on a first visit,
+  // LocalToday saves it and asks again.
+  if (!clock) return <LocalToday today={null} />;
+  const today = clock.date;
 
   const householdId = me.householdId;
-  const [mealSettings, calendarSettings] = await Promise.all([getMealPlanSettings(householdId), getCalendarSettings(householdId)]);
-  const weekStart = weekStartOf(today, mealSettings.weekStartsOn);
-  const weekEnd = addDays(weekStart, 6);
+  const calendarSettings = await getCalendarSettings(householdId);
+  const range = { start: today, end: addDays(today, DAYS_AHEAD) };
 
-  // The week is what the calendar shows for it (Google events included, meals if the calendar shows them).
-  const [week, attention, todos] = await Promise.all([
-    calendarEntries(householdId, { start: weekStart, end: weekEnd }, { timeZone: calendarSettings.timeZone, includeMeals: calendarSettings.showMeals }),
+  const [agenda, attention, todos, assignees, shopping, dinner] = await Promise.all([
+    // What the calendar shows (Google events too, meals if the calendar shows them).
+    calendarEntries(householdId, range, { timeZone: calendarSettings.timeZone, includeMeals: calendarSettings.showMeals }),
     loadAttention(me),
     // Maintenance services that have come due join the to-do list first.
     syncMaintenanceTodos(householdId, today).then(() => homeTodos(householdId, me.contactId ?? null, today)),
+    memberOptionsOf(householdId),
+    loadShopping(householdId),
+    prisma.mealPlanEntry.findFirst({
+      where: { householdId, date: stringToDate(today), slot: "DINNER" },
+      select: { text: true, meal: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
-  const brief = buildBrief({ firstName: me.firstName, weekStart, today, entries: week.entries });
-  const calendarWeek = calendarHref({ view: "week" });
-  const earlier = earlierInWeek(brief.days, today);
-  const dayRow = (d: BriefDay) => (
-    <Link key={d.date} href={calendarHref({ view: "day", date: d.date })} className="brief-row" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
-      <span className="brief-index">
-        {d.weekday}
-        {d.isToday && <span className="sr-only"> (today)</span>}
-      </span>
-      <div>
-        <div className="brief-title">{d.title}</div>
-        <div className="brief-support">{d.support}</div>
-      </div>
-    </Link>
+  const { allDay, rows } = todayTimeline(
+    agenda.entries.filter((e) => e.date === today),
+    clock.minutes,
   );
-  const description = `${brief.headline} ${brief.days.map((d) => `${d.weekdayLong}: ${d.load === 0 ? "open" : d.load}`).join(", ")}.`;
+  const ahead = upcomingDays(agenda.entries, today);
+  const toBuy = shopping.items.filter((i) => !i.checked).length;
+  const dinnerName = dinner?.meal?.name ?? dinner?.text ?? null;
+  const googleCalendarName = googleConfigured() && calendarSettings.googleCalendarId ? (calendarSettings.googleCalendarName ?? "Google Calendar") : null;
 
   return (
-    <>
+    <div className="home">
       <LocalToday today={today} />
-      <div className="brief-top">
-        <div className="brief-inner">
-          <div className="brief-date">Week of {formatWeekRange(weekStart)}</div>
-          <h1 className="brief-headline">{brief.headline}</h1>
-          <WeekDrawing drawing={brief.drawing} description={description} />
-          <div className="brief-strip">
-            {brief.days.map((d) => (
-              <div key={d.date} className="brief-day" data-today={d.isToday || undefined} data-open={d.empty || undefined}>
-                <strong className="brief-day-name">
-                  <span className="brief-day-full">{d.weekday}</span>
-                  <span className="brief-day-initial" aria-hidden="true">
-                    {d.weekday[0]}
-                  </span>
-                </strong>
-                <span className="brief-day-title">{d.title}</span>
-                {d.more && <span className="brief-day-more">{d.more}</span>}
-              </div>
-            ))}
-          </div>
+      <header className="home-header">
+        <div>
+          <div className="home-date">{longDate(today)}</div>
+          <h1 className="home-greeting">
+            {greeting(clock.minutes)}, {me.firstName}.
+          </h1>
         </div>
-      </div>
+        <HomeHeaderActions today={today} assignees={assignees} googleCalendarName={googleCalendarName} attention={attention} />
+      </header>
 
-      <div className="brief-inner brief-lists">
-        <section className="home-attention">
-          <h2 className="brief-section">Needs attention</h2>
-          {attention.length === 0 ? (
-            <div className="brief-row brief-row-plain">
-              <div>
-                <div className="brief-title">Nothing needs attention</div>
-                <div className="brief-support">No unread messages, join requests or open sync invites.</div>
-              </div>
+      <div className="home-grid">
+        <div className="home-main">
+          <section aria-labelledby="home-today">
+            <div className="home-section-head">
+              <h2 id="home-today">Today</h2>
+              <Link href={calendarHref({ view: "day", date: today })}>Open calendar</Link>
             </div>
-          ) : (
-            attention.map((a, i) => (
-              <Link key={a.key} href={a.href} className="brief-row brief-row-num">
-                <span className="brief-index">{i + 1}</span>
-                <div>
-                  <div className="brief-title">{a.title}</div>
-                  <div className="brief-support">{a.support}</div>
-                </div>
-              </Link>
-            ))
-          )}
-        </section>
+            {allDay.length > 0 && (
+              <ul className="home-chips" aria-label="All day">
+                {allDay.map((e) => (
+                  <li key={e.id}>
+                    <EntryLink entry={e} className="home-chip">
+                      {e.source === "google" && <span className="home-dot" style={{ background: e.color ?? undefined }} aria-hidden />}
+                      {entryName(e)}
+                    </EntryLink>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {rows.length === 0 ? (
+              <p className="home-empty">{allDay.length > 0 ? "Nothing else at a set time today." : "Nothing on the calendar today."}</p>
+            ) : (
+              <ol className="home-timeline">
+                {rows.map((row) =>
+                  row.kind === "free" ? (
+                    <li key={`free-${row.start}`} className="home-row" data-free>
+                      <span className="home-time">{row.fromNow ? "Now" : formatTime(hhmm(row.start))}</span>
+                      <span>
+                        <strong>Free · {freeLabel(row.end - row.start)}</strong>
+                        <span className="home-detail">Until {formatTime(hhmm(row.end))}</span>
+                      </span>
+                      <span />
+                    </li>
+                  ) : (
+                    <li key={row.entry.id} data-state={row.state}>
+                      <EntryLink entry={row.entry} className="home-row">
+                        <span className="home-time">{row.state === "now" ? "Now" : formatTime(hhmm(row.start))}</span>
+                        <span>
+                          <strong>{row.entry.title}</strong>
+                          {entryDetail(row.entry) && <span className="home-detail">{entryDetail(row.entry)}</span>}
+                        </span>
+                        <span className="home-who">{entryWho(row.entry)}</span>
+                      </EntryLink>
+                    </li>
+                  ),
+                )}
+              </ol>
+            )}
+          </section>
 
-        <HomeTodos items={todos} today={today} />
-
-        <section className="home-days">
-          <h2 className="brief-section">Day by day</h2>
-          {/* The days already gone fold into one row, opened on demand. */}
-          {earlier && (
-            <details className="brief-earlier">
-              <summary className="brief-row">
-                <span className="brief-index">Earlier</span>
-                <div>
-                  <div className="brief-title">{earlier.label}</div>
-                  <div className="brief-support">{earlier.support}</div>
+          <section aria-labelledby="home-ahead">
+            <div className="home-section-head">
+              <h2 id="home-ahead">Next {DAYS_AHEAD} days</h2>
+            </div>
+            <div className="home-ahead">
+              {ahead.map((day) => (
+                <div key={day.date} className="home-card">
+                  <Link href={calendarHref({ view: "day", date: day.date })} className="home-card-title">
+                    {day.weekday} <span>{day.monthDay}</span>
+                  </Link>
+                  {day.entries.length === 0 ? (
+                    <p className="home-muted">Nothing planned.</p>
+                  ) : (
+                    <ul className="home-day-list">
+                      {day.entries.map((e) => (
+                        <li key={e.id}>
+                          <span className="home-time">{e.source === "contact_date" || !e.startTime ? "All day" : timeLabel(e.startTime, null)}</span>
+                          <EntryLink entry={e} className="home-day-entry">
+                            {entryName(e)}
+                          </EntryLink>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              </summary>
-              {earlier.days.map(dayRow)}
-            </details>
-          )}
-          {brief.days.filter((d) => d.date >= today).map(dayRow)}
-          <p className="brief-link">
-            <Link href={calendarWeek}>View calendar</Link>
-          </p>
-        </section>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <aside className="home-side">
+          <HomeTodos items={todos} today={today} />
+
+          <section aria-labelledby="home-also" className="home-also">
+            <h2 id="home-also" className="home-small-head">
+              Also today
+            </h2>
+            <Link href="/meals/shopping" className="home-tile">
+              <span>Shopping list</span>
+              <span className="home-muted">{toBuy === 0 ? "Nothing to buy" : `${toBuy} ${toBuy === 1 ? "item" : "items"}`}</span>
+            </Link>
+            <Link href="/meals" className="home-tile">
+              <span>Dinner tonight</span>
+              <span className="home-muted">{dinnerName ?? "Not planned"}</span>
+            </Link>
+          </section>
+
+          <section aria-labelledby="home-attention" className="home-also">
+            <h2 id="home-attention" className="home-small-head">
+              Needs attention{attention.length > 0 && ` · ${attention.length}`}
+            </h2>
+            {attention.length === 0 ? (
+              <p className="home-muted">Nothing needs attention.</p>
+            ) : (
+              attention.map((a) => (
+                <Link key={a.key} href={a.href} className="home-tile home-tile-stacked">
+                  <span>{a.title}</span>
+                  <span className="home-muted">{a.support}</span>
+                </Link>
+              ))
+            )}
+          </section>
+        </aside>
       </div>
-    </>
+    </div>
   );
 }

@@ -665,101 +665,291 @@ html[data-pending] body {
   cursor: not-allowed;
 }
 
-/* ---- Home: the weekly brief (app/(app)/home) ---- */
+/* ---- Home (app/(app)/home): today first, then the next two days; to-do and the rest on the right ---- */
 
-.brief-top {
-  position: relative;
-  isolation: isolate;
-  margin: calc(var(--pad-top) * -1) calc(var(--pad-x) * -1) 0;
-  padding: calc(var(--pad-top) + 8px) var(--pad-x) 28px;
-}
-.brief-top::before {
-  content: "";
-  position: absolute;
-  inset: 0 -100vw;
-  z-index: -1;
-  border-bottom: 1px solid var(--border);
-}
-.brief-inner {
-  max-width: 860px;
+.home {
+  max-width: 1080px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
-.brief-date {
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+.home-date {
   color: var(--muted);
   font-size: 14px;
 }
-.brief-headline {
-  margin: 8px 0 20px;
+.home-greeting {
+  margin: 4px 0 0;
   font-size: 32px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
+  line-height: 1.15;
 }
-.brief-drawing {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin-bottom: 16px;
+.home-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-/* The day names under the drawing: seven equal columns, so each sits right under its dot. */
-.brief-strip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin-top: 4px;
-}
-.brief-day {
+.home-bell-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: 0 6px;
-  text-align: center;
+  max-width: 300px;
+}
+.home-bell-item,
+.home-bell-item:hover {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.home-bell-item span {
+  color: var(--muted);
   font-size: 13px;
 }
-.brief-day-name {
+/* One column on a phone (today, the next days, then to-do and the rest); the side column beside it on a wide screen. */
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+@media (min-width: 1100px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+.home-main,
+.home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.home-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.home-section-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.home-section-head a {
   font-size: 13px;
-  font-weight: 500;
+}
+.home-muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.home-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
   color: var(--muted);
 }
-.brief-day-initial {
-  display: none;
+/* Today: what has no time as chips, then the timed things in order. */
+.home-chips {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.brief-day-title {
+.home-chip,
+.home-chip:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
   color: var(--text);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow-wrap: anywhere;
+  font-size: 13px;
+  text-decoration: none;
 }
-.brief-day-more {
+.home-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.home-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.home-timeline > li + li {
+  border-top: 1px solid var(--border);
+}
+.home-row,
+.home-row:hover {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+a.home-row:hover {
+  background: var(--hover);
+}
+.home-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.home-detail {
+  display: block;
+  margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
 }
-.brief-day[data-open] .brief-day-title {
+.home-who {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* Done already: quieter. On now: marked with the accent. Free time: a green tint with a light hatch. */
+.home-timeline [data-state="past"] .home-row {
   color: var(--faint);
 }
-.brief-day[data-today] .brief-day-name {
-  color: var(--accent);
-  font-weight: 700;
+.home-timeline [data-state="past"] .home-time,
+.home-timeline [data-state="past"] .home-detail {
+  color: var(--faint);
 }
-/* The lists under the brief: Needs attention, then To-do, then Day by day in one column on a phone; on a wide screen
-   Needs attention and To-do on the left and Day by day in a column of its own on the right. */
-.brief-lists {
-  padding-top: 32px;
+.home-timeline [data-state="now"] .home-row {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.home-timeline [data-state="now"] .home-time {
+  color: var(--on-accent-soft);
+  font-weight: 600;
+}
+.home-row[data-free] {
+  color: var(--on-accent-soft);
+  background: repeating-linear-gradient(135deg, transparent 0 8px, var(--hover) 8px 16px);
+}
+.home-row[data-free] .home-time,
+.home-row[data-free] .home-detail {
+  color: var(--on-accent-soft);
+}
+/* The next days, side by side (stacked on a phone). */
+.home-ahead {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "attention" "todo" "days";
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
 }
-.home-attention {
-  grid-area: attention;
+.home-card {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.home-todos {
-  grid-area: todo;
+.home-card-title,
+.home-card-title:hover {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
 }
-.home-days {
-  grid-area: days;
+.home-card-title span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.home-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.home-day-list li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+}
+.home-day-entry,
+.home-day-entry:hover {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+/* The side column: to-do as a card, then smaller "also today" and "needs attention" tiles. */
+.home-side .home-todos {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.home-side .home-todos .brief-section {
+  margin: 0 0 6px;
+  font-size: 18px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.home-side .home-todo-list {
+  border-bottom: 0;
+}
+.home-also {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.home-small-head {
+  margin: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.home-tile,
+.home-tile:hover {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+a.home-tile:hover {
+  background: var(--subtle);
+}
+.home-tile-stacked {
+  flex-direction: column;
+  gap: 2px;
+}
+@media (max-width: 640px) {
+  .home-greeting {
+    font-size: 26px;
+  }
+  .home-row,
+  .home-row:hover {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+  .home-who {
+    display: none;
+  }
 }
 .home-todos-toggle {
   display: block;
@@ -772,18 +962,6 @@ html[data-pending] body {
   cursor: pointer;
 }
 @media (min-width: 1100px) {
-  .brief-lists {
-    max-width: 1180px;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "attention days" "todo days";
-    column-gap: 56px;
-    align-items: start;
-  }
-  /* The brief above lines up with the wider lists. */
-  .brief-top .brief-inner {
-    max-width: 1180px;
-  }
   .home-todos-toggle {
     display: none;
   }
@@ -874,27 +1052,6 @@ a.brief-row:hover {
   color: var(--muted);
   font-weight: 500;
 }
-/* Day by day: the week's days already gone, folded into one row (a <details>) that opens to show them. */
-.brief-earlier > summary {
-  cursor: pointer;
-  list-style: none;
-}
-.brief-earlier > summary::-webkit-details-marker {
-  display: none;
-}
-.brief-earlier > summary:hover {
-  background: var(--hover);
-}
-.brief-earlier > summary .brief-index::after {
-  content: " ›";
-}
-.brief-earlier[open] > summary .brief-index::after {
-  content: " ⌄";
-}
-.brief-earlier > summary .brief-title {
-  color: var(--muted);
-  font-weight: 500;
-}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -904,23 +1061,6 @@ a.brief-row:hover {
   white-space: nowrap;
 }
 
-@media (max-width: 640px) {
-  /* On a phone the strip is just seven initials under the drawing; the day-by-day list has the detail. */
-  .brief-day {
-    padding: 0;
-  }
-  .brief-day-full,
-  .brief-day-title,
-  .brief-day-more {
-    display: none;
-  }
-  .brief-day-initial {
-    display: inline;
-  }
-  .brief-headline {
-    font-size: 26px;
-  }
-}
 
 /* ---- Calendar (app/(app)/calendar) ---- */
 
