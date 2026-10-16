@@ -18,6 +18,7 @@ import type { AgendaEntry } from "@/lib/agendaOrder";
 import LocalToday from "@/components/LocalToday";
 import HomeTodos from "./HomeTodos";
 import HomeHeaderActions from "./HomeHeaderActions";
+import HomeNewEvent from "./HomeNewEvent";
 
 /** What an entry is called in a list: a birthday says how old, an event from Google says so. */
 function entryName(e: AgendaEntry): string {
@@ -107,7 +108,7 @@ export default async function HomePage() {
             {greeting(clock.minutes)}, {me.firstName}.
           </h1>
         </div>
-        <HomeHeaderActions today={today} assignees={assignees} googleCalendarName={googleCalendarName} attention={attention} />
+        <HomeHeaderActions attention={attention} />
       </header>
 
       <div className="home-grid">
@@ -115,7 +116,10 @@ export default async function HomePage() {
           <section aria-labelledby="home-today">
             <div className="home-section-head">
               <h2 id="home-today">Today</h2>
-              <Link href={calendarHref({ view: "day", date: today })}>Open calendar</Link>
+              <div className="home-section-actions">
+                <Link href={calendarHref({ view: "day", date: today })}>Open calendar</Link>
+                <HomeNewEvent today={today} assignees={assignees} googleCalendarName={googleCalendarName} />
+              </div>
             </div>
             {allDay.length > 0 && (
               <ul className="home-chips" aria-label="All day">

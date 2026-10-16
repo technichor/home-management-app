@@ -674,12 +674,15 @@ html[data-pending] body {
   flex-direction: column;
   gap: 24px;
 }
+/* The greeting with the bell on its right, on one row even on a phone. */
 .home-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 12px 16px;
+  gap: 16px;
+}
+.home-header > :first-child {
+  min-width: 0;
 }
 .home-date {
   color: var(--muted);
@@ -744,6 +747,11 @@ html[data-pending] body {
 }
 .home-section-head a {
   font-size: 13px;
+}
+.home-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .home-muted {
   margin: 0;
