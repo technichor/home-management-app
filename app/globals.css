@@ -893,21 +893,19 @@ a.home-row:hover {
   color: var(--text);
   overflow-wrap: anywhere;
 }
-/* The side column: to-do as a card, then smaller "also today" and "needs attention" tiles. */
-.home-side .home-todos {
-  padding: 14px 16px;
+/* The side column: to-do headed like Today (the heading above its card), then smaller "also today" and "needs
+   attention" tiles. */
+.home-todos .home-todo-card {
+  padding: 0 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
 }
-.home-side .home-todos .brief-section {
-  margin: 0 0 6px;
-  font-size: 18px;
-  letter-spacing: 0;
-  text-transform: none;
+.home-todos .home-todo-card.brief-row-plain {
+  padding: 14px 16px;
 }
-.home-side .home-todo-list {
-  border-bottom: 0;
+.home-todo-card > .brief-row:first-child {
+  border-top: 0;
 }
 .home-also {
   display: flex;
@@ -973,14 +971,6 @@ a.home-tile:hover {
   .home-todos:not([data-expanded]) .home-todo-row:nth-child(n + 4) {
     display: none;
   }
-}
-.home-todos-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-.home-todos-open {
-  font-size: 13px;
 }
 .brief-row.home-todo-row {
   grid-template-columns: 28px minmax(0, 1fr);

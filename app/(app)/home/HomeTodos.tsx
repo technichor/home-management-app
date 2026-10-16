@@ -45,21 +45,21 @@ export default function HomeTodos({ items, today }: { items: TodoItem[]; today: 
 
   return (
     <section className="home-todos" aria-label="To-do" data-expanded={expanded || undefined}>
-      <div className="home-todos-head">
-        <h2 className="brief-section">To-do</h2>
-        <Link href="/todo" className="home-todos-open">
+      <div className="home-section-head">
+        <h2>To-do</h2>
+        <Link href="/todo">
           Open list
         </Link>
       </div>
       {shown.length === 0 ? (
-        <div className="brief-row brief-row-plain">
+        <div className="brief-row brief-row-plain home-todo-card">
           <div>
             <div className="brief-title">Nothing on your list</div>
             <div className="brief-support">To-dos for you, or for anyone, show up here.</div>
           </div>
         </div>
       ) : (
-        <div className="home-todo-list">
+        <div className="home-todo-list home-todo-card">
           {shown.map((item) => {
             const due = item.dueDate ? dueLabel(item.dueDate, today) : null;
             return (
