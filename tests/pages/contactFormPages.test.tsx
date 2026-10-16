@@ -38,8 +38,10 @@ beforeEach(() => {
 });
 
 describe("NewContactPage", () => {
+  const run = (household?: string) => NewContactPage({ searchParams: Promise.resolve(household ? { household } : {}) });
+
   it("offers only the caller's own (non-removed) households", async () => {
-    render(await NewContactPage());
+    render(await run());
     expect(screen.getByText("contact form")).toBeInTheDocument();
     expect(seen.form).toMatchObject({ households: [{ id: "h1", displayName: "The Smiths" }] });
     expect(seen.form.contact).toBeUndefined();
@@ -47,6 +49,21 @@ describe("NewContactPage", () => {
       OR: [{ id: "mine" }, { ownerHouseholdId: "mine" }],
       deletedAt: null,
     });
+    expect(seen.form.householdId).toBeUndefined();
+    expect(screen.getByText("Add contact")).toBeInTheDocument();
+  });
+
+  it("starts in the household it was opened from, with a way back to it", async () => {
+    render(await run("h1"));
+    expect(seen.form.householdId).toBe("h1");
+    expect(screen.getByRole("link", { name: "The Smiths" })).toHaveAttribute("href", "/contacts/households/h1");
+    expect(screen.getByText("Add person")).toBeInTheDocument();
+  });
+
+  it("ignores a household that isn't in the caller's directory (or is removed)", async () => {
+    render(await run("someone-elses"));
+    expect(seen.form.householdId).toBeUndefined();
+    expect(screen.getByText("Add contact")).toBeInTheDocument();
   });
 });
 

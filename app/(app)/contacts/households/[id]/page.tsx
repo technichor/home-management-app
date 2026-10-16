@@ -150,9 +150,14 @@ export default async function HouseholdDetailPage({
       )}
 
       <div>
-        <h5 style={{ marginTop: 0, marginBottom: 12, fontSize: 14, fontWeight: 600 }}>
-          Family &amp; Friend contacts ({household.contacts.length})
-        </h5>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <h5 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Family &amp; Friend contacts ({household.contacts.length})</h5>
+          {!isDeleted && (
+            <Link href={`/contacts/new?household=${household.id}`}>
+              <Button size="small">Add person</Button>
+            </Link>
+          )}
+        </div>
         <Table
           dataSource={memberData}
           columns={memberColumns}

@@ -188,3 +188,25 @@ test("a contact's birthday: in the form, on the detail page, and through CSV exp
   await page.getByRole("link", { name: /Withyear/ }).click();
   await expect(page.getByText("March 9, 1985")).toBeVisible();
 });
+
+test("a household's page adds people to it, and comes back after each", async ({ page }) => {
+  await newOwner(page, "dirhh", "The Adders");
+  await page.goto(`/contacts/households`);
+  await page.getByRole("link", { name: "Add household" }).click();
+  await page.getByLabel("Household name").fill("The Gerbers");
+  await page.getByRole("button", { name: "Add household" }).click();
+  await expect(page.getByRole("heading", { name: "The Gerbers" })).toBeVisible();
+  const householdUrl = page.url();
+
+  for (const first of ["Joel", "Jen"]) {
+    await page.getByRole("link", { name: /Add person/ }).click();
+    await expect(page.getByText("Add person")).toBeVisible(); // the breadcrumb: Households / The Gerbers / Add person
+    await expect(page.getByTitle("The Gerbers")).toBeVisible(); // in this household already
+    await page.getByLabel("First name").fill(first);
+    await page.getByLabel("Last name").fill("Gerber");
+    await page.getByRole("button", { name: "Add contact" }).click();
+    await expect(page).toHaveURL(householdUrl);
+    await expect(page.getByRole("link", { name: `${first} Gerber` })).toBeVisible();
+  }
+  await expect(page.getByText("Family & Friend contacts (2)")).toBeVisible();
+});
