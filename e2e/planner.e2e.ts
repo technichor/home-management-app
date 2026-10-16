@@ -150,7 +150,13 @@ test("on a phone the week is a list with today at the top, and adding works", as
   await page.goto("/meals");
   const today = page.locator(".planner-day[data-today]");
   await expect(today).toBeVisible();
-  await expect.poll(async () => (await today.boundingBox())!.y).toBeLessThan(200); // scrolled to the top
+  // Scrolled to the top, or as far as the page goes (late in the week there isn't enough below today to bring it up).
+  await expect
+    .poll(async () => {
+      const atBottom = await page.evaluate(() => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2);
+      return (await today.boundingBox())!.y < 200 || atBottom;
+    })
+    .toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 
   await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
