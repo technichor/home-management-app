@@ -15,6 +15,7 @@ vi.mock("@/lib/todo", async (orig) => ({ ...(await orig<typeof import("@/lib/tod
 const seen: Record<string, any> = {};
 vi.mock("@/app/(app)/home/HomeTodos", () => ({ default: (p: any) => ((seen.todos = p), <section aria-label="To-do">to-dos</section>) }));
 vi.mock("@/app/(app)/home/HomeHeaderActions", () => ({ default: (p: any) => ((seen.actions = p), <div>header actions</div>) }));
+vi.mock("@/app/(app)/home/HomeNewEvent", () => ({ default: (p: any) => ((seen.newEvent = p), <button type="button">New event</button>) }));
 vi.mock("@/components/LocalToday", () => ({ default: ({ today }: any) => <i data-testid="local-today" data-today={today ?? "none"} /> }));
 
 const clock = vi.hoisted(() => ({ now: null as { date: string; minutes: number } | null }));
@@ -106,22 +107,24 @@ describe("HomePage", () => {
     expect(calendarEntries).toHaveBeenCalledWith("h1", { start: TODAY, end: "2026-10-17" }, { timeZone: "Europe/Paris", includeMeals: true });
   });
 
-  it("hands the header the date, the members, and what needs attention (no Google calendar until one is chosen)", async () => {
+  it("hands the bell what needs attention, and Today's New event the date and members (no Google calendar until one is chosen)", async () => {
     const attention = [{ key: "a", title: "Weekend plans has 2 unread messages", support: "In Messages.", href: "/messages/c1" }];
     vi.mocked(loadAttention).mockResolvedValue(attention);
     await run();
-    expect(seen.actions).toEqual({ today: TODAY, assignees: [{ id: "c-me", name: "Casey", fullName: "Casey Becker" }], googleCalendarName: null, attention });
+    expect(seen.actions).toEqual({ attention });
+    expect(seen.newEvent).toEqual({ today: TODAY, assignees: [{ id: "c-me", name: "Casey", fullName: "Casey Becker" }], googleCalendarName: null });
+    expect(within(section("Today")).getByRole("button", { name: "New event" })).toBeInTheDocument();
   });
 
   it("names the household's Google calendar for the New event form once Google is set up and one is chosen", async () => {
     vi.mocked(googleConfigured).mockReturnValue(true);
     settings({ googleCalendarId: "fam", googleCalendarName: "Family" });
     const { unmount } = await run();
-    expect(seen.actions.googleCalendarName).toBe("Family");
+    expect(seen.newEvent.googleCalendarName).toBe("Family");
     unmount();
     settings({ googleCalendarId: "fam" });
     await run();
-    expect(seen.actions.googleCalendarName).toBe("Google Calendar");
+    expect(seen.newEvent.googleCalendarName).toBe("Google Calendar");
   });
 
   describe("today", () => {
