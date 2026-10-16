@@ -130,6 +130,26 @@ describe("ContactForm (adding)", () => {
   });
 });
 
+describe("ContactForm (adding from a household's page)", () => {
+  it("starts as a Family & Friend in that household, and returns to it after adding", async () => {
+    vi.mocked(createContactAction).mockResolvedValue({ ok: true, id: "new1" });
+    render(<ContactForm households={households} householdId="h2" />);
+    expect(screen.getByTitle("The Joneses")).toBeInTheDocument(); // chosen already
+    await type("First name", "Joel");
+    await type("Last name", "Jones");
+    await userEvent.click(screen.getByRole("button", { name: "Add contact" }));
+    await waitFor(() => expect(createContactAction).toHaveBeenCalled());
+    expect(vi.mocked(createContactAction).mock.calls[0][0]).toMatchObject({ firstName: "Joel", category: "FAMILY_FRIEND", householdId: "h2" });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/contacts/households/h2"));
+  });
+
+  it("cancel goes back to the household", async () => {
+    render(<ContactForm households={households} householdId="h2" />);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(push).toHaveBeenCalledWith("/contacts/households/h2");
+  });
+});
+
 describe("ContactForm (editing)", () => {
   it("prefills the saved values", () => {
     render(<ContactForm households={households} contact={{ id: "c1", values }} />);

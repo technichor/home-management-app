@@ -23,9 +23,11 @@ interface Props {
   households: { id: string; displayName: string }[];
   // Present when editing; absent when adding.
   contact?: { id: string; values: ContactFormInput };
+  /** Adding from a household's page: a Family & Friend in that household, and back to its page afterwards. */
+  householdId?: string;
 }
 
-export default function ContactForm({ households, contact }: Props) {
+export default function ContactForm({ households, contact, householdId }: Props) {
   const router = useRouter();
   const [form] = Form.useForm();
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function ContactForm({ households, contact }: Props) {
       : await createContactAction(values);
     setSaving(false);
     if (result.ok) {
-      router.push(`/contacts/${result.id}`);
+      router.push(householdId ? `/contacts/households/${householdId}` : `/contacts/${result.id}`);
       return;
     }
     setError(result.error);
@@ -66,7 +68,7 @@ export default function ContactForm({ households, contact }: Props) {
       layout="vertical"
       requiredMark="optional"
       onFinish={onFinish}
-      initialValues={contact?.values ?? { category: "FAMILY_FRIEND", favorite: false, tags: [] }}
+      initialValues={contact?.values ?? { category: "FAMILY_FRIEND", householdId, favorite: false, tags: [] }}
       style={{ maxWidth: 640 }}
     >
       {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
@@ -194,7 +196,7 @@ export default function ContactForm({ households, contact }: Props) {
         <Button type="primary" htmlType="submit" loading={saving}>
           {contact ? "Save changes" : "Add contact"}
         </Button>
-        <Button onClick={() => router.push(contact ? `/contacts/${contact.id}` : "/contacts")}>Cancel</Button>
+        <Button onClick={() => router.push(contact ? `/contacts/${contact.id}` : householdId ? `/contacts/households/${householdId}` : "/contacts")}>Cancel</Button>
         {contact && (
           <Popconfirm
             title="Remove this contact?"

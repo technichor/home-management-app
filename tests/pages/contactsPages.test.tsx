@@ -345,14 +345,16 @@ describe("HouseholdDetailPage", () => {
     await expect(HouseholdDetailPage({ params: idParams("theirs") })).rejects.toThrow("NOT_FOUND");
   });
 
-  it("offers Edit for a live household but not a removed one", async () => {
+  it("offers Edit and Add person for a live household", async () => {
     await run(household());
     expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/contacts/households/h1/edit");
+    expect(screen.getByRole("link", { name: /Add person/ })).toHaveAttribute("href", "/contacts/new?household=h1");
   });
 
-  it("does not offer Edit for a removed household", async () => {
+  it("offers neither Edit nor Add person for a removed household", async () => {
     await run(household({ deletedAt: new Date() }));
     expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Add person/ })).toBeNull();
   });
 
   it("404s for an unknown household", async () => {
