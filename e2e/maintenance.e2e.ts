@@ -118,9 +118,11 @@ test("a service that comes due is a to-do: checking it off records the service, 
 
   // Checking one off records the service: the item's next service moves on.
   await list.getByRole("checkbox", { name: "Done: Maintenance: Air filters" }).click();
-  await expect(list.getByText("Maintenance: Air filters")).toHaveCount(0);
-  await page.goto(filters);
-  await expect(lastServiced()).toHaveText(shown(now));
+  await expect(list.getByText("Maintenance: Air filters")).toHaveCount(0); // gone at once; saved in the background
+  await expect(async () => {
+    await page.goto(filters);
+    await expect(lastServiced()).toHaveText(shown(now), { timeout: 2_000 });
+  }).toPass();
 
   // Unchecking it undoes that.
   await page.goto("/todo");
