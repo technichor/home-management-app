@@ -1,25 +1,10 @@
-import { prisma } from "@/lib/db";
 import ArchivedListsClient from "./ArchivedListsClient";
-import { pageHouseholdId } from "@/lib/auth";
+import { pageMember } from "@/lib/auth";
+import { listRowsFor } from "../listRows";
 
 export default async function ArchivedListsPage() {
-
-  const sessionHouseholdId = await pageHouseholdId();
-
-  const lists = await prisma.list.findMany({
-    where: { householdId: sessionHouseholdId, archivedAt: { not: null }, kind: "STANDARD" },
-    include: { items: { select: { id: true, checked: true } } },
-    orderBy: { archivedAt: "desc" },
-  });
-
-  const listsData = lists.map((l) => ({
-    id: l.id,
-    name: l.name,
-    tags: l.tags,
-    totalItems: l.items.length,
-    checkedItems: l.items.filter((i) => i.checked).length,
-    archivedAt: l.archivedAt!.toLocaleDateString(),
-  }));
-
-  return <ArchivedListsClient lists={listsData} />;
+  const viewer = await pageMember();
+  // Archiving is the owner's; an archived list shows to everyone who can still see it.
+  const lists = await listRowsFor(viewer, true);
+  return <ArchivedListsClient lists={lists.map((l) => ({ ...l, archivedAt: l.archivedAt! }))} />;
 }

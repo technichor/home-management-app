@@ -24,7 +24,7 @@ import {
 import { prisma } from "@/lib/db";
 
 function listWithMode(sortMode: "MANUAL" | "PAIRWISE") {
-  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", sortMode, kind: "STANDARD" } as any);
+  vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "l1", householdId: "h1", sortMode, kind: "STANDARD", ownerUserId: "u1", sharedWithHousehold: true, shares: [] } as any);
 }
 
 beforeEach(() => {

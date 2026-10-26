@@ -36,7 +36,7 @@ import {
 } from "@/app/(app)/lists/actions";
 import { prisma } from "@/lib/db";
 
-const myList = { id: "l1", householdId: "h1", sortMode: "MANUAL", kind: "STANDARD" };
+const myList = { id: "l1", householdId: "h1", sortMode: "MANUAL", kind: "STANDARD", ownerUserId: "u1", sharedWithHousehold: true, shares: [] };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -56,7 +56,7 @@ describe("createListAction", () => {
     const r = await createListAction("Costco run", ["grocery"]);
     expect(r).toEqual({ id: "new" });
     expect(prisma.list.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", name: "Costco run", tags: ["grocery"] },
+      data: { householdId: "h1", ownerUserId: "u1", name: "Costco run", tags: ["grocery"], kind: "STANDARD" },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/lists");
   });
@@ -69,7 +69,7 @@ describe("createListAction", () => {
 
   it("trims the name and rejects a blank one", async () => {
     await createListAction("  Trip  ", []);
-    expect(prisma.list.create).toHaveBeenCalledWith({ data: { householdId: "h1", name: "Trip", tags: [] } });
+    expect(prisma.list.create).toHaveBeenCalledWith({ data: { householdId: "h1", ownerUserId: "u1", name: "Trip", tags: [], kind: "STANDARD" } });
     await expect(createListAction("   ", [])).rejects.toThrow("List name is required");
     expect(prisma.list.create).toHaveBeenCalledTimes(1);
   });
@@ -106,7 +106,7 @@ describe("addItemsAction", () => {
   });
 
   it("rejects another household's list", async () => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other", ownerUserId: "someone-else" } as any);
     await expect(addItemsAction("l1", ["milk"])).rejects.toThrow("List not found");
     expect(prisma.listItem.createMany).not.toHaveBeenCalled();
   });
@@ -130,7 +130,7 @@ describe("toggleItemAction", () => {
   });
 
   it("rejects an item in another household's list", async () => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other", ownerUserId: "someone-else" } as any);
     await expect(toggleItemAction("i1", true)).rejects.toThrow("List not found");
     expect(prisma.listItem.update).not.toHaveBeenCalled();
   });
@@ -199,7 +199,7 @@ describe("deleteItemAction", () => {
   });
 
   it("rejects an item in another household's list", async () => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ ...myList, householdId: "other", ownerUserId: "someone-else" } as any);
     await expect(deleteItemAction("i1")).rejects.toThrow("List not found");
     expect(prisma.listItem.delete).not.toHaveBeenCalled();
   });

@@ -2,7 +2,7 @@
 
 > **Meal Planning extension:** a list now has a `kind` (STANDARD or GROCERY). The household's shopping list is a GROCERY list owned by the Meal Planning module; it is excluded from everything described below (index, archive, rename, delete, reorder, ranking, assignment, CSV import). See `docs/domains/meal-planning.md`.
 
-Status: **Draft — shaped through structured Q&A, ready for a final look before handing to Claude Code.**
+Status: **Built** (the original draft below); sharing, item links and Gift ideas added 2026-10-26 (see "Sharing").
 
 ## Why this domain, and why it matters
 
@@ -121,7 +121,25 @@ Two reasons: (1) with no individual user accounts in v1, there's no way to attri
 
 ## Access model
 
-Governed at the app level, same as every other domain — see `claude/product-framework.md`'s "Access & identity model." One shared household password, full read/write on everything, no per-domain or per-list tier in v1.
+*Superseded on 2026-10-26 by "Sharing" below.* (Originally: one shared household password, full read/write on everything, no per-list tier.)
+
+## Sharing, links and Gift ideas (built 2026-10-26, migration 0033)
+
+**Who can see a list.** One function decides it, `accessTo` in `lib/listAccess.ts` (with `visibleListsWhere`, the same rule as a query); every list page and action goes through it, and anyone without access is told the list isn't there.
+- Each ordinary list has an **owner** (`List.ownerUserId`, its creator; lists that existed before were given the household's longest-standing owner). The owner **manages** it: sharing, renaming, archiving, deleting.
+- **Share with household** (`sharedWithHousehold`, on by default): everyone in the household can see and **edit** it.
+- **People** (`ListShare`): the owner adds accounts from their household or a household synced with it (the same people a channel can hold, `candidatesFor` in `lib/channels.ts`), each **Can view** or **Can edit**. Their lists show under "Shared with me", and they can take one off their lists. No pairwise-connection rule (unlike channels): people on a list don't see each other.
+- **Public link** (`publicToken`, a 32-character random value): while it is on, anyone with `/l/<token>` sees the list without signing in. It shows the name, "Gift ideas" for a gift list, the owner's first name, and the **unchecked** items (text, quantity, notes, link); nothing else about the household. Search engines are told not to index it. The owner can turn it off or make a new link (the old one stops working). An archived list's link shows "not found".
+- **Personal** is all three off. The label on a list is the widest that applies: Public, Shared, Household or Personal.
+- A list whose owner's account is gone has no owner: everyone in the household edits it and the household's owners manage it.
+- **Leaving a household** drops the person's shares and passes the household lists they owned to its longest-standing other owner (`removeUserFromLists`, in `detachUser`). **Ending a sync** drops shares between the two households (`dropListSharesBetween`, in `endSyncAction`).
+- The **shopping and to-do lists** are not shareable: they stay the household's.
+
+**Links on items.** `ListItem.url`, optional, http or https only (`isHttpUrl`), up to 2,000 characters. Shown as a small button with the site's name (`components/LinkButton.tsx`, `linkHost` in `lib/links.ts`, both shared with Documents) that opens it in a new tab. Set in the item's editor, or (on a Gift list) in the add box.
+
+**Gift ideas** (`ListKind.GIFT`): an ordinary list that starts out public, has a link box when adding, and whose public page is headed "Gift ideas". No claiming ("I'll get this") yet, and no price field.
+
+**Not built:** claiming gifts (hidden from the owner), prices, link previews (title or image from the page), CSV import of links, sharing by email with people who have no account.
 
 ## Core features to build
 

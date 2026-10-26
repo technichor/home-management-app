@@ -7,6 +7,7 @@ import { requireMember, requireOwner } from "@/lib/auth";
 import { generateInviteToken } from "@/lib/syncToken";
 import { generateJoinCode } from "@/lib/joinCode";
 import { dropDisconnectedMembers } from "@/lib/channels";
+import { dropListSharesBetween } from "@/lib/listSharing";
 import { detachUser, INVITE_TTL_MS, joinHouseholdTx, MembershipError } from "@/lib/membership";
 import { isUniqueViolation } from "@/lib/prismaErrors";
 
@@ -164,6 +165,7 @@ export async function endSyncAction(syncId: string): Promise<HouseholdActionResu
     });
     if (claimed.count === 0) return false;
     await dropDisconnectedMembers(tx, initiatingHouseholdId, counterpartHouseholdId, owner.householdId);
+    await dropListSharesBetween(tx, initiatingHouseholdId, counterpartHouseholdId);
     return true;
   });
   if (!ended) return { ok: false, error: "That sync is no longer active." };
