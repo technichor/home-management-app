@@ -78,16 +78,18 @@ model Household {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  contacts         Contact[]         @relation("HouseholdContacts")
-  importVersions   ImportVersion[]
-  lists            List[]
-  meals            Meal[]
-  mealPlanEntries  MealPlanEntry[]
-  mealPlanSettings MealPlanSettings?
-  calendarItems    CalendarItem[]
-  calendarSettings CalendarSettings?
-  maintenanceItems MaintenanceItem[]
-  accountRecords   AccountRecord[]
+  contacts           Contact[]           @relation("HouseholdContacts")
+  importVersions     ImportVersion[]
+  lists              List[]
+  meals              Meal[]
+  mealPlanEntries    MealPlanEntry[]
+  mealPlanSettings   MealPlanSettings?
+  calendarItems      CalendarItem[]
+  calendarSettings   CalendarSettings?
+  maintenanceItems   MaintenanceItem[]
+  accountRecords     AccountRecord[]
+  documents          Document[]
+  documentDismissals DocumentDismissal[]
 
   syncsInitiated      Sync[]            @relation("SyncInitiator")
   syncsReceived       Sync[]            @relation("SyncCounterpart")
@@ -144,6 +146,7 @@ model Contact {
   syncs            Sync[]
   calendarItems    CalendarItem[]
   accountRecords   AccountRecord[]
+  documents        Document[]
   user             User?
   // The account household whose directory this contact is in (everything is scoped by it).
   ownerHouseholdId String?
@@ -667,6 +670,7 @@ model MaintenanceItem {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   todos              ListItem[]
+  documents          Document[]
 
   @@index([householdId])
 }
@@ -710,7 +714,78 @@ model AccountRecord {
   notes          String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  documents      Document[]
 
   @@index([householdId])
   @@index([ownerContactId])
+}
+
+// ---- Documents (docs/domains/documents.md) ----
+
+enum DocumentCategory {
+  IDENTITY
+  HOME
+  VEHICLES
+  INSURANCE
+  TAXES
+  MONEY
+  LEGAL
+  MEDICAL
+  EDUCATION
+  WORK
+  POSSESSIONS
+  OTHER
+}
+
+// A household's important document, as links to where the file lives (Domata stores no files yet). `typeKey` is a key
+// from lib/documentCatalog.ts (validated in Zod, not a DB enum, so the catalog can grow without a migration); null is
+// a custom document. Holds no ID, policy or account numbers. ownerContactId null = the whole household.
+model Document {
+  id                String           @id @default(cuid())
+  householdId       String
+  household         Household        @relation(fields: [householdId], references: [id])
+  title             String
+  category          DocumentCategory
+  typeKey           String?
+  ownerContactId    String?
+  owner             Contact?         @relation(fields: [ownerContactId], references: [id], onDelete: SetNull)
+  maintenanceItemId String?
+  maintenanceItem   MaintenanceItem? @relation(fields: [maintenanceItemId], references: [id], onDelete: SetNull)
+  accountRecordId   String?
+  accountRecord     AccountRecord?   @relation(fields: [accountRecordId], references: [id], onDelete: SetNull)
+  originalLocation  String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  links             DocumentLink[]
+
+  @@index([householdId])
+  @@index([ownerContactId])
+  @@index([maintenanceItemId])
+  @@index([accountRecordId])
+}
+
+// One link of a document (a license has a front and a back; a closing packet may be several files). http/https only.
+model DocumentLink {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  url        String
+  label      String?
+  position   Int
+
+  @@index([documentId])
+}
+
+// "Doesn't apply" for one suggestion slot. subjectKey is "household", "contact:<id>" or "item:<id>" (a string, because
+// Postgres treats NULLs as distinct and a nullable-FK unique wouldn't hold).
+model DocumentDismissal {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  typeKey     String
+  subjectKey  String
+  createdAt   DateTime  @default(now())
+
+  @@unique([householdId, typeKey, subjectKey])
 }
