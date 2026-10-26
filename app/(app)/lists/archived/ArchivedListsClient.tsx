@@ -4,15 +4,9 @@ import { useTransition } from "react";
 import { Button, Tag, Space, Empty } from "antd";
 import { useRouter } from "next/navigation";
 import { unarchiveListAction, deleteListAction } from "../actions";
+import type { ListRow } from "../listRows";
 
-type ListData = {
-  id: string;
-  name: string;
-  tags: string[];
-  totalItems: number;
-  checkedItems: number;
-  archivedAt: string;
-};
+type ListData = ListRow & { archivedAt: string };
 
 export default function ArchivedListsClient({
   lists,
@@ -76,6 +70,8 @@ export default function ArchivedListsClient({
                   : `${list.checkedItems} / ${list.totalItems}`}
               </span>
 
+              {/* Only the list's owner can bring it back or delete it. */}
+              {list.access === "manage" && (
               <Space size="small">
                 <Button
                   size="small"
@@ -105,6 +101,7 @@ export default function ArchivedListsClient({
                   Delete
                 </Button>
               </Space>
+              )}
             </div>
           ))}
         </div>

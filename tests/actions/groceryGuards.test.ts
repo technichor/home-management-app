@@ -32,8 +32,8 @@ import {
   deleteItemAction,
 } from "@/app/(app)/lists/actions";
 
-const grocery = { id: "g1", householdId: "h1", kind: "GROCERY", sortMode: "MANUAL" };
-const standard = { id: "l1", householdId: "h1", kind: "STANDARD", sortMode: "MANUAL" };
+const grocery = { id: "g1", householdId: "h1", kind: "GROCERY", sortMode: "MANUAL", ownerUserId: "u1", sharedWithHousehold: true, shares: [] };
+const standard = { id: "l1", householdId: "h1", kind: "STANDARD", sortMode: "MANUAL", ownerUserId: "u1", sharedWithHousehold: true, shares: [] };
 const SHOPPING = "The shopping list can't be changed this way";
 
 beforeEach(() => {
@@ -147,7 +147,7 @@ describe("the to-do list can't be changed through the Lists actions at all", () 
     ["delete an item of", () => deleteItemAction("i1")],
     ["compare items of", () => recordComparisonAction("t1", "i1", "i2", "A")],
   ])("refuses to %s it, writing nothing", async (_name, call) => {
-    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "t1", householdId: "h1", kind: "TODO", sortMode: "MANUAL" } as any);
+    vi.mocked(prisma.list.findUnique).mockResolvedValue({ id: "t1", householdId: "h1", kind: "TODO", sortMode: "MANUAL", ownerUserId: "u1", sharedWithHousehold: true, shares: [] } as any);
     vi.mocked(prisma.listItem.findUnique).mockResolvedValue({ id: "i1", listId: "t1" } as any);
     await expect(call()).rejects.toThrow("The to-do list can't be changed this way");
     expect(prisma.list.update).not.toHaveBeenCalled();

@@ -1,14 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn() }));
+vi.mock("@/lib/listSharing", () => ({ removeUserFromLists: vi.fn() }));
 
 import { addToGeneral, removeUserFromAllChannels } from "@/lib/channels";
+import { removeUserFromLists } from "@/lib/listSharing";
 import { joinHouseholdTx, detachUser, MembershipError, INVITE_TTL_MS } from "@/lib/membership";
 import { generateJoinCode, normalizeJoinCode, JOIN_CODE_LENGTH } from "@/lib/joinCode";
 import { safeNext } from "@/lib/redirect";
 
 function makeTx(claimedCount = 1) {
   return {
-    user: { updateMany: vi.fn().mockResolvedValue({ count: claimedCount }), update: vi.fn() },
+    user: { updateMany: vi.fn().mockResolvedValue({ count: claimedCount }), update: vi.fn(), findUnique: vi.fn().mockResolvedValue({ householdId: "h1" }) },
     contact: { create: vi.fn().mockResolvedValue({ id: "c1" }) },
     activityLogEntry: { create: vi.fn() },
   } as any;
@@ -52,6 +54,16 @@ describe("detachUser", () => {
       data: { householdId: null, role: "MEMBER", contactId: null },
     });
     expect(removeUserFromAllChannels).toHaveBeenCalledWith(tx, "u1");
+    // The lists shared with them stop being theirs; the household's lists they owned pass on.
+    expect(removeUserFromLists).toHaveBeenCalledWith(tx, "u1", "h1");
+  });
+
+  it("has no lists to tidy for someone already out of a household", async () => {
+    vi.mocked(removeUserFromLists).mockClear();
+    const tx = makeTx();
+    tx.user.findUnique.mockResolvedValue({ householdId: null });
+    await detachUser(tx, "u1");
+    expect(removeUserFromLists).not.toHaveBeenCalled();
   });
 });
 

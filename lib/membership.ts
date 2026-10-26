@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { addToGeneral, removeUserFromAllChannels } from "@/lib/channels";
+import { removeUserFromLists } from "@/lib/listSharing";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -36,9 +37,12 @@ export async function joinHouseholdTx(
 
 /**
  * Take a user out of their household. Their Contact stays in the household's directory; they leave
- * every channel (their household's General and any shared ones) and lose access to them at once.
+ * every channel (their household's General and any shared ones) and lose access to them at once. Lists shared with
+ * them are no longer theirs, and the household's lists they owned pass to another of its owners.
  */
 export async function detachUser(tx: Tx, userId: string): Promise<void> {
+  const before = await tx.user.findUnique({ where: { id: userId }, select: { householdId: true } });
   await tx.user.update({ where: { id: userId }, data: { householdId: null, role: "MEMBER", contactId: null } });
   await removeUserFromAllChannels(tx, userId);
+  if (before?.householdId) await removeUserFromLists(tx, userId, before.householdId);
 }
