@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { DOCUMENT_TYPES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
 import {
   defaultTitle,
+  toDocumentView,
   documentSchema,
   looksSensitive,
   MAX_LINKS,
@@ -200,5 +201,24 @@ describe("subjectKeyOf", () => {
     expect(subjectKeyOf({ kind: "household" })).toBe("household");
     expect(subjectKeyOf({ kind: "contact", id: "c1", name: "Corey" })).toBe("contact:c1");
     expect(subjectKeyOf({ kind: "item", id: "v1", name: "Pacifica" })).toBe("item:v1");
+  });
+});
+
+describe("toDocumentView", () => {
+  const stored = {
+    id: "d1", title: "Passport – Sam", category: "IDENTITY" as const, typeKey: "passport", ownerContactId: "c1", maintenanceItemId: "i1", accountRecordId: "a1",
+    originalLocation: "Fireproof safe", notes: "n", owner: { firstName: "Samuel", nickname: "Sam" }, maintenanceItem: { name: "Pacifica" }, accountRecord: { name: "Loan" },
+    links: [{ url: "https://drive.test/1", label: "Front" }, { url: "https://drive.test/2", label: null }],
+  };
+  it("names whose it is (short name), its item and account, with its links in order", () => {
+    expect(toDocumentView(stored)).toEqual({
+      id: "d1", title: "Passport – Sam", category: "IDENTITY", typeKey: "passport", ownerContactId: "c1", ownerName: "Sam", maintenanceItemId: "i1", itemName: "Pacifica",
+      accountRecordId: "a1", accountName: "Loan", links: stored.links, originalLocation: "Fireproof safe", notes: "n",
+    });
+  });
+  it("a household document about nothing else", () => {
+    expect(toDocumentView({ ...stored, ownerContactId: null, owner: null, maintenanceItemId: null, maintenanceItem: null, accountRecordId: null, accountRecord: null })).toMatchObject({
+      ownerName: null, itemName: null, accountName: null,
+    });
   });
 });

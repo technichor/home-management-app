@@ -1841,3 +1841,24 @@ a.brief-row:hover {
   margin-top: 6px;
   font-size: 12px;
 }
+
+/* A document's link in its form: the address, then its label; the label wraps under it on a phone. */
+.document-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.document-link-url {
+  flex: 2 1 240px;
+  min-width: 0;
+}
+.document-link-label {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.document-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

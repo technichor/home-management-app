@@ -2,10 +2,11 @@ import { z } from "zod";
 import type { DocumentCategory } from "@prisma/client";
 import { isHttpUrl, optionalId, optionalNotes, optionalText, trimToNull } from "@/lib/formFields";
 import { DOCUMENT_CATEGORIES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
+import { calendarName } from "@/lib/contactDates";
 
 // The Documents module's rules (docs/domains/documents.md): what a document's form accepts, its default title, the
 // warning for things that look like ID or account numbers, and the suggestion slots (which documents a family should
-// have, and which of them it has). Pure: no database here.
+// have, and which of them it has), and how a stored document is shown. Pure: no database here.
 
 export const MAX_TITLE = 200;
 export const MAX_LINKS = 5;
@@ -141,3 +142,50 @@ export function slotCounts(slots: Slot[]): { added: number; suggested: number } 
   const counted = slots.filter((s) => s.state !== "dismissed");
   return { added: counted.filter((s) => s.state === "added").length, suggested: counted.length };
 }
+
+// ---- A stored document, as the pages hand it to the browser ----
+
+/** Include this when loading a document, so toDocumentView can name whose it is, its item and account, and its links. */
+export const DOCUMENT_INCLUDE = {
+  owner: { select: { firstName: true, nickname: true } },
+  maintenanceItem: { select: { name: true } },
+  accountRecord: { select: { name: true } },
+  links: { orderBy: { position: "asc" }, select: { url: true, label: true } },
+} as const;
+
+type StoredDocument = {
+  id: string;
+  title: string;
+  category: DocumentCategory;
+  typeKey: string | null;
+  ownerContactId: string | null;
+  maintenanceItemId: string | null;
+  accountRecordId: string | null;
+  originalLocation: string | null;
+  notes: string | null;
+  owner: { firstName: string; nickname: string | null } | null;
+  maintenanceItem: { name: string } | null;
+  accountRecord: { name: string } | null;
+  links: { url: string; label: string | null }[];
+};
+
+export function toDocumentView(doc: StoredDocument) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    category: doc.category,
+    typeKey: doc.typeKey,
+    ownerContactId: doc.ownerContactId,
+    /** Kept even after the member is removed from the household. */
+    ownerName: doc.owner ? calendarName(doc.owner) : null,
+    maintenanceItemId: doc.maintenanceItemId,
+    itemName: doc.maintenanceItem?.name ?? null,
+    accountRecordId: doc.accountRecordId,
+    accountName: doc.accountRecord?.name ?? null,
+    links: doc.links.map((l) => ({ url: l.url, label: l.label })),
+    originalLocation: doc.originalLocation,
+    notes: doc.notes,
+  };
+}
+
+export type DocumentView = ReturnType<typeof toDocumentView>;
