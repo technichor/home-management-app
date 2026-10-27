@@ -682,7 +682,7 @@ enum MaintenanceCategory {
 // Something the household has to take care of (a furnace, a refrigerator, the air filters): what it is, so it can be
 // described to a repair person, how old it is, and how often it needs service. `installedYear` is a year because a
 // year is what is usually known. Next service is derived (lastServicedOn + serviceEveryMonths), never stored.
-// `manualUrl` is a link only: there is no file storage yet.
+// Its manual, warranty and receipts are Documents pointing at it (docs/domains/documents.md).
 model MaintenanceItem {
   id                 String              @id @default(cuid())
   householdId        String
@@ -697,7 +697,6 @@ model MaintenanceItem {
   warrantyUntil      DateTime?           @db.Date
   serviceEveryMonths Int?
   lastServicedOn     DateTime?           @db.Date
-  manualUrl          String?
   notes              String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt

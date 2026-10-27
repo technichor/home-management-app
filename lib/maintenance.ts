@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { MaintenanceCategory, MaintenanceItem } from "@prisma/client";
 import { addMonthsKeepingDay, dateToString, formatCalendarDate } from "@/lib/dates";
-import { optionalDate, optionalHttpUrl, optionalNotes, optionalText } from "@/lib/formFields";
+import { optionalDate, optionalNotes, optionalText } from "@/lib/formFields";
 
 export const MAINTENANCE_CATEGORIES: readonly MaintenanceCategory[] = ["HVAC", "APPLIANCE", "PLUMBING", "ELECTRICAL", "EXTERIOR", "YARD", "VEHICLE", "OTHER"];
 
@@ -17,7 +17,6 @@ export const CATEGORY_LABELS: Record<MaintenanceCategory, string> = {
 };
 
 export const MAX_FIELD = 120;
-export const MAX_URL = 500;
 export const MAX_NOTES = 5000;
 export const MIN_YEAR = 1900;
 export const MAX_YEAR = 2100;
@@ -46,7 +45,6 @@ export const maintenanceItemSchema = z.object({
     .nullish()
     .transform((v) => v ?? null),
   lastServicedOn: optionalDate("service date"),
-  manualUrl: optionalHttpUrl("The manual link", MAX_URL),
   notes: optionalNotes(MAX_NOTES),
 });
 
@@ -98,7 +96,6 @@ export function toMaintenanceView(item: MaintenanceItem) {
     warrantyUntil: item.warrantyUntil ? dateToString(item.warrantyUntil) : null,
     serviceEveryMonths: item.serviceEveryMonths,
     lastServicedOn: item.lastServicedOn ? dateToString(item.lastServicedOn) : null,
-    manualUrl: item.manualUrl,
     notes: item.notes,
   };
 }

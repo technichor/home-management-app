@@ -37,8 +37,7 @@ import EditMaintenanceItemPage from "@/app/(app)/maintenance/[id]/edit/page";
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: "m1", householdId: "h1", name: "Furnace", category: "HVAC", location: "Basement", brand: "Carrier", modelNumber: "X1", serialNumber: "S1",
-  installedYear: 2004, warrantyUntil: new Date("2030-01-02T00:00:00Z"), serviceEveryMonths: 12, lastServicedOn: new Date("2026-01-03T00:00:00Z"),
-  manualUrl: "https://x.test", notes: "n", ...over,
+  installedYear: 2004, warrantyUntil: new Date("2030-01-02T00:00:00Z"), serviceEveryMonths: 12, lastServicedOn: new Date("2026-01-03T00:00:00Z"), notes: "n", ...over,
 });
 const idParams = Promise.resolve({ id: "m1" });
 
@@ -94,7 +93,7 @@ describe("MaintenanceItemPage", () => {
     render(await MaintenanceItemPage({ params: idParams,  }));
     expect(prisma.maintenanceItem.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
     expect(seen.detail.today).toBe("2026-10-05");
-    expect(seen.detail.item).toMatchObject({ id: "m1", warrantyUntil: "2030-01-02", lastServicedOn: "2026-01-03", manualUrl: "https://x.test" });
+    expect(seen.detail.item).toMatchObject({ id: "m1", warrantyUntil: "2030-01-02", lastServicedOn: "2026-01-03" });
     expect(documentsPanel).toHaveBeenCalledWith("h1", { kind: "item", id: "m1", name: "Furnace", isVehicle: false });
     expect(seen.panel).toEqual({ documents: [], openSlots: [], addHref: "/documents/new" });
   });

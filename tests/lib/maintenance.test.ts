@@ -7,16 +7,16 @@ describe("maintenanceItemSchema", () => {
   it("accepts a name and category alone, with everything else empty", () => {
     expect(maintenanceItemSchema.parse(base)).toEqual({
       name: "Furnace", category: "HVAC", location: null, brand: null, modelNumber: null, serialNumber: null, installedYear: null,
-      warrantyUntil: null, serviceEveryMonths: null, lastServicedOn: null, manualUrl: null, notes: null,
+      warrantyUntil: null, serviceEveryMonths: null, lastServicedOn: null, notes: null,
     });
   });
 
   it("trims text, turns blanks into nothing, and keeps notes as typed", () => {
     const parsed = maintenanceItemSchema.parse({
-      ...base, name: "  Furnace ", brand: " Carrier ", location: "  ", warrantyUntil: "", lastServicedOn: "2026-01-02", notes: "  a\nb ", manualUrl: " https://x.test/m.pdf ",
+      ...base, name: "  Furnace ", brand: " Carrier ", location: "  ", warrantyUntil: "", lastServicedOn: "2026-01-02", notes: "  a\nb ",
       installedYear: 2004, serviceEveryMonths: 12,
     });
-    expect(parsed).toMatchObject({ name: "Furnace", brand: "Carrier", location: null, warrantyUntil: null, lastServicedOn: "2026-01-02", notes: "  a\nb ", manualUrl: "https://x.test/m.pdf", installedYear: 2004, serviceEveryMonths: 12 });
+    expect(parsed).toMatchObject({ name: "Furnace", brand: "Carrier", location: null, warrantyUntil: null, lastServicedOn: "2026-01-02", notes: "  a\nb ", installedYear: 2004, serviceEveryMonths: 12 });
     expect(maintenanceItemSchema.parse({ ...base, notes: "   " }).notes).toBeNull();
   });
 
@@ -33,9 +33,6 @@ describe("maintenanceItemSchema", () => {
     ["a fractional interval", { serviceEveryMonths: 1.5 }, "Months between service must be a whole number"],
     ["a zero interval", { serviceEveryMonths: 0 }, "Months between service must be at least 1"],
     ["a huge interval", { serviceEveryMonths: 601 }, "Months between service can be at most 600"],
-    ["a script link", { manualUrl: "javascript:alert(1)" }, "The manual link must start with http:// or https://"],
-    ["a non-link", { manualUrl: "the manual is in the drawer" }, "The manual link must start with http:// or https://"],
-    ["a long link", { manualUrl: `https://x.test/${"a".repeat(500)}` }, "The manual link can be at most 500 characters"],
     ["long notes", { notes: "a".repeat(5001) }, "Notes can be at most 5,000 characters"],
   ])("rejects %s", (_n, over, message) => {
     const result = maintenanceItemSchema.safeParse({ ...base, ...over });

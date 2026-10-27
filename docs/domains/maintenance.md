@@ -8,7 +8,7 @@ An inventory of the things a household has to take care of: the furnaces, the re
 
 ## Schema (migration 0025)
 
-`MaintenanceItem`: `householdId`, `name` (required), `category` (`MaintenanceCategory` HVAC \| APPLIANCE \| PLUMBING \| ELECTRICAL \| EXTERIOR \| YARD \| VEHICLE \| OTHER), `location`, `brand`, `modelNumber`, `serialNumber`, `installedYear` (a year, since a year is what is usually known), `warrantyUntil`, `serviceEveryMonths`, `lastServicedOn`, `manualUrl`, `notes`.
+`MaintenanceItem`: `householdId`, `name` (required), `category` (`MaintenanceCategory` HVAC \| APPLIANCE \| PLUMBING \| ELECTRICAL \| EXTERIOR \| YARD \| VEHICLE \| OTHER), `location`, `brand`, `modelNumber`, `serialNumber`, `installedYear` (a year, since a year is what is usually known), `warrantyUntil`, `serviceEveryMonths`, `lastServicedOn`, `notes`. (A manual link used to be a field, `manualUrl`; migration 0034 moved each one into a Document.)
 
 ## Rules
 
@@ -16,7 +16,7 @@ An inventory of the things a household has to take care of: the furnaces, the re
 - **Next service** is derived: `lastServicedOn` + `serviceEveryMonths`, on the same day of the month (clamped to a shorter month's end). It is never stored. A scheduled item with no recorded service says so and is not called overdue; one past its date reads "Service was due ...", in the danger colour.
 - **"Serviced today"** on the detail page records the browser's date as `lastServicedOn` (and checks off the item's to-do, if one is open).
 - **Due services become to-dos** 7 days ahead; checking one off records the service. See `docs/domains/todo.md`. "Today" is the browser's date (`lib/today.ts`), as in Meals and the Calendar.
-- **`manualUrl` is a link only** (http or https, checked when saved so it can never be a `javascript:` link; opened in a new tab with `rel="noopener noreferrer"`). There is no file storage yet, so manuals can't be attached.
+- **Manuals, warranties and receipts are Documents** (`docs/domains/documents.md`): the item's page has a Documents section listing those pointing at it, with Add document (pre-filled with the item; type Manual for anything but a vehicle). A vehicle's section also suggests its title, registration, insurance card and loan or lease. Links only; there is no file storage yet.
 - Notes are plain text.
 
 ## Screens

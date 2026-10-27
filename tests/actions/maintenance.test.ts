@@ -54,13 +54,13 @@ describe("authentication", () => {
 describe("createMaintenanceItemAction", () => {
   it("adds an item to the session's household, with dates stored as dates", async () => {
     const result = await createMaintenanceItemAction({
-      ...fields, name: " Furnace ", brand: "Carrier", installedYear: 2004, warrantyUntil: "2030-01-02", serviceEveryMonths: 12, lastServicedOn: "2026-01-03", manualUrl: "https://x.test/m",
+      ...fields, name: " Furnace ", brand: "Carrier", installedYear: 2004, warrantyUntil: "2030-01-02", serviceEveryMonths: 12, lastServicedOn: "2026-01-03",
     });
     expect(result).toEqual({ ok: true, id: "new1" });
     expect(prisma.maintenanceItem.create).toHaveBeenCalledWith({
       data: {
         householdId: "h1", name: "Furnace", category: "HVAC", location: null, brand: "Carrier", modelNumber: null, serialNumber: null,
-        installedYear: 2004, warrantyUntil: day("2030-01-02"), serviceEveryMonths: 12, lastServicedOn: day("2026-01-03"), manualUrl: "https://x.test/m", notes: null,
+        installedYear: 2004, warrantyUntil: day("2030-01-02"), serviceEveryMonths: 12, lastServicedOn: day("2026-01-03"), notes: null,
       },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/maintenance");
@@ -73,7 +73,7 @@ describe("createMaintenanceItemAction", () => {
 
   it("reports the first problem and writes nothing", async () => {
     expect(await createMaintenanceItemAction({ ...fields, name: " " })).toEqual({ ok: false, error: "Give it a name" });
-    expect(await createMaintenanceItemAction({ ...fields, manualUrl: "javascript:alert(1)" })).toEqual({ ok: false, error: "The manual link must start with http:// or https://" });
+    expect(await createMaintenanceItemAction({ ...fields, serviceEveryMonths: 0 })).toEqual({ ok: false, error: "Months between service must be at least 1" });
     expect(prisma.maintenanceItem.create).not.toHaveBeenCalled();
   });
 });

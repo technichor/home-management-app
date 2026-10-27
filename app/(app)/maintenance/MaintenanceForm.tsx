@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import FormField from "@/components/FormField";
 import { Alert, Button, Input, Select, Space, Typography } from "antd";
 import type { MaintenanceCategory } from "@prisma/client";
-import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES, type MaintenanceView, MAX_FIELD, MAX_NOTES, MAX_URL } from "@/lib/maintenance";
+import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES, type MaintenanceView, MAX_FIELD, MAX_NOTES } from "@/lib/maintenance";
 import { createMaintenanceItemAction, updateMaintenanceItemAction } from "./actions";
 
 export type MaintenanceFormItem = MaintenanceView;
@@ -26,7 +26,6 @@ export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }
   const [warrantyUntil, setWarrantyUntil] = useState(item?.warrantyUntil ?? "");
   const [serviceEveryMonths, setServiceEveryMonths] = useState(item?.serviceEveryMonths?.toString() ?? "");
   const [lastServicedOn, setLastServicedOn] = useState(item?.lastServicedOn ?? "");
-  const [manualUrl, setManualUrl] = useState(item?.manualUrl ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +40,6 @@ export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }
         warrantyUntil,
         serviceEveryMonths: toNumber(serviceEveryMonths),
         lastServicedOn,
-        manualUrl,
         notes,
       };
       if (item) {
@@ -106,9 +104,6 @@ export default function MaintenanceForm({ item }: { item?: MaintenanceFormItem }
           <Input type="date" value={lastServicedOn} onChange={(e) => setLastServicedOn(e.target.value)} aria-label="Last serviced" style={{ width: 180 }} />
         </FormField>
       </Space>
-      <FormField label="Manual or product page (link)">
-        <Input value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} maxLength={MAX_URL} placeholder="https://" aria-label="Manual link" />
-      </FormField>
       <FormField label="Notes">
         <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} autoSize={{ minRows: 4, maxRows: 20 }} maxLength={MAX_NOTES} showCount aria-label="Notes" />
       </FormField>
