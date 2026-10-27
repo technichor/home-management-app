@@ -22,6 +22,8 @@ enum ListKind {
   GROCERY
   // The household's to-do list (one per household, its own module at /todo; hidden from Lists).
   TODO
+  // Gift ideas: an ordinary list whose public page reads as a gift list (and which starts out public).
+  GIFT
 }
 
 enum GroceryCategory {
@@ -178,18 +180,44 @@ model ImportVersion {
 }
 
 model List {
-  id          String       @id @default(cuid())
-  householdId String
-  household   Household    @relation(fields: [householdId], references: [id])
-  name        String
-  tags        String[]
-  archivedAt  DateTime?
-  sortMode    ListSortMode @default(MANUAL)
-  kind        ListKind     @default(STANDARD)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                  String       @id @default(cuid())
+  householdId         String
+  household           Household    @relation(fields: [householdId], references: [id])
+  name                String
+  tags                String[]
+  archivedAt          DateTime?
+  sortMode            ListSortMode @default(MANUAL)
+  kind                ListKind     @default(STANDARD)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  // Who manages the list's sharing (docs/domains/lists.md, Sharing). Null for the shopping and to-do lists, which
+  // are the household's.
+  ownerUserId         String?
+  owner               User?        @relation("ListsOwned", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  // Everyone in the household can see and edit it (off: only its owner and the people it is shared with).
+  sharedWithHousehold Boolean      @default(true)
+  // Set while the list is public: anyone with /l/<token> can view it, signed in or not. A long random value.
+  publicToken         String?      @unique
+  shares              ListShare[]
 
   items ListItem[]
+
+  @@index([ownerUserId])
+}
+
+// A person a list is shared with (an account in the owner's household or a household synced with it), who can view
+// it or, with canEdit, change its items.
+model ListShare {
+  id        String   @id @default(cuid())
+  listId    String
+  list      List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("ListShares", fields: [userId], references: [id], onDelete: Cascade)
+  canEdit   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([listId, userId])
+  @@index([userId])
 }
 
 model ListItem {
@@ -198,6 +226,8 @@ model ListItem {
   list                List             @relation(fields: [listId], references: [id], onDelete: Cascade)
   text                String
   quantity            String?
+  // A link for the item (a gift idea's page in a shop): http or https only.
+  url                 String?
   assignedToContactId String?
   assignedToContact   Contact?         @relation(fields: [assignedToContactId], references: [id], onDelete: SetNull)
   notes               String?
@@ -339,6 +369,8 @@ model User {
   // Sessions started before this are signed out (set on password change/reset).
   passwordChangedAt  DateTime?
   googleConnection   GoogleConnection?
+  listsOwned         List[]                   @relation("ListsOwned")
+  listShares         ListShare[]              @relation("ListShares")
   resetTokens        PasswordResetToken[]
   // Null until the user confirms the address by clicking the emailed link.
   emailVerifiedAt    DateTime?

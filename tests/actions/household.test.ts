@@ -8,13 +8,14 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ requireOwner: vi.fn(), requireMember: vi.fn() }));
 vi.mock("@/lib/channels", () => ({ addToGeneral: vi.fn(), removeUserFromAllChannels: vi.fn(), dropDisconnectedMembers: vi.fn() }));
+vi.mock("@/lib/listSharing", () => ({ removeUserFromLists: vi.fn(), dropListSharesBetween: vi.fn() }));
 vi.mock("@/lib/db", () => {
   const prisma: any = {
     householdInvite: { create: vi.fn(), updateMany: vi.fn() },
     household: { update: vi.fn() },
     sync: { findFirst: vi.fn(), updateMany: vi.fn() },
     joinRequest: { findFirst: vi.fn(), updateMany: vi.fn() },
-    user: { updateMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn() },
+    user: { updateMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn(), findUnique: vi.fn().mockResolvedValue({ householdId: "h1" }) },
     contact: { create: vi.fn() },
     activityLogEntry: { create: vi.fn() },
   };
@@ -34,6 +35,7 @@ import {
 } from "@/app/(app)/household/actions";
 import { prisma } from "@/lib/db";
 import { dropDisconnectedMembers } from "@/lib/channels";
+import { dropListSharesBetween } from "@/lib/listSharing";
 import { requireOwner, requireMember } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
@@ -245,6 +247,7 @@ describe("endSyncAction", () => {
       data: { status: "ENDED", endedAt: expect.any(Date) },
     });
     expect(dropDisconnectedMembers).toHaveBeenCalledWith(prisma, "h1", "h2", "h1");
+    expect(dropListSharesBetween).toHaveBeenCalledWith(prisma, "h1", "h2"); // and their lists stop being shared across
     expect(revalidatePath).toHaveBeenCalledWith("/household");
     expect(revalidatePath).toHaveBeenCalledWith("/messages");
   });

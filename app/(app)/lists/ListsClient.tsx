@@ -2,23 +2,21 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Button, Tag, Space, Modal, Input, Dropdown, Empty, Checkbox, Select } from "antd";
-import { MoreOutlined } from "@ant-design/icons";
+import { Button, Tag, Space, Modal, Input, Dropdown, Empty, Checkbox, Select, Segmented, App } from "antd";
+import type { MenuProps } from "antd";
+import { GiftOutlined, MoreOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import {
   createListAction,
   renameListAction,
   archiveListAction,
   deleteListAction,
+  leaveSharedListAction,
 } from "./actions";
+import type { ListRow } from "./listRows";
+import { VISIBILITY_LABELS } from "@/lib/listAccess";
 
-type ListData = {
-  id: string;
-  name: string;
-  tags: string[];
-  totalItems: number;
-  checkedItems: number;
-};
+type ListData = ListRow;
 
 export default function ListsClient({
   lists,
@@ -26,6 +24,7 @@ export default function ListsClient({
   lists: ListData[];
 }) {
   const router = useRouter();
+  const { message } = App.useApp();
   const [, startTransition] = useTransition();
 
   const [search, setSearch] = useState("");
@@ -36,6 +35,7 @@ export default function ListsClient({
   const [createTags, setCreateTags] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [createImport, setCreateImport] = useState(false);
+  const [createKind, setCreateKind] = useState<"STANDARD" | "GIFT">("STANDARD");
 
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [renameName, setRenameName] = useState("");
@@ -49,10 +49,11 @@ export default function ListsClient({
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const { id } = await createListAction(createName.trim(), tags);
+      const { id } = await createListAction(createName.trim(), tags, createKind);
       setCreateOpen(false);
       setCreateName("");
       setCreateTags("");
+      setCreateKind("STANDARD");
       router.push(`/lists/${id}${createImport ? "?import=1" : ""}`);
       setCreateImport(false);
     } finally {
@@ -84,6 +85,56 @@ export default function ListsClient({
       (!needle || l.name.toLowerCase().includes(needle)) &&
       (!tagFilter || l.tags.includes(tagFilter))
   );
+  // Lists other people shared with you come after your own and your household's.
+  const groups = [
+    { key: "ours", title: null, lists: visibleLists.filter((l) => !l.sharedBy) },
+    { key: "shared", title: "Shared with me", lists: visibleLists.filter((l) => l.sharedBy) },
+  ].filter((g) => g.lists.length > 0);
+
+  function menuFor(list: ListData): MenuProps["items"] | null {
+    if (list.access === "manage") {
+      return [
+        { key: "rename", label: "Rename", onClick: () => openRename(list) },
+        {
+          key: "archive",
+          label: "Archive",
+          onClick: () =>
+            startTransition(async () => {
+              await archiveListAction(list.id);
+              router.refresh();
+            }),
+        },
+        { type: "divider" },
+        {
+          key: "delete",
+          label: <span style={{ color: "var(--danger)" }}>Delete</span>,
+          onClick: () => {
+            if (confirm(`Delete "${list.name}"? This cannot be undone.`)) {
+              startTransition(async () => {
+                await deleteListAction(list.id);
+                router.refresh();
+              });
+            }
+          },
+        },
+      ];
+    }
+    if (list.sharedBy) {
+      return [
+        {
+          key: "leave",
+          label: "Remove from my lists",
+          onClick: () =>
+            startTransition(async () => {
+              const result = await leaveSharedListAction(list.id);
+              if (!result.ok) message.error(result.error);
+              router.refresh();
+            }),
+        },
+      ];
+    }
+    return null;
+  }
 
   return (
     <Space orientation="vertical" style={{ width: "100%" }} size="middle">
@@ -128,95 +179,63 @@ export default function ListsClient({
       ) : visibleLists.length === 0 ? (
         <Empty description="No lists match that search or tag." style={{ padding: "48px 0" }} />
       ) : (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-          {visibleLists.map((list, i) => (
-            <div
-              key={list.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "12px 16px",
-                borderTop: i > 0 ? "1px solid var(--border)" : undefined,
-                background: "var(--surface)",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Link
-                  href={`/lists/${list.id}`}
-                  style={{ fontWeight: 500, fontSize: 15, color: "var(--text)" }}
-                >
-                  {list.name}
-                </Link>
-                {list.tags.length > 0 && (
-                  <div style={{ marginTop: 4 }}>
-                    <Space wrap size={4}>
-                      {list.tags.map((tag) => (
-                        <Tag key={tag} variant="filled" style={{ fontSize: 11 }}>
-                          {tag}
+        groups.map((group) => (
+          <section key={group.key} aria-label={group.title ?? "Lists"}>
+            {group.title && <h5 style={{ margin: "8px 0", fontSize: 14, fontWeight: 600 }}>{group.title}</h5>}
+            <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+              {group.lists.map((list, i) => {
+                const menu = menuFor(list);
+                return (
+                  <div
+                    key={list.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "12px 16px",
+                      borderTop: i > 0 ? "1px solid var(--border)" : undefined,
+                      background: "var(--surface)",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Link href={`/lists/${list.id}`} style={{ fontWeight: 500, fontSize: 15, color: "var(--text)" }}>
+                        {list.kind === "GIFT" && <GiftOutlined aria-label="Gift ideas" style={{ marginRight: 6, color: "var(--muted)" }} />}
+                        {list.name}
+                      </Link>
+                      <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                        <Tag className="list-visibility" data-visibility={list.visibility} style={{ fontSize: 11 }}>
+                          {VISIBILITY_LABELS[list.visibility]}
                         </Tag>
-                      ))}
-                    </Space>
+                        {list.sharedBy && (
+                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                            from {list.sharedBy}
+                            {list.access === "view" && " · view only"}
+                          </span>
+                        )}
+                        {list.tags.map((tag) => (
+                          <Tag key={tag} variant="filled" style={{ fontSize: 11 }}>
+                            {tag}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+
+                    <span style={{ color: "var(--muted)", fontSize: 13, marginRight: 8, whiteSpace: "nowrap" }}>
+                      {list.totalItems === 0 ? "empty" : `${list.checkedItems} / ${list.totalItems}`}
+                    </span>
+
+                    {menu ? (
+                      <Dropdown menu={{ items: menu }} trigger={["click"]}>
+                        <Button type="text" icon={<MoreOutlined />} size="small" style={{ color: "var(--muted)" }} aria-label={`More for ${list.name}`} />
+                      </Dropdown>
+                    ) : (
+                      <span style={{ width: 24 }} />
+                    )}
                   </div>
-                )}
-              </div>
-
-              <span
-                style={{
-                  color: "var(--muted)",
-                  fontSize: 13,
-                  marginRight: 8,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {list.totalItems === 0
-                  ? "empty"
-                  : `${list.checkedItems} / ${list.totalItems}`}
-              </span>
-
-              <Dropdown
-                menu={{
-                  items: [
-                    {
-                      key: "rename",
-                      label: "Rename",
-                      onClick: () => openRename(list),
-                    },
-                    {
-                      key: "archive",
-                      label: "Archive",
-                      onClick: () =>
-                        startTransition(async () => {
-                          await archiveListAction(list.id);
-                          router.refresh();
-                        }),
-                    },
-                    { type: "divider" },
-                    {
-                      key: "delete",
-                      label: <span style={{ color: "var(--danger)" }}>Delete</span>,
-                      onClick: () => {
-                        if (confirm(`Delete "${list.name}"? This cannot be undone.`)) {
-                          startTransition(async () => {
-                            await deleteListAction(list.id);
-                            router.refresh();
-                          });
-                        }
-                      },
-                    },
-                  ],
-                }}
-                trigger={["click"]}
-              >
-                <Button
-                  type="text"
-                  icon={<MoreOutlined />}
-                  size="small"
-                  style={{ color: "var(--muted)" }}
-                />
-              </Dropdown>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </section>
+        ))
       )}
 
       {/* Create modal */}
@@ -228,6 +247,7 @@ export default function ListsClient({
           setCreateOpen(false);
           setCreateName("");
           setCreateTags("");
+          setCreateKind("STANDARD");
         }}
         okText="Create"
         okButtonProps={{ loading: createLoading, disabled: !createName.trim() }}
@@ -262,6 +282,22 @@ export default function ListsClient({
               onChange={(e) => setCreateTags(e.target.value)}
               placeholder="grocery, urgent"
             />
+          </div>
+          <div>
+            <label style={{ display: "block", fontWeight: 500, marginBottom: 4, fontSize: 14 }}>Type</label>
+            <Segmented
+              value={createKind}
+              onChange={(v) => setCreateKind(v as "STANDARD" | "GIFT")}
+              options={[
+                { label: "List", value: "STANDARD" },
+                { label: "Gift ideas", value: "GIFT" },
+              ]}
+            />
+            {createKind === "GIFT" && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>
+                Starts with a public link you can send to family, so they can see it without the app. You can turn it off.
+              </div>
+            )}
           </div>
           <Checkbox checked={createImport} onChange={(e) => setCreateImport(e.target.checked)}>
             Import items from a CSV file after creating

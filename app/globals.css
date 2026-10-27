@@ -1682,3 +1682,162 @@ a.brief-row:hover {
   border-radius: 3px;
   vertical-align: baseline;
 }
+
+/* A link to something kept elsewhere (components/LinkButton.tsx): a small pill that opens it in a new tab. */
+.link-button,
+.link-button:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 20px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.link-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.link-button:hover {
+  background: var(--accent-soft);
+}
+
+/* ---- A public list (app/l/[token]): read only, for anyone with the link ---- */
+.public-list {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 40px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+}
+.public-list-main {
+  width: 100%;
+  max-width: 640px;
+  flex: 1;
+}
+.public-list-eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.public-list-title {
+  margin: 4px 0 0;
+  font-size: 30px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.public-list-from,
+.public-list-empty {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.public-list-items {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.public-list-items li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.public-list-items li + li {
+  border-top: 1px solid var(--border);
+}
+.public-list-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.public-list-muted {
+  color: var(--muted);
+}
+.public-list-notes {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.public-list-items .link-button {
+  flex: none;
+  max-width: 45%;
+  font-size: 13px;
+  line-height: 24px;
+}
+.public-list-footer {
+  margin-top: 32px;
+}
+.public-list-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+/* The list page: who can see it, beside the title. And the Share dialog. */
+.list-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.list-sharing {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.list-sharing-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.list-sharing-hint {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.list-sharing-people {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.list-sharing-people li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.list-sharing-people li > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.list-sharing-people .list-sharing-hint {
+  display: inline;
+}
+.list-sharing-new-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+}

@@ -26,6 +26,15 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
     },
   };
 });
+vi.mock("@/app/(app)/lists/[id]/ListSharingModal", () => ({
+  default: ({ open, onClose, publicUrl }: any) =>
+    open ? (
+      <div>
+        sharing for {publicUrl ?? "no link"}
+        <button onClick={onClose}>close sharing</button>
+      </div>
+    ) : null,
+}));
 vi.mock("@/app/(app)/lists/ImportItemsModal", () => ({
   default: ({ open, onClose, onDone }: any) =>
     open ? (
@@ -48,9 +57,9 @@ import {
 } from "@/app/(app)/lists/actions";
 
 const items = [
-  { id: "a", text: "milk", quantity: "2 gallons", notes: "whole", checked: false, assignedToContactId: "c1" },
-  { id: "b", text: "eggs", quantity: null, notes: null, checked: true, assignedToContactId: null },
-  { id: "c", text: "bread", quantity: null, notes: null, checked: false, assignedToContactId: null },
+  { id: "a", text: "milk", quantity: "2 gallons", notes: "whole", url: null, checked: false, assignedToContactId: "c1" },
+  { id: "b", text: "eggs", quantity: null, notes: null, url: null, checked: true, assignedToContactId: null },
+  { id: "c", text: "bread", quantity: null, notes: null, url: null, checked: false, assignedToContactId: null },
 ];
 const contacts = [
   { id: "c1", name: "Sam Smith" },
@@ -119,7 +128,7 @@ describe("quick add", () => {
   it("adds on Enter and clears the box", async () => {
     setup();
     await userEvent.type(box(), "butter{Enter}");
-    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["butter"]));
+    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["butter"], undefined, null));
     expect(box()).toHaveValue("");
     expect(router.refresh).toHaveBeenCalled();
   });
@@ -129,7 +138,7 @@ describe("quick add", () => {
     await userEvent.click(box());
     await userEvent.paste("one\ntwo");
     await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["one", "two"]));
+    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["one", "two"], undefined, null));
   });
 
   it("does not submit on Shift+Enter or blank input", async () => {
@@ -195,6 +204,7 @@ describe("check, edit, delete", () => {
         text: "oat milk",
         quantity: "1 carton",
         notes: "unsweetened",
+        url: "",
         assignedToContactId: "c2",
       })
     );
@@ -211,6 +221,7 @@ describe("check, edit, delete", () => {
         text: "bread",
         quantity: "",
         notes: "",
+        url: "",
         assignedToContactId: null,
       })
     );
@@ -315,3 +326,92 @@ describe("CSV import entry", () => {
     expect(screen.queryByText("import modal")).not.toBeInTheDocument();
   });
 });
+
+describe("links", () => {
+  it("shows an item's link as a button that opens where it goes in a new tab", () => {
+    setup({ items: [{ ...items[0], url: "https://www.amazon.com/dp/B0" }] });
+    const link = within(rowOf("milk")).getByRole("link", { name: "Open milk (amazon.com)" });
+    expect(link).toHaveAttribute("href", "https://www.amazon.com/dp/B0");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveTextContent("amazon.com");
+  });
+
+  it("edits an item's link, and won't save one that isn't http(s)", async () => {
+    setup({ items: [{ ...items[2], url: "https://old.test/x" }] });
+    await userEvent.click(within(rowOf("bread")).getByRole("button", { name: "Edit item" }));
+    const link = await screen.findByLabelText("Link");
+    expect(link).toHaveValue("https://old.test/x");
+    await userEvent.clear(link);
+    await userEvent.type(link, "javascript:alert(1)");
+    expect(screen.getByText("A link must start with http:// or https://")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.clear(link);
+    await userEvent.type(link, "https://shop.test/bread");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateItemAction).toHaveBeenCalledWith("c", expect.objectContaining({ url: "https://shop.test/bread" })));
+  });
+});
+
+describe("a Gift ideas list", () => {
+  it("adds an idea with its link", async () => {
+    setup({ kind: "GIFT", items: [] });
+    expect(screen.getByText("Gift ideas")).toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText(/Add an item/), "Lego set");
+    await userEvent.type(screen.getByLabelText("Link for the new item"), " https://shop.test/lego {Enter}");
+    await waitFor(() => expect(addItemsAction).toHaveBeenCalledWith("l1", ["Lego set"], undefined, "https://shop.test/lego"));
+    expect(screen.getByLabelText("Link for the new item")).toHaveValue("");
+  });
+
+  it("refuses a link that isn't one, or one for several items at once", async () => {
+    setup({ kind: "GIFT", items: [] });
+    await userEvent.type(screen.getByPlaceholderText(/Add an item/), "Lego set");
+    await userEvent.type(screen.getByLabelText("Link for the new item"), "shop.test/lego{Enter}");
+    expect(await screen.findByText("A link must start with http:// or https://")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Link for the new item"));
+    await userEvent.type(screen.getByLabelText("Link for the new item"), "https://shop.test/lego");
+    await userEvent.click(screen.getByPlaceholderText(/Add an item/));
+    await userEvent.keyboard("{Shift>}{Enter}{/Shift}Puzzle");
+    await userEvent.click(screen.getByLabelText("Link for the new item"));
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByText("A link can only go with one item")).toBeInTheDocument();
+    expect(addItemsAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("who can see it", () => {
+  it("says who can see it and whose it is", () => {
+    setup({ visibility: "SHARED", ownerName: "Ann Ray" });
+    expect(screen.getByText("Shared")).toBeInTheDocument();
+    expect(screen.getByText("Ann Ray's list")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Share/ })).toBeNull();
+  });
+
+  it("lets its owner open the Share dialog", async () => {
+    setup({ sharing: { householdName: "The Beckers", sharedWithHousehold: true, shares: [], candidates: [], publicUrl: "https://domata.test/l/tok" } });
+    await userEvent.click(screen.getByRole("button", { name: /Share/ }));
+    expect(screen.getByText("sharing for https://domata.test/l/tok")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "close sharing" }));
+    expect(screen.queryByText(/sharing for/)).toBeNull();
+  });
+
+  it("is read only for someone it's shared with to view: no adding, checking, editing, reordering or importing", () => {
+    setup({ canEdit: false, contacts: [], items: [{ ...items[0], url: "https://shop.test/milk" }] });
+    expect(screen.getByText("View only")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Add an item/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Import CSV/ })).toBeNull();
+    expect(screen.queryByText("Sort:")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Done: milk" })).toBeDisabled();
+    expect(within(rowOf("milk")).queryByRole("button", { name: "Edit item" })).toBeNull();
+    expect(within(rowOf("milk")).queryByLabelText("Drag to reorder")).toBeNull();
+    expect(within(rowOf("milk")).getByRole("link", { name: /Open milk/ })).toBeInTheDocument();
+  });
+
+  it("hides the assignee picker when there are no contacts to pick", async () => {
+    setup({ contacts: [] });
+    await userEvent.click(within(rowOf("milk")).getByRole("button", { name: "Edit item" }));
+    await screen.findByPlaceholderText("Item");
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+});
+
