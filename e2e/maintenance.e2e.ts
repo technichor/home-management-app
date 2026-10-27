@@ -17,7 +17,6 @@ test("the maintenance inventory: add, see what to tell a repair person, record s
   await page.getByLabel("Year installed").fill("2004");
   await page.getByLabel("Service every (months)").fill("12");
   await page.getByLabel("Last serviced").fill("2020-01-01");
-  await page.getByLabel("Manual link").fill("https://example.com/manual.pdf");
   await page.getByLabel("Notes").fill("Filter 16x25x1 <b>not bold</b>");
   await page.getByRole("button", { name: "Add item" }).click();
 
@@ -26,8 +25,8 @@ test("the maintenance inventory: add, see what to tell a repair person, record s
   for (const text of ["Carrier", "59TP6", "SN-12345", "Attic"]) await expect(page.getByText(text, { exact: true })).toBeVisible();
   await expect(page.getByText(/^2004 \(\d+ years old\)$/)).toBeVisible();
   await expect(page.getByText("Service was due Jan 1, 2021")).toBeVisible();
-  const manual = page.getByRole("link", { name: "https://example.com/manual.pdf" });
-  await expect(manual).toHaveAttribute("target", "_blank");
+  // Its manual and warranty are Documents, added from its own Documents section.
+  await expect(page.getByRole("region", { name: "Documents" }).getByRole("link", { name: /Add document/ })).toBeVisible();
   // Notes are plain text, never HTML.
   await expect(page.getByText("<b>not bold</b>", { exact: false })).toBeVisible();
   expect(await page.locator("b").count()).toBe(0);
@@ -53,14 +52,7 @@ test("the maintenance inventory: add, see what to tell a repair person, record s
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Attic furnace" })).toBeVisible();
 
-  // A link that isn't http(s) is refused.
-  await page.getByRole("link", { name: "Edit" }).click();
-  await page.getByLabel("Manual link").fill("javascript:alert(1)");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("The manual link must start with http:// or https://")).toBeVisible();
-
   // Delete.
-  await page.getByRole("link", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Delete" }).click();
   await page.getByRole("tooltip").getByRole("button", { name: "Delete" }).click();
   await expect(page).toHaveURL(/\/maintenance(\?.*)?$/);

@@ -40,8 +40,6 @@ export default function MaintenanceDetailClient({ item, today }: { item: Mainten
     ["Warranty until", item.warrantyUntil ? formatCalendarDate(item.warrantyUntil) : null],
     ["Service every", item.serviceEveryMonths === null ? null : item.serviceEveryMonths === 1 ? "1 month" : `${item.serviceEveryMonths} months`],
     ["Last serviced", item.lastServicedOn ? formatCalendarDate(item.lastServicedOn) : null],
-    // Rendered only as a link to an http(s) address (checked when it was saved), opening in a new tab.
-    ["Manual", item.manualUrl ? <a key="m" href={item.manualUrl} target="_blank" rel="noopener noreferrer">{item.manualUrl}</a> : null],
   ];
 
   return (

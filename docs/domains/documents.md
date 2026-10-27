@@ -1,6 +1,6 @@
 # Domain: Documents
 
-Status: **Spec written 2026-10-22. Stages 1 to 4 (catalog, schema and logic; create, view, edit, delete; the overview and nav entry; the panels) built 2026-10-26/27 on the `documents` branch, not merged; migration 0032 not applied to production.** The overview's grouping (cards, the Whose filter, search) is pure, in `lib/documents.ts` (`documentCards`, `documentIsWhose`, `slotIsWhose`, `documentMatches`). A quiet category's Add chip opens the form with `?category=`, which lists that category's types first. The panels load through `lib/documentPanels.ts`; a panel suggests only its own person's or vehicle's types (the household's are on `/documents`), and has no Doesn't apply (that is on `/documents`). This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
+Status: **Built 2026-10-27 (stages 1-6) and live; migrations 0032 and 0034 applied to production.** The overview's grouping (cards, the Whose filter, search) is pure, in `lib/documents.ts` (`documentCards`, `documentIsWhose`, `slotIsWhose`, `documentMatches`). A quiet category's Add chip opens the form with `?category=`, which lists that category's types first. The panels load through `lib/documentPanels.ts`; a panel suggests only its own person's or vehicle's types (the household's are on `/documents`), and has no Doesn't apply (that is on `/documents`). **Deviation:** stage 5 gave moved manuals the Manual type's category (Manuals, warranties & valuables) even for vehicles, because a typed document's category always comes from its type (a Vehicles one would move on its first edit). This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
 
 ## What this domain is
 
@@ -443,8 +443,8 @@ Work on a branch, and check in after each stage. Every stage must keep the gate 
    - e2e coverage: add the Pacifica's title from its Maintenance page, then see it on `/documents` under Vehicles.
 5. **Fold in `manualUrl`** (expand/contract, following the HANDOFF rule for dropping columns).
    - **(a)** Deploy code whose Prisma schema no longer has `MaintenanceItem.manualUrl`. Remove it from `lib/maintenance.ts`, the form and the detail page; the item's Documents panel replaces it.
-   - **(b)** Then apply `00NN_maintenance_manual_to_documents` (the next free migration number at the time; Lists sharing may take 0033):
-     - for each item with a `manualUrl`, insert a `Document` (title "<item name> manual", type `manual`, category `VEHICLES` if the item is a vehicle and `POSSESSIONS` otherwise, linked to the item) and one `DocumentLink` (label "Manual", position 0);
+   - **(b)** Then apply `0034_maintenance_manual_to_documents`:
+     - for each item with a `manualUrl`, insert a `Document` (title "<item name> manual", type `manual`, category `POSSESSIONS` (the Manual type's; see the deviation under Status), linked to the item) and one `DocumentLink` (label "Manual", position 0);
      - drop the column;
      - ids can be `gen_random_uuid()::text`, since any unique string works.
    - **(c)** Afterwards, `prisma migrate diff` must say "empty migration".

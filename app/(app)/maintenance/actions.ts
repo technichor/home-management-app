@@ -33,7 +33,6 @@ const dataOf = (f: ReturnType<typeof parseFields>) => ({
   warrantyUntil: f.warrantyUntil ? stringToDate(f.warrantyUntil) : null,
   serviceEveryMonths: f.serviceEveryMonths,
   lastServicedOn: f.lastServicedOn ? stringToDate(f.lastServicedOn) : null,
-  manualUrl: f.manualUrl,
   notes: f.notes,
 });
 

@@ -91,7 +91,7 @@ describe("MaintenanceClient", () => {
 
 const item = (over: Partial<MaintenanceFormItem> = {}): MaintenanceFormItem => ({
   id: "m1", name: "Furnace", category: "HVAC", location: "Basement", brand: "Carrier", modelNumber: "X1", serialNumber: "S1", installedYear: 2004,
-  warrantyUntil: "2030-01-02", serviceEveryMonths: 12, lastServicedOn: "2026-01-03", manualUrl: "https://x.test/m", notes: "Filter size 16x25", ...over,
+  warrantyUntil: "2030-01-02", serviceEveryMonths: 12, lastServicedOn: "2026-01-03", notes: "Filter size 16x25", ...over,
 });
 
 describe("MaintenanceForm", () => {
@@ -110,13 +110,12 @@ describe("MaintenanceForm", () => {
     fireEvent.change(screen.getByLabelText("Warranty until"), { target: { value: "2020-05-06" } });
     fireEvent.change(screen.getByLabelText("Service every (months)"), { target: { value: "12" } });
     fireEvent.change(screen.getByLabelText("Last serviced"), { target: { value: "2026-03-04" } });
-    await userEvent.type(screen.getByLabelText("Manual link"), "https://x.test");
     await userEvent.type(screen.getByLabelText("Notes"), "Flush yearly");
     await userEvent.click(screen.getByRole("button", { name: "Add item" }));
     await waitFor(() =>
       expect(createMaintenanceItemAction).toHaveBeenCalledWith({
         name: "Water heater", category: "PLUMBING", location: "Basement", brand: "Rheem", modelNumber: "R1", serialNumber: "S9",
-        installedYear: 2010, warrantyUntil: "2020-05-06", serviceEveryMonths: 12, lastServicedOn: "2026-03-04", manualUrl: "https://x.test", notes: "Flush yearly",
+        installedYear: 2010, warrantyUntil: "2020-05-06", serviceEveryMonths: 12, lastServicedOn: "2026-03-04", notes: "Flush yearly",
       }),
     );
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/maintenance/new1"));
@@ -144,7 +143,6 @@ describe("MaintenanceForm", () => {
     render(<MaintenanceForm item={item()} />);
     expect(screen.getByLabelText("Name")).toHaveValue("Furnace");
     expect(screen.getByLabelText("Year installed")).toHaveValue(2004);
-    expect(screen.getByLabelText("Manual link")).toHaveValue("https://x.test/m");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/maintenance/m1");
     await userEvent.clear(screen.getByLabelText("Name"));
     await userEvent.type(screen.getByLabelText("Name"), "Upstairs furnace");
@@ -155,7 +153,7 @@ describe("MaintenanceForm", () => {
 
   it("starts empty for an item with nothing optional filled in, and shows an edit failure", async () => {
     vi.mocked(updateMaintenanceItemAction).mockResolvedValue({ ok: false, error: "That item isn't in your inventory any more" });
-    render(<MaintenanceForm item={item({ location: null, brand: null, modelNumber: null, serialNumber: null, installedYear: null, warrantyUntil: null, serviceEveryMonths: null, lastServicedOn: null, manualUrl: null, notes: null })} />);
+    render(<MaintenanceForm item={item({ location: null, brand: null, modelNumber: null, serialNumber: null, installedYear: null, warrantyUntil: null, serviceEveryMonths: null, lastServicedOn: null, notes: null })} />);
     expect(screen.getByLabelText("Brand")).toHaveValue("");
     expect(screen.getByLabelText("Year installed")).toHaveValue(null);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -177,17 +175,13 @@ describe("MaintenanceDetailClient", () => {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
     expect(screen.getByText("Next service Jan 3, 2027")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "https://x.test/m" });
-    expect(link).toHaveAttribute("href", "https://x.test/m");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/maintenance/m1/edit");
   });
 
   it("leaves out what isn't known, reads a one-month interval, and flags overdue service", () => {
     render(
       <MaintenanceDetailClient
-        item={item({ location: null, brand: null, modelNumber: null, serialNumber: null, installedYear: null, warrantyUntil: null, serviceEveryMonths: 1, lastServicedOn: "2026-01-01", manualUrl: null, notes: null })}
+        item={item({ location: null, brand: null, modelNumber: null, serialNumber: null, installedYear: null, warrantyUntil: null, serviceEveryMonths: 1, lastServicedOn: "2026-01-01", notes: null })}
         today={TODAY}
       />,
     );
