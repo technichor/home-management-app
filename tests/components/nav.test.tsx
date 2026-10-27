@@ -65,6 +65,12 @@ describe("AppNav", () => {
     expect(tabbar().queryByRole("link", { name: "Accounts" })).toBeNull();
   });
 
+  it("links Documents in the sidebar, after Accounts", () => {
+    setup();
+    expect(sidebar().getByRole("link", { name: "Documents" })).toHaveAttribute("href", "/documents");
+    expect(tabbar().queryByRole("link", { name: "Documents" })).toBeNull();
+  });
+
   it("highlights Home only on the home path", () => {
     pathname = "/home";
     setup();
@@ -162,8 +168,8 @@ describe("AppNav", () => {
     });
 
     it.each([
-      [false, "432px"], // 4 modules, Household, Account, Log out
-      [true, "480px"], // and Admin
+      [false, "480px"], // 5 modules, Household, Account, Log out
+      [true, "528px"], // and Admin
     ])("is tall enough for every row (superuser: %s)", async (isSuperuser, height) => {
       setup({ isSuperuser });
       await userEvent.click(tabbar().getByRole("button", { name: "More" }));

@@ -42,6 +42,8 @@ vi.mock("@/app/(app)/contacts/removed/actions", () => ({
 }));
 vi.mock("@/app/[slug]/actions", () => ({ loginAction: vi.fn() }));
 const seen: Record<string, any> = {};
+vi.mock("@/lib/documentPanels", () => ({ documentsPanel: vi.fn(async () => ({ documents: [], openSlots: [], addHref: "/documents/new" })) }));
+vi.mock("@/components/DocumentsPanel", () => ({ default: (p: any) => ((seen.panel = p.panel), <div>documents panel</div>) }));
 vi.mock("@/app/(app)/contacts/[id]/SyncCard", () => ({
   default: (p: any) => ((seen.syncCard = p), <div>sync card</div>),
 }));
@@ -54,6 +56,7 @@ vi.mock("@/app/(app)/contacts/ContactsTable", () => ({
 
 import { getIronSession } from "iron-session";
 import { prisma } from "@/lib/db";
+import { documentsPanel } from "@/lib/documentPanels";
 import ContactsPage from "@/app/(app)/contacts/page";
 import ContactDetailPage from "@/app/(app)/contacts/[id]/page";
 import HouseholdsPage from "@/app/(app)/contacts/households/page";
@@ -141,6 +144,18 @@ describe("ContactDetailPage", () => {
     vi.mocked(prisma.activityLogEntry.findMany).mockResolvedValue(log);
     return render(await ContactDetailPage({ params: idParams("c1") }));
   };
+  beforeEach(() => vi.mocked(prisma.contact.findMany).mockResolvedValue([]));
+
+  it("a member of our own household has a Documents section; anyone else doesn't", async () => {
+    await run(contact());
+    expect(screen.queryByText("documents panel")).not.toBeInTheDocument();
+    expect(documentsPanel).not.toHaveBeenCalled();
+    vi.mocked(prisma.contact.findMany).mockResolvedValue([{ id: "c1", firstName: "Jane", lastName: "Smith", nickname: "Janie" }] as any);
+    await run(contact({ category: "FAMILY_FRIEND", householdId: "mine" }));
+    expect(screen.getByText("documents panel")).toBeInTheDocument();
+    expect(documentsPanel).toHaveBeenCalledWith("mine", { kind: "contact", id: "c1", name: "Janie" });
+    expect(vi.mocked(prisma.contact.findMany).mock.calls.at(-1)![0]!.where).toMatchObject({ ownerHouseholdId: "mine", householdId: "mine" });
+  });
 
   it("404s for a contact in another account's directory", async () => {
     vi.mocked(prisma.contact.findUnique).mockResolvedValue(contact({ ownerHouseholdId: "other" }) as any);

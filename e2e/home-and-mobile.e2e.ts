@@ -141,6 +141,14 @@ test.describe("on a phone", () => {
     await expect(page.getByText(/A very long message/)).toBeVisible();
     const chatPath = new URL(page.url()).pathname;
 
+    // A document with a long link and a long title.
+    await page.goto(`/documents/new?type=will`);
+    await page.getByLabel("Title").fill("Wills, with the codicil we signed at the lawyer's office downtown");
+    await page.getByLabel("Link 1", { exact: true }).fill(`https://drive.google.com/file/d/${"x".repeat(120)}/view?usp=sharing`);
+    await page.getByRole("button", { name: "Add document" }).click();
+    await expect(page).toHaveURL(/documents\/[a-z0-9]+$/);
+    const documentPath = new URL(page.url()).pathname;
+
     const pages = [
       `/home`,
       `/contacts`,
@@ -171,6 +179,10 @@ test.describe("on a phone", () => {
       `/maintenance/new`,
       `/accounts`,
       `/accounts/new`,
+      `/documents`,
+      `/documents/new?type=passport`,
+      documentPath,
+      `${documentPath}/edit`,
       `/account`,
       `/household`,
     ];

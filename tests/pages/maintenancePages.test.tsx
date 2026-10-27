@@ -16,6 +16,8 @@ vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth
 vi.mock("@/lib/db", () => ({ prisma: { maintenanceItem: { findMany: vi.fn(), findFirst: vi.fn() } } }));
 vi.mock("@/components/LocalToday", () => ({ default: () => <i data-testid="local-today" /> }));
 const seen: Record<string, any> = {};
+vi.mock("@/lib/documentPanels", () => ({ documentsPanel: vi.fn(async () => ({ documents: [], openSlots: [], addHref: "/documents/new" })) }));
+vi.mock("@/components/DocumentsPanel", () => ({ default: (p: any) => ((seen.panel = p.panel), <div>documents panel</div>) }));
 vi.mock("@/app/(app)/maintenance/MaintenanceClient", () => ({ default: (p: any) => ((seen.list = p), <div>list client</div>) }));
 vi.mock("@/app/(app)/maintenance/MaintenanceForm", () => ({ default: (p: any) => ((seen.form = p), <div>form</div>) }));
 vi.mock("@/app/(app)/maintenance/[id]/MaintenanceDetailClient", () => ({ default: (p: any) => ((seen.detail = p), <div>detail</div>) }));
@@ -26,6 +28,7 @@ vi.mock("@/lib/today", async () => {
   return { pageToday: async () => clock.today, pageTodayOrUtc: async () => clock.today ?? utcDateString() };
 });
 import { prisma } from "@/lib/db";
+import { documentsPanel } from "@/lib/documentPanels";
 import { getIronSession } from "iron-session";
 import MaintenancePage from "@/app/(app)/maintenance/page";
 import NewMaintenanceItemPage from "@/app/(app)/maintenance/new/page";
@@ -92,6 +95,13 @@ describe("MaintenanceItemPage", () => {
     expect(prisma.maintenanceItem.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
     expect(seen.detail.today).toBe("2026-10-05");
     expect(seen.detail.item).toMatchObject({ id: "m1", warrantyUntil: "2030-01-02", lastServicedOn: "2026-01-03", manualUrl: "https://x.test" });
+    expect(documentsPanel).toHaveBeenCalledWith("h1", { kind: "item", id: "m1", name: "Furnace", isVehicle: false });
+    expect(seen.panel).toEqual({ documents: [], openSlots: [], addHref: "/documents/new" });
+  });
+  it("a vehicle's Documents section suggests what a vehicle needs", async () => {
+    vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(row({ name: "Pacifica", category: "VEHICLE" }) as any);
+    render(await MaintenanceItemPage({ params: idParams }));
+    expect(documentsPanel).toHaveBeenCalledWith("h1", { kind: "item", id: "m1", name: "Pacifica", isVehicle: true });
   });
   it("handles an item with no dates", async () => {
     vi.mocked(prisma.maintenanceItem.findFirst).mockResolvedValue(row({ warrantyUntil: null, lastServicedOn: null }) as any);
