@@ -15,18 +15,21 @@ vi.mock("iron-session", () => ({ getIronSession: vi.fn().mockResolvedValue({ hou
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => ({
   prisma: {
-    document: { findFirst: vi.fn() },
+    document: { findFirst: vi.fn(), findMany: vi.fn() },
+    documentDismissal: { findMany: vi.fn() },
     contact: { findMany: vi.fn() },
     maintenanceItem: { findMany: vi.fn() },
     accountRecord: { findMany: vi.fn() },
   },
 }));
 const seen: Record<string, any> = {};
+vi.mock("@/app/(app)/documents/DocumentsClient", () => ({ default: (p: any) => ((seen.list = p), <div>list</div>) }));
 vi.mock("@/app/(app)/documents/DocumentForm", () => ({ default: (p: any) => ((seen.form = p), <div>form</div>) }));
 vi.mock("@/app/(app)/documents/[id]/DocumentDetailClient", () => ({ default: (p: any) => ((seen.detail = p), <div>detail</div>) }));
 
 import { prisma } from "@/lib/db";
 import { getIronSession } from "iron-session";
+import DocumentsPage from "@/app/(app)/documents/page";
 import NewDocumentPage from "@/app/(app)/documents/new/page";
 import DocumentPage from "@/app/(app)/documents/[id]/page";
 import EditDocumentPage from "@/app/(app)/documents/[id]/edit/page";
@@ -51,6 +54,26 @@ beforeEach(() => {
   vi.mocked(prisma.accountRecord.findMany).mockResolvedValue([{ id: "a1", name: "Car loan" }] as any);
 });
 
+describe("DocumentsPage", () => {
+  it("hands over only this household's documents, members, vehicles and dismissals", async () => {
+    vi.mocked(prisma.document.findMany).mockResolvedValue([doc()] as any);
+    vi.mocked(prisma.maintenanceItem.findMany).mockResolvedValue([{ id: "v1", name: "Pacifica" }] as any);
+    vi.mocked(prisma.documentDismissal.findMany).mockResolvedValue([{ typeKey: "lease", subjectKey: "household" }] as any);
+    render(await DocumentsPage());
+    expect(vi.mocked(prisma.document.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1" });
+    expect(vi.mocked(prisma.maintenanceItem.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1", category: "VEHICLE" });
+    expect(vi.mocked(prisma.documentDismissal.findMany).mock.calls[0][0]!.where).toEqual({ householdId: "h1" });
+    expect(seen.list.documents).toEqual([expect.objectContaining({ id: "d1", ownerName: "Sam" })]);
+    expect(seen.list.members).toEqual([{ id: "m1", name: "Sam" }]);
+    expect(seen.list.vehicles).toEqual([{ id: "v1", name: "Pacifica" }]);
+    expect(seen.list.dismissals).toEqual([{ typeKey: "lease", subjectKey: "household" }]);
+  });
+  it("needs a signed-in household", async () => {
+    vi.mocked(getIronSession).mockResolvedValue({} as any);
+    await expect(DocumentsPage()).rejects.toThrow();
+  });
+});
+
 describe("NewDocumentPage", () => {
   it("offers only the household's members, items and accounts", async () => {
     render(await NewDocumentPage(query()));
@@ -65,8 +88,15 @@ describe("NewDocumentPage", () => {
       accounts: [{ id: "a1", name: "Car loan" }],
     });
     expect(seen.form.initial).toEqual({ typeKey: null, ownerContactId: null, maintenanceItemId: null, accountRecordId: null });
-    expect(seen.form.vehiclesFirst).toBe(false);
+    expect(seen.form.firstCategory).toBeUndefined();
     expect(seen.form.returnTo).toBeUndefined();
+  });
+
+  it("lists a chosen category's types first; one that isn't a category is ignored", async () => {
+    render(await NewDocumentPage(query({ category: "WORK" })));
+    expect(seen.form.firstCategory).toBe("WORK");
+    render(await NewDocumentPage(query({ category: "NOPE" })));
+    expect(seen.form.firstCategory).toBeUndefined();
   });
 
   it("pre-fills from the address, and comes back to a same-site path", async () => {
@@ -84,10 +114,10 @@ describe("NewDocumentPage", () => {
   it("from a vehicle, starts with no type and the Vehicles types first; from another item, as a manual", async () => {
     render(await NewDocumentPage(query({ item: "v1" })));
     expect(seen.form.initial).toMatchObject({ typeKey: null, maintenanceItemId: "v1" });
-    expect(seen.form.vehiclesFirst).toBe(true);
+    expect(seen.form.firstCategory).toBe("VEHICLES");
     render(await NewDocumentPage(query({ item: "i1" })));
     expect(seen.form.initial).toMatchObject({ typeKey: "manual", maintenanceItemId: "i1" });
-    expect(seen.form.vehiclesFirst).toBe(false);
+    expect(seen.form.firstCategory).toBeUndefined();
     render(await NewDocumentPage(query({ item: "i1", type: "product-warranty" })));
     expect(seen.form.initial.typeKey).toBe("product-warranty");
   });

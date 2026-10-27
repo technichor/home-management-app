@@ -152,7 +152,7 @@ describe("DocumentForm (adding)", () => {
   });
 
   it("from a vehicle, the Vehicles types come first", async () => {
-    render(<DocumentForm options={options} vehiclesFirst initial={{ typeKey: null, ownerContactId: null, maintenanceItemId: "v1", accountRecordId: null }} />);
+    render(<DocumentForm options={options} firstCategory="VEHICLES" initial={{ typeKey: null, ownerContactId: null, maintenanceItemId: "v1", accountRecordId: null }} />);
     await userEvent.click(combo("Type"));
     const groups = [...document.querySelectorAll(".ant-select-item-group")].map((g) => g.textContent);
     expect(groups[0]).toBe("Vehicles");

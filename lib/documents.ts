@@ -1,12 +1,12 @@
 import { z } from "zod";
 import type { DocumentCategory } from "@prisma/client";
 import { isHttpUrl, optionalId, optionalNotes, optionalText, trimToNull } from "@/lib/formFields";
-import { DOCUMENT_CATEGORIES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
+import { DOCUMENT_CATEGORIES, DOCUMENT_TYPES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
 import { calendarName } from "@/lib/contactDates";
 
 // The Documents module's rules (docs/domains/documents.md): what a document's form accepts, its default title, the
 // warning for things that look like ID or account numbers, and the suggestion slots (which documents a family should
-// have, and which of them it has), and how a stored document is shown. Pure: no database here.
+// have, and which of them it has), how a stored document is shown, and how the overview groups them. Pure: no database here.
 
 export const MAX_TITLE = 200;
 export const MAX_LINKS = 5;
@@ -189,3 +189,82 @@ export function toDocumentView(doc: StoredDocument) {
 }
 
 export type DocumentView = ReturnType<typeof toDocumentView>;
+
+// ---- The overview (/documents) ----
+
+/** Whose documents the overview shows: everyone's, the household's own (no one person's), or one member's. */
+export type Whose = { kind: "everyone" } | { kind: "household" } | { kind: "member"; id: string };
+
+export function documentIsWhose(doc: { ownerContactId: string | null }, whose: Whose): boolean {
+  if (whose.kind === "everyone") return true;
+  if (whose.kind === "household") return doc.ownerContactId === null;
+  return doc.ownerContactId === whose.id;
+}
+
+/** A member's slots are theirs; the household's and the vehicles' are the household's. */
+export function slotIsWhose(slot: Slot, whose: Whose): boolean {
+  if (whose.kind === "everyone") return true;
+  if (whose.kind === "household") return slot.subject.kind !== "contact";
+  return slot.subject.kind === "contact" && slot.subject.id === whose.id;
+}
+
+/** A suggested type in a card: its slots (not the dismissed ones) and every document of the type. */
+export type TypeSection = { type: DocumentType; slots: Slot[]; documents: DocumentView[] };
+
+export type DocumentCard = {
+  category: DocumentCategory;
+  label: string;
+  /** Its suggested types, in catalog order (a type with nothing to show is left out). */
+  sections: TypeSection[];
+  /** Its other documents (types that aren't suggested, and custom ones), by title. */
+  others: DocumentView[];
+  counts: { added: number; suggested: number };
+  documentCount: number;
+  /** No documents and nothing left to add: shown last, as just an Add chip. */
+  quiet: boolean;
+};
+
+const byTitle = (a: DocumentView, b: DocumentView) => a.title.localeCompare(b.title);
+
+/** The overview's cards, in catalog order, from the slots and documents it shows. */
+export function documentCards(slots: Slot[], documents: DocumentView[]): DocumentCard[] {
+  return DOCUMENT_CATEGORIES.map(({ key, label }) => {
+    const inCategory = documents.filter((d) => d.category === key);
+    const categorySlots = slots.filter((s) => s.type.category === key);
+    const sections = DOCUMENT_TYPES.filter((t) => t.category === key && t.suggested)
+      .map((type) => ({
+        type,
+        slots: categorySlots.filter((s) => s.type.key === type.key && s.state !== "dismissed"),
+        documents: inCategory.filter((d) => d.typeKey === type.key).sort(byTitle),
+      }))
+      .filter((s) => s.slots.length > 0 || s.documents.length > 0);
+    const others = inCategory.filter((d) => !typeByKey(d.typeKey)?.suggested).sort(byTitle);
+    return {
+      category: key,
+      label,
+      sections,
+      others,
+      counts: slotCounts(categorySlots),
+      documentCount: inCategory.length,
+      quiet: inCategory.length === 0 && !categorySlots.some((s) => s.state === "open"),
+    };
+  });
+}
+
+/** What a slot asks for, in words: "Passport – Ellie", "Title – Pacifica", "Wills". */
+export const slotLabel = (slot: Slot) => (slot.subject.kind === "household" ? slot.type.label : `${slot.type.label} – ${slot.subject.name}`);
+
+/** The form's address for filling a slot, coming back to the overview. */
+export function addLinkFor(slot: Slot): string {
+  const params = new URLSearchParams({ type: slot.type.key });
+  if (slot.subject.kind === "contact") params.set("contact", slot.subject.id);
+  if (slot.subject.kind === "item") params.set("item", slot.subject.id);
+  params.set("returnTo", "/documents");
+  return `/documents/new?${params}`;
+}
+
+/** Search matches a document's title, its type, whose it is, and its item and account. */
+export function documentMatches(doc: DocumentView, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return [doc.title, typeByKey(doc.typeKey)?.label, doc.ownerName, doc.itemName, doc.accountName].some((v) => v?.toLowerCase().includes(q));
+}

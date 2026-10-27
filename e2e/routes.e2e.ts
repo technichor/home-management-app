@@ -3,7 +3,7 @@ import { addServiceProvider, gotoMissing, newOwner, newSession, test } from "./h
 
 // URLs are the same for every household (the data comes from who you're signed in as): there is
 // no per-household segment in any path.
-const APP_PREFIXES = ["api", "home", "todo", "contacts", "lists", "messages", "meals", "calendar", "maintenance", "accounts", "account", "household", "invite", "join"];
+const APP_PREFIXES = ["api", "home", "todo", "contacts", "lists", "messages", "meals", "calendar", "maintenance", "accounts", "documents", "account", "household", "invite", "join"];
 
 async function hrefs(page: Page): Promise<string[]> {
   return page.locator("a[href]").evaluateAll((els) =>
@@ -76,6 +76,7 @@ test("no link anywhere in the app carries a household name", async ({ page }) =>
     "/meals/library/new",
     "/meals/shopping",
     "/calendar",
+    "/documents",
     "/account",
     "/household",
   ];

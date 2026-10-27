@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { DOCUMENT_TYPES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
+import { DOCUMENT_CATEGORIES, DOCUMENT_TYPES, typeByKey, type DocumentType } from "@/lib/documentCatalog";
 import {
+  addLinkFor,
   defaultTitle,
+  documentCards,
+  documentIsWhose,
+  documentMatches,
+  slotIsWhose,
+  slotLabel,
+  type DocumentView,
+  type Whose,
   toDocumentView,
   documentSchema,
   looksSensitive,
@@ -220,5 +228,88 @@ describe("toDocumentView", () => {
     expect(toDocumentView({ ...stored, ownerContactId: null, owner: null, maintenanceItemId: null, maintenanceItem: null, accountRecordId: null, accountRecord: null })).toMatchObject({
       ownerName: null, itemName: null, accountName: null,
     });
+  });
+});
+
+describe("the overview", () => {
+  const doc = (over: Partial<DocumentView>): DocumentView => ({
+    id: "d", title: "T", category: "IDENTITY", typeKey: null, ownerContactId: null, ownerName: null, maintenanceItemId: null, itemName: null,
+    accountRecordId: null, accountName: null, links: [{ url: "https://x.test", label: null }], originalLocation: null, notes: null, ...over,
+  });
+  const members = [
+    { id: "c1", name: "Corey" },
+    { id: "c2", name: "Ellie" },
+  ];
+  const vehicles = [{ id: "v1", name: "Pacifica" }];
+  const docs = [
+    doc({ id: "p1", title: "Passport – Corey", typeKey: "passport", ownerContactId: "c1", ownerName: "Corey" }),
+    doc({ id: "w", title: "Wills", typeKey: "will", category: "LEGAL" }),
+    doc({ id: "t", title: "Title – Pacifica", typeKey: "vehicle-title", category: "VEHICLES", maintenanceItemId: "v1", itemName: "Pacifica" }),
+    doc({ id: "b", title: "Badge", category: "WORK", ownerContactId: "c2", ownerName: "Ellie" }),
+    doc({ id: "a", title: "A note", category: "IDENTITY" }),
+    doc({ id: "pc", title: "Passport card", typeKey: "passport-card", ownerContactId: "c1", ownerName: "Corey", accountName: "Travel card" }),
+  ];
+  const slots = suggestionSlots(DOCUMENT_TYPES, members, vehicles, docs, [
+    { typeKey: "drivers-license", subjectKey: "contact:c2" },
+    { typeKey: "lease", subjectKey: "household" },
+  ]);
+  const card = (cards: ReturnType<typeof documentCards>, category: string) => cards.find((c) => c.category === category)!;
+
+  it("filters documents and slots by whose: everyone, the household, or one member", () => {
+    const whose = (w: Whose) => ({ docs: docs.filter((d) => documentIsWhose(d, w)).map((d) => d.id), slots: new Set(slots.filter((s) => slotIsWhose(s, w)).map((s) => s.subject.kind)) });
+    expect(whose({ kind: "everyone" }).docs).toHaveLength(6);
+    expect(whose({ kind: "household" })).toEqual({ docs: ["w", "t", "a"], slots: new Set(["household", "item"]) });
+    expect(whose({ kind: "member", id: "c2" })).toEqual({ docs: ["b"], slots: new Set(["contact"]) });
+    expect(slots.filter((s) => slotIsWhose(s, { kind: "member", id: "c2" })).every((s) => s.subject.kind === "contact" && s.subject.id === "c2")).toBe(true);
+  });
+
+  it("makes a card per category in catalog order, with its suggested types, then its other documents by title", () => {
+    const cards = documentCards(slots, docs);
+    expect(cards.map((c) => c.category)).toEqual(DOCUMENT_CATEGORIES.map((c) => c.key));
+    const identity = card(cards, "IDENTITY");
+    expect(identity.label).toBe("Identity & vital records");
+    expect(identity.sections.map((s) => s.type.key)).toEqual(["birth-certificate", "social-security-card", "passport", "drivers-license", "marriage-certificate"]);
+    expect(identity.sections[2].documents.map((d) => d.id)).toEqual(["p1"]);
+    // Ellie's dismissed driver's license is left out of its slots, and of the counts.
+    expect(identity.sections[3].slots.map((s) => s.subjectKey)).toEqual(["contact:c1"]);
+    expect(identity.others.map((d) => d.id)).toEqual(["a", "pc"]);
+    expect(identity.counts).toEqual({ added: 1, suggested: 8 });
+    expect(identity.documentCount).toBe(3);
+    expect(identity.quiet).toBe(false);
+  });
+
+  it("a type with nothing to show is left out; a category with no documents and nothing to add is quiet", () => {
+    const cards = documentCards(slots, docs);
+    expect(card(cards, "HOME").sections.map((s) => s.type.key)).not.toContain("lease");
+    expect(card(cards, "VEHICLES").counts).toEqual({ added: 1, suggested: 4 });
+    expect(card(cards, "WORK")).toMatchObject({ quiet: false, documentCount: 1, counts: { added: 0, suggested: 0 } });
+    expect(card(cards, "OTHER").quiet).toBe(true);
+    // With no vehicles, the vehicle types have no slots and drop out; a vehicle's document still shows.
+    const noVehicles = documentCards(suggestionSlots(DOCUMENT_TYPES, members, [], docs, []), docs);
+    expect(card(noVehicles, "VEHICLES").sections.map((s) => s.type.key)).toEqual(["vehicle-title"]);
+    expect(card(documentCards([], []), "VEHICLES").quiet).toBe(true);
+  });
+
+  it("names a slot, and links to the form pre-filled for it, coming back here", () => {
+    const passportEllie = slots.find((s) => s.type.key === "passport" && s.subjectKey === "contact:c2")!;
+    const registration = slots.find((s) => s.type.key === "vehicle-registration")!;
+    const deed = slots.find((s) => s.type.key === "deed")!;
+    expect(slotLabel(passportEllie)).toBe("Passport – Ellie");
+    expect(slotLabel(deed)).toBe("Deed or title");
+    expect(addLinkFor(passportEllie)).toBe("/documents/new?type=passport&contact=c2&returnTo=%2Fdocuments");
+    expect(addLinkFor(registration)).toBe("/documents/new?type=vehicle-registration&item=v1&returnTo=%2Fdocuments");
+    expect(addLinkFor(deed)).toBe("/documents/new?type=deed&returnTo=%2Fdocuments");
+  });
+
+  it("search matches the title, type, whose, item and account", () => {
+    const ids = (q: string) => docs.filter((d) => documentMatches(d, q)).map((d) => d.id);
+    expect(ids("wills")).toEqual(["w"]);
+    expect(ids(" PASSPORT ")).toEqual(["p1", "pc"]);
+    expect(ids("legal")).toEqual([]); // not the category
+    expect(ids("ellie")).toEqual(["b"]);
+    expect(ids("pacifica")).toEqual(["t"]);
+    expect(ids("travel")).toEqual(["pc"]);
+    expect(ids("vehicle")).toEqual([]);
+    expect(ids("Title")).toEqual(["t"]);
   });
 });

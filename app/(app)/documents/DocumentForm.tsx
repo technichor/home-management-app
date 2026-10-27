@@ -33,13 +33,14 @@ export default function DocumentForm({
   options,
   record,
   initial,
-  vehiclesFirst = false,
+  firstCategory,
   returnTo,
 }: {
   options: DocumentFormOptions;
   record?: DocumentView;
   initial?: DocumentPrefill;
-  vehiclesFirst?: boolean;
+  /** The category whose types the picker lists first (from a vehicle, Vehicles; from an Add chip, its category). */
+  firstCategory?: DocumentCategory;
   returnTo?: string;
 }) {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function DocumentForm({
     if (next?.scope === "VEHICLE" && item && !options.items.find((i) => i.id === item)?.isVehicle) setItem(undefined);
   }
 
-  const categories = vehiclesFirst ? [...DOCUMENT_CATEGORIES].sort((a, b) => Number(b.key === "VEHICLES") - Number(a.key === "VEHICLES")) : DOCUMENT_CATEGORIES;
+  const categories = [...DOCUMENT_CATEGORIES].sort((a, b) => Number(b.key === firstCategory) - Number(a.key === firstCategory));
   const typeOptions = [
     ...categories.map((c) => ({ label: c.label, title: c.label, options: typesInCategory(c.key).map((t) => ({ value: t.key, label: t.label })) })),
     { label: "Custom", title: "Custom", options: [{ value: CUSTOM, label: "Custom (no type)" }] },

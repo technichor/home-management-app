@@ -1,6 +1,6 @@
 # Domain: Documents
 
-Status: **Spec written 2026-10-22. Stages 1 (catalog, schema, logic) and 2 (create, view, edit, delete) built 2026-10-26/27 on the `documents` branch, not merged; migration 0032 not applied to production.** The dismiss and restore actions are in stage 2's `actions.ts`; their buttons come with the overview in stage 3. This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
+Status: **Spec written 2026-10-22. Stages 1 to 3 (catalog, schema and logic; create, view, edit, delete; the overview and nav entry) built 2026-10-26/27 on the `documents` branch, not merged; migration 0032 not applied to production.** The overview's grouping (cards, the Whose filter, search) is pure, in `lib/documents.ts` (`documentCards`, `documentIsWhose`, `slotIsWhose`, `documentMatches`). A quiet category's Add chip opens the form with `?category=`, which lists that category's types first. This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
 
 ## What this domain is
 
@@ -435,7 +435,7 @@ Work on a branch, and check in after each stage. Every stage must keep the gate 
    - The sensitive-number warning and the sharing line.
 3. **The overview.**
    - `/documents`: category cards, slots, **Add link** going to the pre-filled form, dismiss and restore, Show all, search, the Whose filter, and the summary line.
-   - The nav entry, and `/documents`, `/documents/new` and a document page in the 375px list. (Until `/documents` exists, the form's Cancel link prefetches a 404 that never finishes, so those pages never reach "networkidle" in that test.)
+   - The nav entry, and `/documents`, `/documents/new` and a document page in the 375px list.
    - e2e coverage: add a passport for one member, then see "1 of N"; dismiss a driver's license for a kid; restore it; search.
 4. **Panels.**
    - Documents panels on the Maintenance item, Account and member Contact pages.
