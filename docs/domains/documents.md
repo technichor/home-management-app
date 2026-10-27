@@ -1,6 +1,6 @@
 # Domain: Documents
 
-Status: **Spec written 2026-10-22. Stages 1 to 3 (catalog, schema and logic; create, view, edit, delete; the overview and nav entry) built 2026-10-26/27 on the `documents` branch, not merged; migration 0032 not applied to production.** The overview's grouping (cards, the Whose filter, search) is pure, in `lib/documents.ts` (`documentCards`, `documentIsWhose`, `slotIsWhose`, `documentMatches`). A quiet category's Add chip opens the form with `?category=`, which lists that category's types first. This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
+Status: **Spec written 2026-10-22. Stages 1 to 4 (catalog, schema and logic; create, view, edit, delete; the overview and nav entry; the panels) built 2026-10-26/27 on the `documents` branch, not merged; migration 0032 not applied to production.** The overview's grouping (cards, the Whose filter, search) is pure, in `lib/documents.ts` (`documentCards`, `documentIsWhose`, `slotIsWhose`, `documentMatches`). A quiet category's Add chip opens the form with `?category=`, which lists that category's types first. The panels load through `lib/documentPanels.ts`; a panel suggests only its own person's or vehicle's types (the household's are on `/documents`), and has no Doesn't apply (that is on `/documents`). This is v0.01: a directory of links, not file storage. Migration numbers below assume the next free number is 0032.
 
 ## What this domain is
 

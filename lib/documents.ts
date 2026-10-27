@@ -254,12 +254,12 @@ export function documentCards(slots: Slot[], documents: DocumentView[]): Documen
 /** What a slot asks for, in words: "Passport – Ellie", "Title – Pacifica", "Wills". */
 export const slotLabel = (slot: Slot) => (slot.subject.kind === "household" ? slot.type.label : `${slot.type.label} – ${slot.subject.name}`);
 
-/** The form's address for filling a slot, coming back to the overview. */
-export function addLinkFor(slot: Slot): string {
+/** The form's address for filling a slot, coming back to the overview (or to the page it was opened from). */
+export function addLinkFor(slot: Slot, returnTo = "/documents"): string {
   const params = new URLSearchParams({ type: slot.type.key });
   if (slot.subject.kind === "contact") params.set("contact", slot.subject.id);
   if (slot.subject.kind === "item") params.set("item", slot.subject.id);
-  params.set("returnTo", "/documents");
+  params.set("returnTo", returnTo);
   return `/documents/new?${params}`;
 }
 

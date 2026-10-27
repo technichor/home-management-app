@@ -15,6 +15,9 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { pageHouseholdId } from "@/lib/auth";
 import { formatBirthday } from "@/lib/birthday";
+import { memberOptionsOf } from "@/lib/householdMembers";
+import { documentsPanel } from "@/lib/documentPanels";
+import DocumentsPanel from "@/components/DocumentsPanel";
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   FAMILY_FRIEND: "Family & Friend",
@@ -71,6 +74,10 @@ export default async function ContactDetailPage({
   });
 
   const isDeleted = !!contact.deletedAt;
+
+  // A member of our own household has documents (passport, birth certificate...); nobody else does here.
+  const member = (await memberOptionsOf(sessionHouseholdId)).find((m) => m.id === contact.id);
+  const panel = member ? await documentsPanel(sessionHouseholdId, { kind: "contact", id: member.id, name: member.name }) : null;
 
   // Build address display
   let addressValue: string | null = null;
@@ -234,6 +241,8 @@ export default async function ContactDetailPage({
         column={{ xs: 1, sm: 2, lg: 3 }}
         items={descItems}
       />
+
+      {panel && <DocumentsPanel panel={panel} />}
 
       {canSync && (
         <SyncCard

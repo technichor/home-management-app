@@ -135,3 +135,49 @@ test("the overview: fill a suggestion, say one doesn't apply and bring it back, 
   await page.reload();
   await expect(page.getByText("1 of 5 suggestions added")).toBeVisible();
 });
+
+test("panels: a vehicle's title from its Maintenance page, a person's from their contact page; deleting the vehicle keeps the title", async ({ page }) => {
+  await newOwner(page, "docs5", "The Panels");
+  await page.goto("/maintenance/new");
+  await page.getByLabel("Name").fill("Pacifica");
+  await page.getByRole("combobox", { name: "Category" }).click();
+  await page.getByTitle("Vehicle", { exact: true }).click();
+  await page.getByRole("button", { name: "Add item" }).click();
+  await expect(page.getByRole("heading", { name: "Pacifica" })).toBeVisible();
+  const itemPath = new URL(page.url()).pathname;
+
+  // The vehicle's Documents section suggests its title, and adding it comes back here.
+  const panel = page.getByRole("region", { name: "Documents" });
+  await panel.getByRole("link", { name: "Add Title" }).click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Title – Pacifica");
+  await page.getByLabel("Link 1", { exact: true }).fill("https://drive.google.com/file/d/pacifica-title/view");
+  await page.getByRole("button", { name: "Add document" }).click();
+  await expect(page).toHaveURL(new RegExp(`${itemPath}$`));
+  await expect(panel.getByRole("link", { name: "Title – Pacifica", exact: true })).toBeVisible();
+  await expect(panel.getByRole("link", { name: "Add Title" })).toHaveCount(0);
+  await expect(panel.getByRole("link", { name: "Add Registration" })).toBeVisible();
+
+  // On /documents, under Vehicles.
+  await page.goto("/documents");
+  const vehicles = page.getByRole("region", { name: "Vehicles" });
+  await expect(vehicles.getByRole("link", { name: "Title – Pacifica", exact: true })).toBeVisible();
+  await expect(vehicles.getByText("1 of 4")).toBeVisible();
+
+  // A household member's contact page: their documents and what they don't have yet.
+  await page.goto("/contacts");
+  await page.getByRole("link", { name: /Casey docs5/ }).first().click();
+  const personal = page.getByRole("region", { name: "Documents" });
+  await personal.getByRole("link", { name: "Add Passport" }).click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Passport – Casey");
+  await page.getByLabel("Link 1", { exact: true }).fill("https://drive.google.com/casey-passport");
+  await page.getByRole("button", { name: "Add document" }).click();
+  await expect(personal.getByRole("link", { name: "Passport – Casey", exact: true })).toBeVisible();
+
+  // Deleting the Pacifica keeps its title, as a Vehicles document of the household.
+  await page.goto(itemPath);
+  await page.getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("tooltip").getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(/\/maintenance$/);
+  await page.goto("/documents");
+  await expect(page.getByRole("region", { name: "Vehicles" }).getByRole("link", { name: "Title – Pacifica", exact: true })).toBeVisible();
+});

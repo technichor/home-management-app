@@ -299,6 +299,7 @@ describe("the overview", () => {
     expect(addLinkFor(passportEllie)).toBe("/documents/new?type=passport&contact=c2&returnTo=%2Fdocuments");
     expect(addLinkFor(registration)).toBe("/documents/new?type=vehicle-registration&item=v1&returnTo=%2Fdocuments");
     expect(addLinkFor(deed)).toBe("/documents/new?type=deed&returnTo=%2Fdocuments");
+    expect(addLinkFor(deed, "/accounts/a1")).toBe("/documents/new?type=deed&returnTo=%2Faccounts%2Fa1");
   });
 
   it("search matches the title, type, whose, item and account", () => {

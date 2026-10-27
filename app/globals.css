@@ -2013,3 +2013,38 @@ a.brief-row:hover {
   padding: 6px 0;
   border-top: 1px solid var(--border);
 }
+
+/* The Documents section on a Maintenance item's, an Account's and a household member's page. */
+.documents-panel {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.documents-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.documents-panel h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.documents-panel header + .documents-doc {
+  border-top: none;
+}
+.documents-panel-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.documents-chip-add {
+  padding-right: 10px;
+  color: var(--accent);
+}

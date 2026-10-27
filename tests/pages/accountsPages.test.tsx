@@ -15,11 +15,14 @@ vi.mock("iron-session", () => ({ getIronSession: vi.fn().mockResolvedValue({ hou
 vi.mock("@/lib/auth", async () => (await import("../helpers/fakeAuth")).fakeAuth);
 vi.mock("@/lib/db", () => ({ prisma: { accountRecord: { findMany: vi.fn(), findFirst: vi.fn() }, contact: { findMany: vi.fn() } } }));
 const seen: Record<string, any> = {};
+vi.mock("@/lib/documentPanels", () => ({ documentsPanel: vi.fn(async () => ({ documents: [], openSlots: [], addHref: "/documents/new" })) }));
+vi.mock("@/components/DocumentsPanel", () => ({ default: (p: any) => ((seen.panel = p.panel), <div>documents panel</div>) }));
 vi.mock("@/app/(app)/accounts/AccountsClient", () => ({ default: (p: any) => ((seen.list = p), <div>list</div>) }));
 vi.mock("@/app/(app)/accounts/AccountForm", () => ({ default: (p: any) => ((seen.form = p), <div>form</div>) }));
 vi.mock("@/app/(app)/accounts/[id]/AccountDetailClient", () => ({ default: (p: any) => ((seen.detail = p), <div>detail</div>) }));
 
 import { prisma } from "@/lib/db";
+import { documentsPanel } from "@/lib/documentPanels";
 import { getIronSession } from "iron-session";
 import AccountsPage from "@/app/(app)/accounts/page";
 import NewAccountPage from "@/app/(app)/accounts/new/page";
@@ -73,6 +76,8 @@ describe("AccountPage", () => {
     render(await AccountPage({ params: idParams }));
     expect(vi.mocked(prisma.accountRecord.findFirst).mock.calls[0][0]!.where).toEqual({ id: "a1", householdId: "h1" });
     expect(seen.detail.record).toMatchObject({ id: "a1", ownerName: "Sam", website: "https://f.test" });
+    expect(documentsPanel).toHaveBeenCalledWith("h1", { kind: "account", id: "a1" });
+    expect(seen.panel).toBeDefined();
   });
   it("handles a record owned by the whole household", async () => {
     vi.mocked(prisma.accountRecord.findFirst).mockResolvedValue(row({ owner: null, ownerContactId: null }) as any);
