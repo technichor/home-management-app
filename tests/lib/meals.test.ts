@@ -49,7 +49,7 @@ describe("deleteMealKeepingEntries", () => {
 
 describe("mealSchema", () => {
   it("trims the name and requires one", () => {
-    expect(mealSchema.safeParse({ name: "  Tacos ", description: null }).data).toEqual({ name: "Tacos", description: null });
+    expect(mealSchema.safeParse({ name: "  Tacos ", description: null }).data).toEqual({ name: "Tacos", description: null, recipeUrl: null });
     expect(mealSchema.safeParse({ name: "  ", description: null }).error?.issues[0].message).toBe("Give the meal a name");
   });
 

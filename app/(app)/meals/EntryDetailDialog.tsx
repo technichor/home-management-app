@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { App, Button, Input, Modal, Popconfirm, Select, Space, Typography } from "antd";
 import { SLOTS, SLOT_LABELS } from "@/lib/mealPlan";
 import { formatCalendarDate, formatDayHeading, isDateString } from "@/lib/dates";
+import LinkButton from "@/components/LinkButton";
 import { moveEntryAction, removeEntryAction } from "./actions";
 import type { MealSlot } from "@prisma/client";
 
@@ -16,6 +17,7 @@ export type DetailEntry = {
   mealId: string | null;
   label: string;
   description: string | null;
+  recipeUrl: string | null;
 };
 
 /** One planned entry: the meal's details (or the one-off's text), and actions to move or remove it. */
@@ -81,6 +83,12 @@ function EntryBody({
         )}
         {!entry.mealId && " \u00b7 One-off, not in your library"}
       </Typography.Text>
+
+      {entry.recipeUrl && (
+        <div>
+          <LinkButton url={entry.recipeUrl} name={`the recipe for ${entry.label}`} />
+        </div>
+      )}
 
       {entry.description && (
         // Plain text with its whitespace, never HTML.

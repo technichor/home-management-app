@@ -27,7 +27,7 @@ export default async function MealDetailPage({
     <>
       <LocalToday today={today} />
       <MealDetailClient
-        meal={{ id: meal.id, name: meal.name, description: meal.description }}
+        meal={{ id: meal.id, name: meal.name, description: meal.description, recipeUrl: meal.recipeUrl }}
         lastMade={stats.get(id)?.lastMade ?? null}
         timesMade={stats.get(id)?.timesMade ?? 0}
         entryCount={entryCount}

@@ -8,7 +8,7 @@ Families plan meals for the coming week on a calendar, build one shopping list a
 
 Three concepts:
 
-- **Meal**: a library entry with a name and a long free-text description (a place to paste a recipe).
+- **Meal**: a library entry with a name, a long free-text description (a place to paste a recipe), and an optional link to the recipe on another site.
 - **Planned entry**: puts a Meal, or a one-off text such as "leftovers", on a date and a slot (breakfast, lunch, dinner). A slot can hold several entries.
 - **Shopping list**: the Lists module extended with a `GROCERY` kind that groups items by store section. One per household.
 
@@ -20,7 +20,7 @@ Access is the same as every other domain: any signed-in household account can re
 |---|---|
 | `List.kind` (`ListKind` STANDARD \| GROCERY, default STANDARD) | 0020. One GROCERY list per household, enforced in the app only (`lib/shopping.ts`), not by a constraint, so splitting by store later needs no migration. |
 | `ListItem.category` (`GroceryCategory`, nullable) | 0020. Null in STANDARD lists. PRODUCE, MEAT_SEAFOOD, DAIRY_EGGS, BAKERY, PANTRY, FROZEN, BEVERAGES, SNACKS, HOUSEHOLD, OTHER. Labels and the fixed display order are in `lib/groceryCategories.ts`. |
-| `Meal` | 0021. `householdId`, `name`, `nameKey` (lowercased, trimmed name), `description`, timestamps. `@@unique([householdId, nameKey])`: names are unique per household, ignoring case. |
+| `Meal` | 0021. `householdId`, `name`, `nameKey` (lowercased, trimmed name), `description`, `recipeUrl` (0035; optional, http or https only, at most 2,000 characters), timestamps. `@@unique([householdId, nameKey])`: names are unique per household, ignoring case. |
 | `MealPlanEntry` | 0021. `householdId`, `date` (`@db.Date`), `slot` (`MealSlot`), `mealId` (nullable, `onDelete: SetNull`), `text`. Exactly one of `mealId` / `text` is set (Zod `planEntrySchema` and the action layer). `@@index([householdId, date])`. |
 | `MealPlanSettings` | 0022. One row per household, keyed by `householdId`: `weekStartsOn` (SUNDAY default), `showBreakfast` (false), `showLunch` (true), `showDinner` (true). Created with these defaults on first read (`getMealPlanSettings`). At least one `show*` must stay true. Migration 0030 added `breakfastTime`/`lunchTime`/`dinnerTime` ("HH:MM" or null): each meal's usual time, set under its name in the planner (or in the planner settings), which places planned meals on the calendar's hour grid. |
 
@@ -42,7 +42,7 @@ Access is the same as every other domain: any signed-in household account can re
 /meals                       planner (week grid; Ideas panel; Shopping list slide-over; settings)
 /meals/library               meal library: search, sort by name / last made / most made
 /meals/library/new           add a meal
-/meals/library/[id]          meal detail (description as plain text, stats, edit, delete)
+/meals/library/[id]          meal detail (recipe link, description as plain text, stats, edit, delete)
 /meals/library/[id]/edit     edit a meal
 /meals/shopping              the shopping list, full page
 ```

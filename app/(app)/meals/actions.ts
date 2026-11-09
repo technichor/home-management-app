@@ -20,8 +20,8 @@ async function loadMeal(householdId: string, id: string) {
   return meal;
 }
 
-function parseMeal(name: string, description: string | null | undefined) {
-  const parsed = mealSchema.safeParse({ name, description });
+function parseMeal(name: string, description: string | null | undefined, recipeUrl?: string | null) {
+  const parsed = mealSchema.safeParse({ name, description, recipeUrl });
   if (!parsed.success) throw new UserError(parsed.error.issues[0].message);
   return parsed.data;
 }
@@ -37,14 +37,14 @@ function refresh(id?: string) {
   if (id) revalidatePath(`/meals/library/${id}`);
 }
 
-export async function createMealAction(name: string, description: string | null) {
+export async function createMealAction(name: string, description: string | null, recipeUrl: string | null) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
-    const data = parseMeal(name, description);
+    const data = parseMeal(name, description, recipeUrl);
     await assertNameFree(householdId, data.name);
     try {
       const meal = await prisma.meal.create({
-        data: { householdId, name: data.name, nameKey: mealKey(data.name), description: data.description },
+        data: { householdId, name: data.name, nameKey: mealKey(data.name), description: data.description, recipeUrl: data.recipeUrl },
       });
       refresh();
       return { id: meal.id };
@@ -56,16 +56,16 @@ export async function createMealAction(name: string, description: string | null)
   });
 }
 
-export async function updateMealAction(id: string, name: string, description: string | null) {
+export async function updateMealAction(id: string, name: string, description: string | null, recipeUrl: string | null) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     await loadMeal(householdId, id);
-    const data = parseMeal(name, description);
+    const data = parseMeal(name, description, recipeUrl);
     await assertNameFree(householdId, data.name, id);
     try {
       await prisma.meal.update({
         where: { id },
-        data: { name: data.name, nameKey: mealKey(data.name), description: data.description },
+        data: { name: data.name, nameKey: mealKey(data.name), description: data.description, recipeUrl: data.recipeUrl },
       });
     } catch (e) {
       if (isUniqueViolation(e)) throw new UserError(`"${data.name}" is already in your library`);

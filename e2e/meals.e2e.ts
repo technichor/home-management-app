@@ -44,12 +44,19 @@ test("the meal library: add, search, sort, edit, and no duplicate names", async 
   await page.getByLabel("Search meals").fill("nothing like this");
   await expect(page.getByText(/No meal matches/)).toBeVisible();
 
-  // Edit.
+  // Edit, adding a recipe link: only http(s) is accepted, and it opens in a new tab.
   await page.goto(tacosPath);
   await page.getByRole("link", { name: "Edit" }).click();
   await page.getByLabel("Name").fill("Fish tacos");
+  await page.getByLabel("Recipe link").fill("cooking.test/fish-tacos");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("The recipe link must start with http:// or https://")).toBeVisible();
+  await page.getByLabel("Recipe link").fill("https://www.cooking.test/fish-tacos");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Fish tacos" })).toBeVisible();
+  const link = page.getByRole("link", { name: "Open the recipe for Fish tacos (cooking.test)" });
+  await expect(link).toHaveAttribute("href", "https://www.cooking.test/fish-tacos");
+  await expect(link).toHaveAttribute("target", "_blank");
 });
 
 test("last made and times made come from the plan, up to the browser's today", async ({ page }) => {

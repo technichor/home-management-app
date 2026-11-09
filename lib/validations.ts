@@ -2,6 +2,7 @@ import { z } from "zod";
 import { MAX_MESSAGE_LENGTH } from "./messaging";
 import { isDateString } from "./dates";
 import { birthdayProblem } from "./birthday";
+import { optionalHttpUrl } from "./formFields";
 
 export const ContactCategoryEnum = z.enum([
   "FAMILY_FRIEND",
@@ -212,7 +213,12 @@ export const messageSchema = z.object({
 
 export const MAX_MEAL_DESCRIPTION = 20000;
 
-/** A meal in the library: a name, and a long free-text description (a place to paste a whole recipe). */
+export const MAX_RECIPE_URL = 2000;
+
+/**
+ * A meal in the library: a name, a long free-text description (a place to paste a whole recipe), and an optional
+ * link to the recipe on another site.
+ */
 export const mealSchema = z.object({
   name: z.string().trim().min(1, "Give the meal a name").max(120, "Names can be at most 120 characters"),
   description: z
@@ -221,6 +227,7 @@ export const mealSchema = z.object({
     .nullish()
     // Text is kept exactly as pasted (line breaks and indentation); only an empty or blank one becomes null.
     .transform((v) => (v && v.trim() ? v : null)),
+  recipeUrl: optionalHttpUrl("The recipe link", MAX_RECIPE_URL),
 });
 
 const MEAL_SLOTS = ["BREAKFAST", "LUNCH", "DINNER"] as const;

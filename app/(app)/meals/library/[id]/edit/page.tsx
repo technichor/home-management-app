@@ -8,5 +8,5 @@ export default async function EditMealPage({ params }: { params: Promise<{ id: s
   const householdId = await pageHouseholdId();
   const meal = await prisma.meal.findFirst({ where: { id, householdId } });
   if (!meal) notFound();
-  return <MealForm meal={{ id: meal.id, name: meal.name, description: meal.description }} />;
+  return <MealForm meal={{ id: meal.id, name: meal.name, description: meal.description, recipeUrl: meal.recipeUrl }} />;
 }

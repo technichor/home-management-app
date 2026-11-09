@@ -31,9 +31,9 @@ import {
 
 const settings = { weekStartsOn: "SUNDAY" as const, showBreakfast: false, showLunch: true, showDinner: true, breakfastTime: null, lunchTime: null, dinnerTime: null };
 const entries = [
-  { id: "e1", date: "2026-10-05", slot: "DINNER" as const, mealId: "m1", label: "Tacos", description: "Line one\n  <b>fry</b>" },
-  { id: "e2", date: "2026-10-05", slot: "DINNER" as const, mealId: "m2", label: "Rice", description: null },
-  { id: "e3", date: "2026-10-06", slot: "LUNCH" as const, mealId: null, label: "Leftovers", description: null },
+  { id: "e1", date: "2026-10-05", slot: "DINNER" as const, mealId: "m1", label: "Tacos", description: "Line one\n  <b>fry</b>", recipeUrl: "https://www.cooking.test/tacos" },
+  { id: "e2", date: "2026-10-05", slot: "DINNER" as const, mealId: "m2", label: "Rice", description: null, recipeUrl: null },
+  { id: "e3", date: "2026-10-06", slot: "LUNCH" as const, mealId: null, label: "Leftovers", description: null, recipeUrl: null },
 ];
 const meals = [
   { id: "m1", name: "Tacos", lastMade: "2026-09-28", timesMade: 4 },
@@ -361,6 +361,20 @@ describe("an entry's detail", () => {
     expect(dialog.getByRole("link", { name: "Edit meal" })).toHaveAttribute("href", "/meals/library/m1/edit");
   });
 
+  it("links to a meal's recipe in a new tab", async () => {
+    setup();
+    const dialog = await open("Tacos");
+    const link = dialog.getByRole("link", { name: "Open the recipe for Tacos (cooking.test)" });
+    expect(link).toHaveAttribute("href", "https://www.cooking.test/tacos");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("shows no recipe link for a meal without one", async () => {
+    setup();
+    const dialog = await open("Rice");
+    expect(dialog.queryByRole("link", { name: /recipe/ })).toBeNull();
+  });
+
   it("says '1 time' for a meal made once", async () => {
     setup({ meals: [{ ...meals[0], timesMade: 1 }, ...meals.slice(1)] });
     const dialog = await open("Tacos");
@@ -584,7 +598,7 @@ describe("suggestions", () => {
     const { rerender } = render(wrap(entries));
     await userEvent.click(screen.getByRole("button", { name: "Ideas" }));
     expect(ideas().due).toContain("Chili");
-    rerender(wrap([...entries, { id: "e9", date: "2026-10-08", slot: "DINNER" as const, mealId: "m3", label: "Chili", description: null }]));
+    rerender(wrap([...entries, { id: "e9", date: "2026-10-08", slot: "DINNER" as const, mealId: "m3", label: "Chili", description: null, recipeUrl: null }]));
     expect(ideas().due).not.toContain("Chili");
   });
 

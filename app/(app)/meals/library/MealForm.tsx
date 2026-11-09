@@ -4,14 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Input, Space, Typography } from "antd";
-import { MAX_MEAL_DESCRIPTION } from "@/lib/validations";
+import { MAX_MEAL_DESCRIPTION, MAX_RECIPE_URL } from "@/lib/validations";
 import { createMealAction, updateMealAction } from "../actions";
 
 /** Create a meal (no `meal`) or edit one. */
-export default function MealForm({ meal }: { meal?: { id: string; name: string; description: string | null } }) {
+export default function MealForm({ meal }: { meal?: { id: string; name: string; description: string | null; recipeUrl: string | null } }) {
   const router = useRouter();
   const [name, setName] = useState(meal?.name ?? "");
   const [description, setDescription] = useState(meal?.description ?? "");
+  const [recipeUrl, setRecipeUrl] = useState(meal?.recipeUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -20,11 +21,11 @@ export default function MealForm({ meal }: { meal?: { id: string; name: string; 
     setError(null);
     try {
       if (meal) {
-        const result = await updateMealAction(meal.id, name, description);
+        const result = await updateMealAction(meal.id, name, description, recipeUrl);
         if (!result.ok) return setError(result.error);
         router.push(`/meals/library/${meal.id}`);
       } else {
-        const result = await createMealAction(name, description);
+        const result = await createMealAction(name, description, recipeUrl);
         if (!result.ok) return setError(result.error);
         router.push(`/meals/library/${result.id}`);
       }
@@ -44,6 +45,19 @@ export default function MealForm({ meal }: { meal?: { id: string; name: string; 
           Name
         </Typography.Text>
         <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="e.g. Chicken tikka masala" aria-label="Name" autoFocus />
+      </div>
+      <div>
+        <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
+          Recipe link
+        </Typography.Text>
+        <Input
+          value={recipeUrl}
+          onChange={(e) => setRecipeUrl(e.target.value)}
+          maxLength={MAX_RECIPE_URL}
+          placeholder="Optional. e.g. https://www.allrecipes.com/recipe/..."
+          aria-label="Recipe link"
+          inputMode="url"
+        />
       </div>
       <div>
         <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>

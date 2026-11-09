@@ -256,8 +256,9 @@ describe("success step", () => {
     vi.mocked(applyImportAction).mockResolvedValue({ ok: true });
     render(<ImportClient />);
     await upload();
-    await userEvent.click(await screen.findByRole("button", { name: /Apply 8 changes/ }));
-    await screen.findByText("Import applied successfully.");
+    // Longer than the default 1s: the diff step can take that long to render when the whole suite runs at once.
+    await userEvent.click(await screen.findByRole("button", { name: /Apply 8 changes/ }, { timeout: 5000 }));
+    await screen.findByText("Import applied successfully.", {}, { timeout: 5000 });
   }
 
   it("can start another import", async () => {
