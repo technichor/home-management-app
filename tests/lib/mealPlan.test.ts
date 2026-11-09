@@ -45,7 +45,7 @@ describe("getMealPlanSettings", () => {
 describe("weekEntries", () => {
   it("asks for this household's seven days only, in the order they were added", async () => {
     vi.mocked(prisma.mealPlanEntry.findMany).mockResolvedValue([
-      { id: "e1", date: new Date("2026-10-05T00:00:00Z"), slot: "DINNER", mealId: "m1", text: null, meal: { id: "m1", name: "Tacos", description: "Fry" } },
+      { id: "e1", date: new Date("2026-10-05T00:00:00Z"), slot: "DINNER", mealId: "m1", text: null, meal: { id: "m1", name: "Tacos", description: "Fry", recipeUrl: "https://cooking.test/tacos" } },
       { id: "e2", date: new Date("2026-10-06T00:00:00Z"), slot: "LUNCH", mealId: null, text: "Leftovers", meal: null },
     ] as any);
     const rows = await weekEntries("h1", "2026-10-04");
@@ -56,8 +56,8 @@ describe("weekEntries", () => {
     });
     expect(arg.orderBy).toEqual({ createdAt: "asc" });
     expect(rows).toEqual([
-      { id: "e1", date: "2026-10-05", slot: "DINNER", mealId: "m1", label: "Tacos", description: "Fry" },
-      { id: "e2", date: "2026-10-06", slot: "LUNCH", mealId: null, label: "Leftovers", description: null },
+      { id: "e1", date: "2026-10-05", slot: "DINNER", mealId: "m1", label: "Tacos", description: "Fry", recipeUrl: "https://cooking.test/tacos" },
+      { id: "e2", date: "2026-10-06", slot: "LUNCH", mealId: null, label: "Leftovers", description: null, recipeUrl: null },
     ]);
   });
 

@@ -538,6 +538,8 @@ model Meal {
   name        String
   nameKey     String
   description String?
+  // A link to the recipe on another site (http or https only). Optional.
+  recipeUrl   String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   entries     MealPlanEntry[]

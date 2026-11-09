@@ -88,20 +88,22 @@ describe("MealForm", () => {
     const save = screen.getByRole("button", { name: "Add meal" });
     expect(save).toBeDisabled();
     await userEvent.type(screen.getByLabelText("Name"), "Pad thai");
+    await userEvent.type(screen.getByLabelText("Recipe link"), "https://cooking.test/pad-thai");
     await userEvent.type(screen.getByLabelText("Description"), "Soak noodles");
     await userEvent.click(save);
-    await waitFor(() => expect(createMealAction).toHaveBeenCalledWith("Pad thai", "Soak noodles"));
+    await waitFor(() => expect(createMealAction).toHaveBeenCalledWith("Pad thai", "Soak noodles", "https://cooking.test/pad-thai"));
     expect(router.push).toHaveBeenCalledWith("/meals/library/new1");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/meals/library");
   });
 
   it("edits a meal and returns to it", async () => {
     vi.mocked(updateMealAction).mockResolvedValue({ ok: true });
-    render(<MealForm meal={{ id: "m1", name: "Tacos", description: null }} />);
+    render(<MealForm meal={{ id: "m1", name: "Tacos", description: null, recipeUrl: "https://cooking.test/tacos" }} />);
     expect(screen.getByLabelText("Name")).toHaveValue("Tacos");
+    expect(screen.getByLabelText("Recipe link")).toHaveValue("https://cooking.test/tacos");
     await userEvent.type(screen.getByLabelText("Name"), "!");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(updateMealAction).toHaveBeenCalledWith("m1", "Tacos!", ""));
+    await waitFor(() => expect(updateMealAction).toHaveBeenCalledWith("m1", "Tacos!", "", "https://cooking.test/tacos"));
     expect(router.push).toHaveBeenCalledWith("/meals/library/m1");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/meals/library/m1");
   });
@@ -114,7 +116,7 @@ describe("MealForm", () => {
     expect(await screen.findByText('"Pad thai" is already in your library')).toBeInTheDocument();
     unmount();
     vi.mocked(updateMealAction).mockResolvedValue({ ok: false, error: "Meal not found" });
-    render(<MealForm meal={{ id: "m1", name: "Tacos", description: "x" }} />);
+    render(<MealForm meal={{ id: "m1", name: "Tacos", description: "x", recipeUrl: null }} />);
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Meal not found")).toBeInTheDocument();
     expect(router.push).not.toHaveBeenCalled();
@@ -122,7 +124,7 @@ describe("MealForm", () => {
 });
 
 describe("MealDetailClient", () => {
-  const meal = { id: "m1", name: "Tacos", description: "Line one\n  indented <b>not bold</b>" };
+  const meal = { id: "m1", name: "Tacos", description: "Line one\n  indented <b>not bold</b>", recipeUrl: null };
   const setup = (over: Partial<React.ComponentProps<typeof MealDetailClient>> = {}) =>
     render(<MealDetailClient meal={meal} lastMade="2026-10-01" timesMade={1} entryCount={0} {...over} />);
 
@@ -134,6 +136,17 @@ describe("MealDetailClient", () => {
     expect(container.querySelector("b")).toBeNull();
     expect(screen.getByText("Last made Oct 1, 2026 · 1 time")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/meals/library/m1/edit");
+  });
+
+  it("links to the recipe in a new tab when there is one, and not otherwise", () => {
+    const { unmount } = setup();
+    expect(screen.queryByRole("link", { name: /recipe/ })).toBeNull();
+    unmount();
+    setup({ meal: { ...meal, recipeUrl: "https://www.cooking.test/tacos" } });
+    const link = screen.getByRole("link", { name: "Open the recipe for Tacos (cooking.test)" });
+    expect(link).toHaveAttribute("href", "https://www.cooking.test/tacos");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("handles a meal with no description and no history", () => {

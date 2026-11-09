@@ -100,7 +100,7 @@ describe("NewMealPage", () => {
 
 describe("MealDetailPage", () => {
   it("loads the meal through the household, with its stats and how many entries use it", async () => {
-    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: "Fry" } as any);
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: "Fry", recipeUrl: "https://cooking.test/tacos" } as any);
     vi.mocked(prisma.mealPlanEntry.count).mockResolvedValue(3);
     vi.mocked(prisma.mealPlanEntry.groupBy).mockResolvedValue([
       { mealId: "m1", _max: { date: new Date("2026-09-30T00:00:00Z") }, _count: { _all: 5 } },
@@ -110,7 +110,7 @@ describe("MealDetailPage", () => {
     expect(prisma.meal.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
     expect(prisma.mealPlanEntry.count).toHaveBeenCalledWith({ where: { householdId: "h1", mealId: "m1" } });
     expect(seen.detail).toEqual({
-      meal: { id: "m1", name: "Tacos", description: "Fry" },
+      meal: { id: "m1", name: "Tacos", description: "Fry", recipeUrl: "https://cooking.test/tacos" },
       lastMade: "2026-09-30",
       timesMade: 5,
       entryCount: 3,
@@ -118,7 +118,7 @@ describe("MealDetailPage", () => {
   });
 
   it("shows a never-made meal with zero counts", async () => {
-    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: null } as any);
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: null, recipeUrl: null } as any);
     render(await MealDetailPage({ params: idParams }));
     expect(seen.detail).toMatchObject({ lastMade: null, timesMade: 0, entryCount: 0 });
   });
@@ -131,10 +131,10 @@ describe("MealDetailPage", () => {
 
 describe("EditMealPage", () => {
   it("fills the form from the household's meal", async () => {
-    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: "Fry", nameKey: "tacos" } as any);
+    vi.mocked(prisma.meal.findFirst).mockResolvedValue({ id: "m1", name: "Tacos", description: "Fry", nameKey: "tacos", recipeUrl: null } as any);
     render(await EditMealPage({ params: idParams }));
     expect(prisma.meal.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
-    expect(seen.form).toEqual({ meal: { id: "m1", name: "Tacos", description: "Fry" } });
+    expect(seen.form).toEqual({ meal: { id: "m1", name: "Tacos", description: "Fry", recipeUrl: null } });
   });
 
   it("404s for a meal that isn't theirs", async () => {

@@ -50,8 +50,8 @@ beforeEach(() => {
 
 describe("authentication", () => {
   it.each([
-    ["createMealAction", () => createMealAction("Tacos", null)],
-    ["updateMealAction", () => updateMealAction("m1", "Tacos", null)],
+    ["createMealAction", () => createMealAction("Tacos", null, null)],
+    ["updateMealAction", () => updateMealAction("m1", "Tacos", null, null)],
     ["deleteMealAction", () => deleteMealAction("m1")],
     ["addPlanEntryAction", () => addPlanEntryAction("2026-10-05", "DINNER", "m1")],
     ["addOneOffEntryAction", () => addOneOffEntryAction("2026-10-05", "DINNER", "Leftovers")],
@@ -69,75 +69,95 @@ describe("authentication", () => {
 
 describe("createMealAction", () => {
   it("creates the meal in the session's household with its lowercase key", async () => {
-    expect(await createMealAction("  Chicken Tikka ", "Marinate overnight")).toEqual({ ok: true, id: "new1" });
+    expect(await createMealAction("  Chicken Tikka ", "Marinate overnight", null)).toEqual({ ok: true, id: "new1" });
     expect(prisma.meal.create).toHaveBeenCalledWith({
-      data: { householdId: "h1", name: "Chicken Tikka", nameKey: "chicken tikka", description: "Marinate overnight" },
+      data: { householdId: "h1", name: "Chicken Tikka", nameKey: "chicken tikka", description: "Marinate overnight", recipeUrl: null },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/meals/library");
   });
 
   it("looks for a duplicate only within the household, ignoring case", async () => {
-    await createMealAction("TACOS", null);
+    await createMealAction("TACOS", null, null);
     expect(prisma.meal.findUnique).toHaveBeenCalledWith({ where: { householdId_nameKey: { householdId: "h1", nameKey: "tacos" } } });
   });
 
   it("refuses a name already in the library, in any case", async () => {
     vi.mocked(prisma.meal.findUnique).mockResolvedValue({ id: "m1", name: "Tacos" } as any);
-    expect(await createMealAction("tacos ", null)).toEqual({ ok: false, error: '"Tacos" is already in your library' });
+    expect(await createMealAction("tacos ", null, null)).toEqual({ ok: false, error: '"Tacos" is already in your library' });
     expect(prisma.meal.create).not.toHaveBeenCalled();
   });
 
   it("copes with two people adding the same name at once", async () => {
     vi.mocked(prisma.meal.create).mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "P2002" }));
-    expect(await createMealAction("Tacos", null)).toEqual({ ok: false, error: '"Tacos" is already in your library' });
+    expect(await createMealAction("Tacos", null, null)).toEqual({ ok: false, error: '"Tacos" is already in your library' });
   });
 
   it("lets other database errors through", async () => {
     vi.mocked(prisma.meal.create).mockRejectedValueOnce(new Error("db down"));
-    await expect(createMealAction("Tacos", null)).rejects.toThrow("db down");
+    await expect(createMealAction("Tacos", null, null)).rejects.toThrow("db down");
+  });
+
+  it("keeps a recipe link, trimmed", async () => {
+    await createMealAction("Tacos", null, "  https://cooking.test/tacos ");
+    expect(vi.mocked(prisma.meal.create).mock.calls[0][0].data).toMatchObject({ recipeUrl: "https://cooking.test/tacos" });
+  });
+
+  it("refuses a recipe link that isn't http or https, or is too long", async () => {
+    expect(await createMealAction("Tacos", null, "javascript:alert(1)")).toEqual({ ok: false, error: "The recipe link must start with http:// or https://" });
+    expect(await createMealAction("Tacos", null, "cooking.test/tacos")).toEqual({ ok: false, error: "The recipe link must start with http:// or https://" });
+    expect(await createMealAction("Tacos", null, `https://x.test/${"a".repeat(2000)}`)).toEqual({ ok: false, error: "The recipe link can be at most 2000 characters" });
+    expect(prisma.meal.create).not.toHaveBeenCalled();
   });
 
   it("rejects a blank name and an over-long description", async () => {
-    expect(await createMealAction("  ", null)).toEqual({ ok: false, error: "Give the meal a name" });
-    expect(await createMealAction("Tacos", "a".repeat(20001))).toMatchObject({ ok: false });
+    expect(await createMealAction("  ", null, null)).toEqual({ ok: false, error: "Give the meal a name" });
+    expect(await createMealAction("Tacos", "a".repeat(20001), null)).toMatchObject({ ok: false });
     expect(prisma.meal.create).not.toHaveBeenCalled();
   });
 });
 
 describe("updateMealAction", () => {
   it("only loads a meal of the session's household", async () => {
-    await updateMealAction("m1", "Tacos", null);
+    await updateMealAction("m1", "Tacos", null, null);
     expect(prisma.meal.findFirst).toHaveBeenCalledWith({ where: { id: "m1", householdId: "h1" } });
   });
 
   it("treats another household's meal as not found, changing nothing", async () => {
     vi.mocked(prisma.meal.findFirst).mockResolvedValue(null);
-    expect(await updateMealAction("theirs", "Tacos", null)).toEqual({ ok: false, error: "Meal not found" });
+    expect(await updateMealAction("theirs", "Tacos", null, null)).toEqual({ ok: false, error: "Meal not found" });
     expect(prisma.meal.update).not.toHaveBeenCalled();
   });
 
   it("renames and rewrites the key, and may keep its own name (even in a different case)", async () => {
     vi.mocked(prisma.meal.findUnique).mockResolvedValue({ id: "m1", name: "Tacos" } as any);
-    expect(await updateMealAction("m1", "TACOS", "new text")).toEqual({ ok: true });
+    expect(await updateMealAction("m1", "TACOS", "new text", null)).toEqual({ ok: true });
     expect(prisma.meal.update).toHaveBeenCalledWith({
       where: { id: "m1" },
-      data: { name: "TACOS", nameKey: "tacos", description: "new text" },
+      data: { name: "TACOS", nameKey: "tacos", description: "new text", recipeUrl: null },
     });
     expect(revalidatePath).toHaveBeenCalledWith("/meals/library/m1");
   });
 
+  it("sets, changes and clears the recipe link", async () => {
+    await updateMealAction("m1", "Tacos", null, "https://cooking.test/tacos");
+    expect(vi.mocked(prisma.meal.update).mock.calls[0][0].data).toMatchObject({ recipeUrl: "https://cooking.test/tacos" });
+    await updateMealAction("m1", "Tacos", null, "   ");
+    expect(vi.mocked(prisma.meal.update).mock.calls[1][0].data).toMatchObject({ recipeUrl: null });
+    expect(await updateMealAction("m1", "Tacos", null, "ftp://x.test")).toEqual({ ok: false, error: "The recipe link must start with http:// or https://" });
+  });
+
   it("refuses another meal's name", async () => {
     vi.mocked(prisma.meal.findUnique).mockResolvedValue({ id: "other", name: "Pizza" } as any);
-    expect(await updateMealAction("m1", "pizza", null)).toEqual({ ok: false, error: '"Pizza" is already in your library' });
+    expect(await updateMealAction("m1", "pizza", null, null)).toEqual({ ok: false, error: '"Pizza" is already in your library' });
     expect(prisma.meal.update).not.toHaveBeenCalled();
   });
 
   it("copes with a name taken at the same moment, and with validation errors", async () => {
     vi.mocked(prisma.meal.update).mockRejectedValueOnce(Object.assign(new Error("dup"), { code: "P2002" }));
-    expect(await updateMealAction("m1", "Pizza", null)).toEqual({ ok: false, error: '"Pizza" is already in your library' });
+    expect(await updateMealAction("m1", "Pizza", null, null)).toEqual({ ok: false, error: '"Pizza" is already in your library' });
     vi.mocked(prisma.meal.update).mockRejectedValueOnce(new Error("db down"));
-    await expect(updateMealAction("m1", "Pizza", null)).rejects.toThrow("db down");
-    expect(await updateMealAction("m1", " ", null)).toEqual({ ok: false, error: "Give the meal a name" });
+    await expect(updateMealAction("m1", "Pizza", null, null)).rejects.toThrow("db down");
+    expect(await updateMealAction("m1", " ", null, null)).toEqual({ ok: false, error: "Give the meal a name" });
   });
 });
 

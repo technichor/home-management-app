@@ -95,7 +95,7 @@ export async function entriesInRange(householdId: string, start: string, end: st
 export async function weekEntries(householdId: string, weekStart: string) {
   const rows = await prisma.mealPlanEntry.findMany({
     where: { householdId, date: { gte: stringToDate(weekStart), lte: stringToDate(addDays(weekStart, 6)) } },
-    include: { meal: { select: { id: true, name: true, description: true } } },
+    include: { meal: { select: { id: true, name: true, description: true, recipeUrl: true } } },
     orderBy: { createdAt: "asc" },
   });
   return rows.map((r) => ({
@@ -105,5 +105,6 @@ export async function weekEntries(householdId: string, weekStart: string) {
     mealId: r.mealId,
     label: r.meal?.name ?? r.text ?? "",
     description: r.meal?.description ?? null,
+    recipeUrl: r.meal?.recipeUrl ?? null,
   }));
 }

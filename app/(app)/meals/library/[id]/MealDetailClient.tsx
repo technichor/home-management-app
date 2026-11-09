@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Popconfirm, Space, Typography } from "antd";
 import { formatCalendarDate } from "@/lib/dates";
+import LinkButton from "@/components/LinkButton";
 import { deleteMealAction } from "../../actions";
 
 export default function MealDetailClient({
@@ -13,7 +14,7 @@ export default function MealDetailClient({
   timesMade,
   entryCount,
 }: {
-  meal: { id: string; name: string; description: string | null };
+  meal: { id: string; name: string; description: string | null; recipeUrl: string | null };
   lastMade: string | null;
   timesMade: number;
   entryCount: number;
@@ -47,6 +48,12 @@ export default function MealDetailClient({
           {lastMade ? `Last made ${formatCalendarDate(lastMade)}` : "Never made"} · {timesMade === 1 ? "1 time" : `${timesMade} times`}
         </Typography.Text>
       </div>
+
+      {meal.recipeUrl && (
+        <div>
+          <LinkButton url={meal.recipeUrl} name={`the recipe for ${meal.name}`} />
+        </div>
+      )}
 
       {error && <Alert type="error" showIcon title={error} closable onClose={() => setError(null)} />}
 
