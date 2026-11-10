@@ -109,6 +109,27 @@ describe("createMealAction", () => {
     expect(prisma.meal.create).not.toHaveBeenCalled();
   });
 
+  it("from the planner, also puts the new meal on that date and slot, in the same transaction", async () => {
+    expect(await createMealAction("Pad thai", null, null, { date: "2026-10-05", slot: "DINNER" })).toEqual({ ok: true, id: "new1" });
+    expect(prisma.mealPlanEntry.create).toHaveBeenCalledWith({
+      data: { householdId: "h1", date: day, slot: "DINNER", mealId: "new1", text: null },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/meals");
+  });
+
+  it("without a place on the plan, adds nothing to it", async () => {
+    await createMealAction("Pad thai", null, null);
+    expect(prisma.mealPlanEntry.create).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalledWith("/meals");
+  });
+
+  it("refuses a place on the plan that isn't valid, creating nothing", async () => {
+    expect(await createMealAction("Pad thai", null, null, { date: "nope", slot: "DINNER" })).toMatchObject({ ok: false });
+    expect(await createMealAction("Pad thai", null, null, { date: "2026-10-05", slot: "SNACK" as never })).toMatchObject({ ok: false });
+    expect(prisma.meal.create).not.toHaveBeenCalled();
+    expect(prisma.mealPlanEntry.create).not.toHaveBeenCalled();
+  });
+
   it("rejects a blank name and an over-long description", async () => {
     expect(await createMealAction("  ", null, null)).toEqual({ ok: false, error: "Give the meal a name" });
     expect(await createMealAction("Tacos", "a".repeat(20001), null)).toMatchObject({ ok: false });

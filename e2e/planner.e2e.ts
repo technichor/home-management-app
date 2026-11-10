@@ -73,6 +73,30 @@ test("the planner: add from the library, create inline, one-offs, several per sl
   await expect(entries(page)).toHaveText(["Tacos", "Leftovers"]);
 });
 
+test("'New meal…' opens the full form for a cell, and saving puts the meal there and returns to that week", async ({ page }) => {
+  await newOwner(page, "plannew", "The Recipe Planners");
+  await page.goto("/meals");
+  await page.getByRole("link", { name: "Next week" }).click();
+  await expect(page).toHaveURL(/week=/);
+  const week = new URL(page.url()).searchParams.get("week");
+
+  await page.getByRole("button", { name: /^Add to Dinner on/ }).first().click();
+  await page.getByRole("dialog").getByLabel("Meal").fill("Shakshuka");
+  await page.getByRole("dialog").getByRole("link", { name: "New meal…" }).click();
+
+  await expect(page).toHaveURL(/\/meals\/library\/new\?/);
+  await expect(page.getByLabel("Name")).toHaveValue("Shakshuka");
+  await expect(page.getByText(/It will be added to your library and to Dinner, /)).toBeVisible();
+  await page.getByLabel("Recipe link").fill("https://www.cooking.test/shakshuka");
+  await page.getByRole("button", { name: "Add meal" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/meals\\?week=`));
+  await expect(entries(page)).toHaveText(["Shakshuka"]);
+  expect(new URL(page.url()).searchParams.get("week")).toBe(week);
+  await entries(page).first().click();
+  await expect(page.getByRole("dialog").getByRole("link", { name: "Open the recipe for Shakshuka (cooking.test)" })).toBeVisible();
+});
+
 test("week navigation is unbounded, and 'This week' comes back", async ({ page }) => {
   await newOwner(page, "plan2", "The Navigators");
   await page.goto("/meals");

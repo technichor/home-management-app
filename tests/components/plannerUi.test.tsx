@@ -284,6 +284,17 @@ describe("adding to a cell", () => {
     await waitFor(() => expect(router.refresh).toHaveBeenCalledTimes(1));
   });
 
+  it("opens the full new-meal form for this cell, carrying what was typed as the name", async () => {
+    setup();
+    const dialog = await openMonDinner();
+    expect(dialog.getByRole("link", { name: "New meal…" })).toHaveAttribute("href", "/meals/library/new?date=2026-10-05&slot=DINNER");
+    await userEvent.type(dialog.getByLabelText("Meal"), " Pad thai & noodles ");
+    expect(dialog.getByRole("link", { name: "New meal…" })).toHaveAttribute(
+      "href",
+      "/meals/library/new?date=2026-10-05&slot=DINNER&name=Pad+thai+%26+noodles"
+    );
+  });
+
   it("or adds what was typed as a one-off that isn't saved", async () => {
     setup();
     const dialog = await openMonDinner();
