@@ -91,9 +91,20 @@ describe("MealForm", () => {
     await userEvent.type(screen.getByLabelText("Recipe link"), "https://cooking.test/pad-thai");
     await userEvent.type(screen.getByLabelText("Description"), "Soak noodles");
     await userEvent.click(save);
-    await waitFor(() => expect(createMealAction).toHaveBeenCalledWith("Pad thai", "Soak noodles", "https://cooking.test/pad-thai"));
+    await waitFor(() => expect(createMealAction).toHaveBeenCalledWith("Pad thai", "Soak noodles", "https://cooking.test/pad-thai", null));
     expect(router.push).toHaveBeenCalledWith("/meals/library/new1");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/meals/library");
+  });
+
+  it("from the planner: starts from the typed name, says where the meal goes, and returns to that week", async () => {
+    vi.mocked(createMealAction).mockResolvedValue({ ok: true, id: "new1" });
+    render(<MealForm addTo={{ date: "2026-10-05", slot: "DINNER" }} initialName="Pad thai" />);
+    expect(screen.getByLabelText("Name")).toHaveValue("Pad thai");
+    expect(screen.getByText("It will be added to your library and to Dinner, Mon Oct 5.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/meals?week=2026-10-05");
+    await userEvent.click(screen.getByRole("button", { name: "Add meal" }));
+    await waitFor(() => expect(createMealAction).toHaveBeenCalledWith("Pad thai", "", "", { date: "2026-10-05", slot: "DINNER" }));
+    expect(router.push).toHaveBeenCalledWith("/meals?week=2026-10-05");
   });
 
   it("edits a meal and returns to it", async () => {

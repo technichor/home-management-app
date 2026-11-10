@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { App, Button, Input, Modal } from "antd";
 import { SLOT_LABELS } from "@/lib/mealPlan";
@@ -16,6 +17,13 @@ export type Cell = { date: string; slot: MealSlot };
 export type LibraryOption = SuggestionMeal;
 
 const MAX_MATCHES = 8;
+
+/** The new-meal form, set to put the meal on this cell once it's saved. */
+export function newMealHref(cell: Cell, name: string): string {
+  const query = new URLSearchParams({ date: cell.date, slot: cell.slot });
+  if (name) query.set("name", name);
+  return `/meals/library/new?${query}`;
+}
 
 const optionStyle = {
   display: "block",
@@ -131,7 +139,11 @@ function AddBody({ cell, meals, today, weekMealIds, onClose }: Omit<DialogProps,
       {!typed && meals.length > MAX_MATCHES && (
         <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>Showing {MAX_MATCHES} of {meals.length}. Type to narrow it down.</div>
       )}
-      <div style={{ marginTop: 12, textAlign: "right" }}>
+      <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 8 }}>
+        {/* The full form (description, recipe link); what was typed becomes the name. */}
+        <Link href={newMealHref(cell, typed)}>
+          <Button disabled={busy}>New meal&hellip;</Button>
+        </Link>
         <Button onClick={onClose}>Cancel</Button>
       </div>
     </>

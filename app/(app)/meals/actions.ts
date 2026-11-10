@@ -37,16 +37,32 @@ function refresh(id?: string) {
   if (id) revalidatePath(`/meals/library/${id}`);
 }
 
-export async function createMealAction(name: string, description: string | null, recipeUrl: string | null) {
+/**
+ * Add a meal to the library. With `addTo` (from the planner's "New meal" button) it is also put on that date and
+ * slot, in the same transaction.
+ */
+export async function createMealAction(
+  name: string,
+  description: string | null,
+  recipeUrl: string | null,
+  addTo: { date: string; slot: MealSlot } | null = null
+) {
   const householdId = await requireHouseholdId();
   return attempt(async () => {
     const data = parseMeal(name, description, recipeUrl);
+    const position = addTo && planPositionSchema.safeParse(addTo);
+    if (position && !position.success) throw new UserError(position.error.issues[0].message);
     await assertNameFree(householdId, data.name);
     try {
-      const meal = await prisma.meal.create({
-        data: { householdId, name: data.name, nameKey: mealKey(data.name), description: data.description, recipeUrl: data.recipeUrl },
+      const meal = await prisma.$transaction(async (tx) => {
+        const created = await tx.meal.create({
+          data: { householdId, name: data.name, nameKey: mealKey(data.name), description: data.description, recipeUrl: data.recipeUrl },
+        });
+        if (position) await tx.mealPlanEntry.create({ data: entryData(householdId, { ...position.data, mealId: created.id, text: null }) });
+        return created;
       });
       refresh();
+      if (position) refreshPlan();
       return { id: meal.id };
     } catch (e) {
       // Two people adding the same name at the same moment.

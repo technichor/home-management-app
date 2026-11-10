@@ -106,7 +106,7 @@ User (+ `UserRole`), HouseholdInvite, JoinRequest (accounts) · Household, Conta
 
 **Documents**: v0.01 built per `docs/domains/documents.md` (links, not files: no storage). A catalog of document types, suggestions per household / member / vehicle with Doesn't apply, the `/documents` overview, and a Documents panel on Maintenance items, Accounts and household members' contact pages (`components/DocumentsPanel.tsx`, `lib/documentPanels.ts`). Maintenance manual links became Documents (migration 0034). Nothing is shared across households, synced or not.
 
-**Meal Planning**: stages 1-5 done and deployed per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions). A meal can carry an optional link to its recipe on another site (2026-11-09), shown on the meal page and in the planner's entry dialog. **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
+**Meal Planning**: stages 1-5 done and deployed per `docs/domains/meal-planning.md` (Lists guards for a GROCERY kind, meal library, week planner, shopping list, suggestions). A meal can carry an optional link to its recipe on another site (2026-11-09), shown on the meal page and in the planner's entry dialog. The planner's add dialog has a "New meal…" button that opens the full meal form and puts the new meal on that cell. **Not built** (deliberately): ingredients/recipes, ratings and tags, per-store or multiple shopping lists, auto-categorizing items, CSV for meals/plans/shopping, drag between planner cells, offline mode.
 
 ## Known gaps and suggestions for next work
 

@@ -92,9 +92,23 @@ describe("MealLibraryPage", () => {
 });
 
 describe("NewMealPage", () => {
+  const query = (q: Record<string, string> = {}) => ({ searchParams: Promise.resolve(q) });
+
   it("renders an empty form for a signed-in household", async () => {
-    render(await NewMealPage());
-    expect(seen.form).toEqual({});
+    render(await NewMealPage(query()));
+    expect(seen.form).toEqual({ addTo: undefined, initialName: undefined });
+  });
+
+  it("from the planner, puts the meal on that date and slot, starting from the typed name", async () => {
+    render(await NewMealPage(query({ date: "2026-10-05", slot: "DINNER", name: "Pad thai" })));
+    expect(seen.form).toEqual({ addTo: { date: "2026-10-05", slot: "DINNER" }, initialName: "Pad thai" });
+  });
+
+  it("ignores a date or slot that isn't valid", async () => {
+    render(await NewMealPage(query({ date: "2026-13-40", slot: "DINNER" })));
+    expect(seen.form.addTo).toBeUndefined();
+    render(await NewMealPage(query({ date: "2026-10-05", slot: "SNACK" })));
+    expect(seen.form.addTo).toBeUndefined();
   });
 });
 

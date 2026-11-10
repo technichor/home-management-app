@@ -86,13 +86,19 @@ describe("DocumentForm (adding)", () => {
   it("saves the document with its links, then goes to its page", async () => {
     render(<DocumentForm options={options} />);
     await chooseType("Wills");
-    await userEvent.type(screen.getByLabelText("Link 1"), "https://drive.test/will");
-    await userEvent.type(screen.getByLabelText("Label for link 1"), "Signed");
+    // Pasted rather than typed key by key: this form re-renders on every keystroke, and typing all of it took most of
+    // the test timeout when the whole suite runs at once.
+    const paste = async (label: string, text: string) => {
+      await userEvent.click(screen.getByLabelText(label));
+      await userEvent.paste(text);
+    };
+    await paste("Link 1", "https://drive.test/will");
+    await paste("Label for link 1", "Signed");
     await userEvent.click(screen.getByRole("button", { name: /Add another link/ }));
-    await userEvent.type(screen.getByLabelText("Link 2"), "https://drive.test/codicil");
+    await paste("Link 2", "https://drive.test/codicil");
     await choose("Account", "Car loan");
-    await userEvent.type(screen.getByLabelText("Where the original is"), "Attorney's office");
-    await userEvent.type(screen.getByLabelText("Notes"), "Updated 2024");
+    await paste("Where the original is", "Attorney's office");
+    await paste("Notes", "Updated 2024");
     await save();
     expect(createDocumentAction).toHaveBeenCalledWith({
       title: "Wills", typeKey: "will", category: null, ownerContactId: null, maintenanceItemId: null, accountRecordId: "a1",

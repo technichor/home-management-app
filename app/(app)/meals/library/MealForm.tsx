@@ -5,16 +5,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Input, Space, Typography } from "antd";
 import { MAX_MEAL_DESCRIPTION, MAX_RECIPE_URL } from "@/lib/validations";
+import { SLOT_LABELS } from "@/lib/mealPlan";
+import { formatDayHeading } from "@/lib/dates";
+import type { MealSlot } from "@prisma/client";
 import { createMealAction, updateMealAction } from "../actions";
 
-/** Create a meal (no `meal`) or edit one. */
-export default function MealForm({ meal }: { meal?: { id: string; name: string; description: string | null; recipeUrl: string | null } }) {
+/**
+ * Create a meal (no `meal`) or edit one. A new meal with `addTo` (opened from the planner) is also put on that date
+ * and slot, and saving or cancelling returns to the planner's week.
+ */
+export default function MealForm({
+  meal,
+  addTo,
+  initialName,
+}: {
+  meal?: { id: string; name: string; description: string | null; recipeUrl: string | null };
+  addTo?: { date: string; slot: MealSlot };
+  initialName?: string;
+}) {
   const router = useRouter();
-  const [name, setName] = useState(meal?.name ?? "");
+  const [name, setName] = useState(meal?.name ?? initialName ?? "");
   const [description, setDescription] = useState(meal?.description ?? "");
   const [recipeUrl, setRecipeUrl] = useState(meal?.recipeUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Opened from the planner: where to go back to.
+  const plannerWeek = addTo ? `/meals?week=${addTo.date}` : null;
 
   async function save() {
     setBusy(true);
@@ -25,9 +41,9 @@ export default function MealForm({ meal }: { meal?: { id: string; name: string; 
         if (!result.ok) return setError(result.error);
         router.push(`/meals/library/${meal.id}`);
       } else {
-        const result = await createMealAction(name, description, recipeUrl);
+        const result = await createMealAction(name, description, recipeUrl, addTo ?? null);
         if (!result.ok) return setError(result.error);
-        router.push(`/meals/library/${result.id}`);
+        router.push(plannerWeek ?? `/meals/library/${result.id}`);
       }
     } finally {
       setBusy(false);
@@ -36,9 +52,17 @@ export default function MealForm({ meal }: { meal?: { id: string; name: string; 
 
   return (
     <Space orientation="vertical" size="middle" style={{ width: "100%", maxWidth: 720 }}>
-      <Typography.Title level={4} style={{ margin: 0 }}>
-        {meal ? "Edit meal" : "New meal"}
-      </Typography.Title>
+      <div>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          {meal ? "Edit meal" : "New meal"}
+        </Typography.Title>
+        {addTo && (
+          <Typography.Text type="secondary">
+            It will be added to your library and to {SLOT_LABELS[addTo.slot]}, {formatDayHeading(addTo.date).weekday}{" "}
+            {formatDayHeading(addTo.date).monthDay}.
+          </Typography.Text>
+        )}
+      </div>
       {error && <Alert type="error" showIcon title={error} />}
       <div>
         <Typography.Text strong style={{ display: "block", marginBottom: 4 }}>
@@ -77,7 +101,7 @@ export default function MealForm({ meal }: { meal?: { id: string; name: string; 
         <Button type="primary" loading={busy} disabled={!name.trim()} onClick={save}>
           {meal ? "Save" : "Add meal"}
         </Button>
-        <Link href={meal ? `/meals/library/${meal.id}` : "/meals/library"}>
+        <Link href={meal ? `/meals/library/${meal.id}` : (plannerWeek ?? "/meals/library")}>
           <Button>Cancel</Button>
         </Link>
       </Space>
